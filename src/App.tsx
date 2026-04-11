@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { io, Socket } from 'socket.io-client';
-import { Bot, Globe, Home, Trophy, XCircle, Minus, Copy } from 'lucide-react';
+import { Bot, Globe, Home, Trophy, XCircle, Minus, Copy, Edit2 } from 'lucide-react';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { SplashScreen } from '@capacitor/splash-screen';
 
@@ -47,9 +47,9 @@ const CARD_NAMES: Record<CardType, string> = {
 let socket: Socket | null = null;
 
 export default function App() {
-  const [appState, setAppState] = useState<'landing' | 'nameEntry' | 'menu' | 'inRoom'>('landing');
+  const [appState, setAppState] = useState<'nameEntry' | 'menu' | 'inRoom'>('nameEntry');
   const [menuTab, setMenuTab] = useState<'main' | 'online' | 'local'>('main');
-  const [playerName, setPlayerName] = useState('');
+  const [playerName, setPlayerName] = useState(() => localStorage.getItem('cardClashPlayerName') || '');
   const [ipInput, setIpInput] = useState('');
   const [roomIdInput, setRoomIdInput] = useState('');
   const [roomId, setRoomId] = useState<string | null>(null);
@@ -68,6 +68,12 @@ export default function App() {
       }
     };
     initCapacitor();
+  }, []);
+
+  useEffect(() => {
+    if (playerName && appState === 'nameEntry') {
+      setAppState('menu');
+    }
   }, []);
 
   useEffect(() => {
@@ -348,52 +354,23 @@ export default function App() {
     }
   };
 
-  if (appState === 'landing') {
-    return (
-      <div 
-        dir="rtl" 
-        className="h-[100dvh] bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4 sm:p-6 font-sans overflow-hidden"
-        style={{
-          paddingTop: 'env(safe-area-inset-top)',
-          paddingBottom: 'env(safe-area-inset-bottom)',
-        }}
-      >
-        <motion.div
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="flex flex-col items-center text-center max-w-md w-full"
-        >
-          <div className="mb-12 flex justify-center gap-6">
-            <motion.img src="rock.png" alt="حجر" className="w-24 h-24 sm:w-32 sm:h-32 object-contain drop-shadow-2xl" animate={{ y: [0, -15, 0], rotate: [0, 5, 0] }} transition={{ repeat: Infinity, duration: 3 }} />
-            <motion.img src="paper.png" alt="ورقة" className="w-20 h-20 sm:w-28 sm:h-28 object-contain drop-shadow-2xl" animate={{ y: [0, -15, 0], rotate: [0, -5, 0] }} transition={{ repeat: Infinity, duration: 3, delay: 0.3 }} />
-            <motion.img src="scissors.png" alt="مقص" className="w-20 h-20 sm:w-28 sm:h-28 object-contain drop-shadow-2xl" animate={{ y: [0, -15, 0], rotate: [0, 5, 0] }} transition={{ repeat: Infinity, duration: 3, delay: 0.6 }} />
-          </div>
-          
-          <h1 className="text-5xl sm:text-6xl font-black mb-6 text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-purple-400 to-cyan-400 leading-tight">
-            صراع<br/>البطاقات
-          </h1>
-          
-          <p className="text-slate-400 mb-12 text-lg sm:text-xl font-medium opacity-80">
-            حجر • ورقة • مقص
-          </p>
+  const validateName = (name: string) => {
+    const trimmed = name.trim();
+    if (trimmed.length < 2) return 'الاسم يجب أن يكون حرفين على الأقل';
+    if (!/^[a-zA-Z0-9\u0600-\u06FF\s]+$/.test(trimmed)) return 'الاسم يجب أن يحتوي على حروف وأرقام فقط';
+    return null;
+  };
 
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setAppState('nameEntry')}
-            className="group relative px-12 py-5 bg-indigo-600 rounded-2xl font-black text-2xl shadow-[0_0_30px_rgba(79,70,229,0.4)] hover:bg-indigo-500 transition-all overflow-hidden"
-          >
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]" />
-            ابدأ الآن
-          </motion.button>
-          
-          <div className="mt-12 text-slate-600 text-sm font-mono">
-            v2.0.0 • Offline Ready
-          </div>
-        </motion.div>
-      </div>
-    );
-  }
+  const saveName = () => {
+    const error = validateName(playerName);
+    if (error) {
+      setErrorMsg(error);
+      return;
+    }
+    localStorage.setItem('cardClashPlayerName', playerName.trim());
+    setAppState('menu');
+    setErrorMsg(null);
+  };
 
   if (appState === 'nameEntry') {
     return (
@@ -406,10 +383,16 @@ export default function App() {
         }}
       >
         <motion.div
-          initial={{ x: 50, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
           className="max-w-sm w-full bg-slate-900/50 p-8 rounded-3xl border border-slate-800 backdrop-blur-sm"
         >
+          <div className="mb-8 flex justify-center gap-4">
+            <motion.img src="rock.png" alt="حجر" className="w-16 h-16 object-contain" animate={{ y: [0, -10, 0] }} transition={{ repeat: Infinity, duration: 2 }} />
+            <motion.img src="paper.png" alt="ورقة" className="w-16 h-16 object-contain" animate={{ y: [0, -10, 0] }} transition={{ repeat: Infinity, duration: 2, delay: 0.2 }} />
+            <motion.img src="scissors.png" alt="مقص" className="w-16 h-16 object-contain" animate={{ y: [0, -10, 0] }} transition={{ repeat: Infinity, duration: 2, delay: 0.4 }} />
+          </div>
+
           <h2 className="text-2xl font-bold mb-6 text-center text-slate-200">مرحباً بك أيها المحارب!</h2>
           <p className="text-slate-400 text-center mb-8">ما هو الاسم الذي تود أن يعرفك به خصومك؟</p>
           
@@ -421,7 +404,7 @@ export default function App() {
               onChange={(e) => setPlayerName(e.target.value)}
               autoFocus
               className="w-full bg-slate-950 border-2 border-slate-800 rounded-2xl py-4 px-6 text-center text-xl font-bold focus:outline-none focus:border-indigo-500 transition-all"
-              onKeyDown={(e) => e.key === 'Enter' && playerName.trim() && setAppState('menu')}
+              onKeyDown={(e) => e.key === 'Enter' && saveName()}
             />
             
             {errorMsg && (
@@ -429,24 +412,10 @@ export default function App() {
             )}
 
             <button
-              onClick={() => {
-                if (playerName.trim()) {
-                  setAppState('menu');
-                  setErrorMsg(null);
-                } else {
-                  setErrorMsg('يرجى إدخال اسمك للمتابعة');
-                }
-              }}
+              onClick={saveName}
               className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-black text-lg shadow-lg shadow-indigo-500/20 transition-all active:scale-95"
             >
               تأكيد الاسم
-            </button>
-            
-            <button
-              onClick={() => setAppState('landing')}
-              className="w-full py-2 text-slate-500 hover:text-slate-300 text-sm transition-colors"
-            >
-              رجوع
             </button>
           </div>
         </motion.div>
@@ -476,9 +445,10 @@ export default function App() {
             <span className="text-slate-300 font-bold">المحارب: {playerName}</span>
             <button 
               onClick={() => setAppState('nameEntry')}
-              className="text-[10px] bg-slate-800 px-2 py-1 rounded-md text-slate-400 hover:bg-slate-700 transition-colors"
+              className="p-1.5 bg-slate-800 rounded-lg text-slate-400 hover:bg-slate-700 hover:text-white transition-all"
+              title="تعديل الاسم"
             >
-              تعديل
+              <Edit2 className="w-3.5 h-3.5" />
             </button>
           </div>
 
