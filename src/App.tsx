@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { io, Socket } from 'socket.io-client';
-import { Bot, Globe, Home, Trophy, XCircle, Minus, Copy, Edit2 } from 'lucide-react';
+import { Bot, Globe, Home, Trophy, XCircle, Minus, Copy, Edit2, Bug, X } from 'lucide-react';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { SplashScreen } from '@capacitor/splash-screen';
 import { registerPlugin, Capacitor } from '@capacitor/core';
@@ -45,9 +45,9 @@ interface Room {
 }
 
 const CARD_IMAGES: Record<CardType, string> = {
-  rock: 'rock.png',
-  paper: 'paper.png',
-  scissors: 'scissors.png'
+  rock: './rock.png',
+  paper: './paper.png',
+  scissors: './scissors.png'
 };
 
 const CARD_NAMES: Record<CardType, string> = {
@@ -55,6 +55,13 @@ const CARD_NAMES: Record<CardType, string> = {
   paper: 'ورقة',
   scissors: 'مقص'
 };
+
+interface LogEntry {
+  id: number;
+  time: string;
+  msg: string;
+  type: 'info' | 'error' | 'success';
+}
 
 let socket: Socket | null = null;
 
@@ -68,14 +75,27 @@ export default function App() {
   const [roomState, setRoomState] = useState<Room | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [userIp, setUserIp] = useState<string>('جاري التحميل...');
+  
+  // Debug State
+  const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [showDebug, setShowDebug] = useState(false);
+
+  const addLog = (msg: string, type: 'info' | 'error' | 'success' = 'info') => {
+    const newLog: LogEntry = { id: Date.now() + Math.random(), time: new Date().toLocaleTimeString(), msg, type };
+    setLogs(prev => [newLog, ...prev].slice(0, 50));
+    console.log(`[${type.toUpperCase()}] ${msg}`);
+  };
 
   useEffect(() => {
     const initCapacitor = async () => {
+      addLog('Initializing Capacitor...', 'info');
       try {
         await StatusBar.setOverlaysWebView({ overlay: true });
         await StatusBar.setStyle({ style: Style.Dark });
         await SplashScreen.hide();
+        addLog('Capacitor initialized successfully', 'success');
       } catch (e) {
+        addLog(`Capacitor not available: ${e}`, 'error');
         console.warn('Capacitor not available:', e);
       }
     };
@@ -129,10 +149,19 @@ export default function App() {
   }, [roomId, roomState?.gameState]);
 
   const setupSocket = (url?: string) => {
-    if (socket) socket.disconnect();
+    if (socket) {
+      addLog('Disconnecting existing socket...', 'info');
+      socket.disconnect();
+    }
+    addLog(`Setting up socket connection to ${url || 'default'}...`, 'info');
     socket = url ? io(url) : io();
 
+    socket.on('connect', () => addLog(`Socket connected: ${socket?.id}`, 'success'));
+    socket.on('connect_error', (err) => addLog(`Socket connect error: ${err.message}`, 'error'));
+    socket.on('disconnect', (reason) => addLog(`Socket disconnected: ${reason}`, 'info'));
+
     socket.on('room_created', (id: string) => {
+      addLog(`Room created: ${id}`, 'success');
       setRoomId(id);
       setAppState('inRoom');
       setErrorMsg(null);
@@ -166,6 +195,7 @@ export default function App() {
     });
 
     socket.on('error_msg', (msg: string) => {
+      addLog(`Socket error_msg: ${msg}`, 'error');
       setErrorMsg(msg);
       setTimeout(() => setErrorMsg(null), 3000);
     });
@@ -175,21 +205,27 @@ export default function App() {
 
   useEffect(() => {
     const initLocalServer = async () => {
+      addLog('Initializing LocalServer plugin...', 'info');
       if (Capacitor.getPlatform() === 'web') {
+        addLog('LocalServer plugin is only available on Android/iOS (Web detected)', 'error');
         console.warn('LocalServer plugin is only available on Android/iOS');
         return;
       }
       try {
         LocalServer.addListener('onClientConnected', (info) => {
+          addLog(`Local client connected: ${info.clientId}`, 'success');
           console.log('Client connected:', info.clientId);
           // If we are hosting, we might need to handle player joining
         });
 
         LocalServer.addListener('onMessageReceived', (info) => {
+          addLog(`Local message received from ${info.clientId}`, 'info');
           const data = JSON.parse(info.message);
           handleLocalMessage(info.clientId, data);
         });
+        addLog('LocalServer listeners added successfully', 'success');
       } catch (e) {
+        addLog(`LocalServer listeners failed: ${e}`, 'error');
         console.warn('LocalServer listeners failed:', e);
       }
     };
@@ -242,11 +278,14 @@ export default function App() {
       return;
     }
     if (Capacitor.getPlatform() === 'web') {
+      addLog('Host game failed: Web platform detected', 'error');
       setErrorMsg('ميزة الاستضافة متاحة فقط في تطبيق الأندرويد');
       return;
     }
     try {
+      addLog(`Attempting to start LocalServer on port 8080...`, 'info');
       await LocalServer.startServer({ port: 8080 });
+      addLog(`LocalServer started successfully on port 8080`, 'success');
       setRoomId('LOCAL_HOST');
       setAppState('inRoom');
       
@@ -267,6 +306,7 @@ export default function App() {
         roundWinner: null
       });
     } catch (e) {
+      addLog(`Host error: ${e}`, 'error');
       console.error('Host error:', e);
       setErrorMsg('فشل تشغيل السيرفر المحلي. تأكد من إعطاء الأذونات اللازمة.');
     }
@@ -277,6 +317,7 @@ export default function App() {
       setErrorMsg('يرجى إدخال اسمك أولاً');
       return;
     }
+    addLog(`Creating online room...`, 'info');
     const s = setupSocket();
     s.emit('create_room', playerName.trim());
   };
@@ -287,6 +328,7 @@ export default function App() {
       return;
     }
     if (!roomIdInput.trim()) return;
+    addLog(`Joining online room: ${roomIdInput.trim().toUpperCase()}`, 'info');
     const s = setupSocket();
     s.emit('join_room', { roomId: roomIdInput.trim().toUpperCase(), playerName: playerName.trim() });
   };
@@ -346,8 +388,9 @@ export default function App() {
     if (!ipInput.trim()) return;
     let url = ipInput.trim();
     if (!url.startsWith('http')) {
-      url = `http://${url}:3000`;
+      url = `http://${url}:8080`; // Changed to 8080 to match LocalServer port
     }
+    addLog(`Joining local game at ${url}...`, 'info');
     const s = setupSocket(url);
     s.emit('join_hosted_game', playerName.trim());
   };
@@ -445,10 +488,13 @@ export default function App() {
 
   const leaveRoom = () => {
     if (roomId) {
+      addLog(`Leaving room: ${roomId}`, 'info');
       if (roomId === 'LOCAL_HOST' && Capacitor.getPlatform() !== 'web') {
-        LocalServer.stopServer();
+        addLog('Stopping LocalServer...', 'info');
+        LocalServer.stopServer().then(() => addLog('LocalServer stopped', 'success')).catch(e => addLog(`Failed to stop LocalServer: ${e}`, 'error'));
       }
       if (socket) {
+        addLog('Disconnecting socket...', 'info');
         socket.emit('leave_room', roomId);
         socket.disconnect();
         socket = null;
@@ -493,9 +539,9 @@ export default function App() {
           className="max-w-sm w-full bg-slate-900/50 p-8 rounded-3xl border border-slate-800 backdrop-blur-sm"
         >
           <div className="mb-8 flex justify-center gap-4">
-            <motion.img src="rock.png" alt="حجر" className="w-16 h-16 object-contain" animate={{ y: [0, -10, 0] }} transition={{ repeat: Infinity, duration: 2 }} />
-            <motion.img src="paper.png" alt="ورقة" className="w-16 h-16 object-contain" animate={{ y: [0, -10, 0] }} transition={{ repeat: Infinity, duration: 2, delay: 0.2 }} />
-            <motion.img src="scissors.png" alt="مقص" className="w-16 h-16 object-contain" animate={{ y: [0, -10, 0] }} transition={{ repeat: Infinity, duration: 2, delay: 0.4 }} />
+            <motion.img src="./rock.png" alt="حجر" className="w-16 h-16 object-contain" animate={{ y: [0, -10, 0] }} transition={{ repeat: Infinity, duration: 2 }} />
+            <motion.img src="./paper.png" alt="ورقة" className="w-16 h-16 object-contain" animate={{ y: [0, -10, 0] }} transition={{ repeat: Infinity, duration: 2, delay: 0.2 }} />
+            <motion.img src="./scissors.png" alt="مقص" className="w-16 h-16 object-contain" animate={{ y: [0, -10, 0] }} transition={{ repeat: Infinity, duration: 2, delay: 0.4 }} />
           </div>
 
           <h2 className="text-2xl font-bold mb-6 text-center text-slate-200">مرحباً بك أيها المحارب!</h2>
@@ -739,7 +785,7 @@ export default function App() {
   const opponentId = roomState.isBotRoom ? 'bot' : Object.keys(roomState.players).find(id => id !== myId);
   const opponent = opponentId ? roomState.players[opponentId] : null;
 
-  if (!opponent && !roomState.isBotRoom) return null;
+  if (!opponent && !roomState.isBotRoom && roomState.gameState !== 'waiting') return null;
   const opponentName = opponent?.name || 'الخصم';
 
   if (roomState.gameState === 'waiting') {
@@ -1044,6 +1090,46 @@ export default function App() {
           </div>
         </div>
       </div>
+
+      {/* Debug Toggle Button */}
+      <button 
+        onClick={() => setShowDebug(true)} 
+        className="absolute bottom-4 left-4 p-3 bg-slate-800/80 backdrop-blur border border-slate-700 rounded-full text-slate-400 hover:text-white shadow-lg z-40 transition-colors"
+        title="سجل الأخطاء"
+      >
+        <Bug className="w-5 h-5" />
+      </button>
+
+      {/* Debug Overlay */}
+      <AnimatePresence>
+        {showDebug && (
+          <motion.div 
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            className="absolute inset-0 z-50 bg-slate-950/95 flex flex-col p-4 font-mono text-xs"
+            dir="ltr"
+          >
+            <div className="flex justify-between items-center mb-4 border-b border-slate-800 pb-2">
+              <h3 className="text-slate-200 font-bold text-lg font-sans" dir="rtl">سجل الأخطاء والاتصال</h3>
+              <button onClick={() => setShowDebug(false)} className="p-2 bg-slate-800 rounded-full text-slate-400 hover:text-white transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto space-y-2 flex flex-col-reverse">
+              {logs.length === 0 && (
+                <div className="text-slate-500 text-center py-4 font-sans" dir="rtl">لا يوجد سجلات حتى الآن</div>
+              )}
+              {logs.map(log => (
+                <div key={log.id} className={`p-2 rounded border break-words ${log.type === 'error' ? 'bg-rose-500/10 border-rose-500/30 text-rose-400' : log.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-slate-800/50 border-slate-700 text-slate-300'}`}>
+                  <span className="opacity-50 mr-2">[{log.time}]</span>
+                  {log.msg}
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
