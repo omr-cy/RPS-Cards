@@ -28,9 +28,11 @@ interface Room {
   gameState: 'waiting' | 'playing' | 'revealing' | 'roundResult' | 'gameOver';
   round: number;
   roundWinner: string | 'draw' | null;
+  timeLeft?: number;
 }
 
 const rooms: Record<string, Room> = {};
+const roomTimers: Record<string, NodeJS.Timeout> = {};
 
 const INITIAL_DECK: Deck = { rock: 3, paper: 3, scissors: 3 };
 
@@ -44,6 +46,124 @@ function getWinner(choice1: CardType, choice2: CardType): 1 | 2 | 0 {
     return 1;
   }
   return 2;
+}
+
+function startNextRound(roomId: string, io: Server) {
+  const room = rooms[roomId];
+  if (!room) return;
+
+  if (room.round >= 9) {
+    room.gameState = 'gameOver';
+  } else {
+    room.round += 1;
+    room.gameState = 'playing';
+    room.roundWinner = null;
+    Object.values(room.players).forEach(p => {
+      p.choice = null;
+      p.readyForNext = p.id === 'bot';
+    });
+    startRoundTimer(roomId, io);
+  }
+  io.to(roomId).emit('room_state', room);
+}
+
+function handleReveal(roomId: string, io: Server) {
+  const room = rooms[roomId];
+  if (!room) return;
+
+  if (roomTimers[roomId]) {
+    clearInterval(roomTimers[roomId]);
+    delete roomTimers[roomId];
+  }
+
+  room.gameState = 'revealing';
+  io.to(roomId).emit('room_state', room);
+
+  setTimeout(() => {
+    const playerIds = Object.keys(room.players);
+    const p1 = room.players[playerIds[0]];
+    const p2 = room.players[playerIds[1]];
+    
+    const winnerCode = getWinner(p1.choice!, p2.choice!);
+    
+    let points = 1;
+    if (room.round >= 6 && room.round <= 8) points = 2;
+    else if (room.round === 9) points = 3;
+
+    if (winnerCode === 1) {
+      p1.score += points;
+      room.roundWinner = p1.id;
+    } else if (winnerCode === 2) {
+      p2.score += points;
+      room.roundWinner = p2.id;
+    } else {
+      room.roundWinner = 'draw';
+    }
+    room.gameState = 'roundResult';
+    io.to(roomId).emit('room_state', room);
+
+    setTimeout(() => startNextRound(roomId, io), 3000);
+  }, 1200);
+}
+
+function startRoundTimer(roomId: string, io: Server) {
+  const room = rooms[roomId];
+  if (!room) return;
+
+  if (roomTimers[roomId]) {
+    clearInterval(roomTimers[roomId]);
+  }
+
+  room.timeLeft = 15;
+  
+  roomTimers[roomId] = setInterval(() => {
+    const currentRoom = rooms[roomId];
+    if (!currentRoom || currentRoom.gameState !== 'playing') {
+      clearInterval(roomTimers[roomId]);
+      return;
+    }
+
+    currentRoom.timeLeft! -= 1;
+    io.to(roomId).emit('room_state', currentRoom);
+
+    if (currentRoom.timeLeft! <= 0) {
+      clearInterval(roomTimers[roomId]);
+      
+      // Auto-pick for players who haven't chosen
+      Object.values(currentRoom.players).forEach(player => {
+        if (!player.choice && player.id !== 'bot') {
+          const availableCards: CardType[] = [];
+          if (player.deck.rock > 0) availableCards.push('rock');
+          if (player.deck.paper > 0) availableCards.push('paper');
+          if (player.deck.scissors > 0) availableCards.push('scissors');
+          
+          if (availableCards.length > 0) {
+            const randomChoice = availableCards[Math.floor(Math.random() * availableCards.length)];
+            player.choice = randomChoice;
+            player.deck[randomChoice] -= 1;
+          }
+        }
+      });
+
+      // Also ensure bot has chosen (just in case)
+      if (currentRoom.isBotRoom) {
+        const bot = currentRoom.players['bot'];
+        if (!bot.choice) {
+          const availableCards: CardType[] = [];
+          if (bot.deck.rock > 0) availableCards.push('rock');
+          if (bot.deck.paper > 0) availableCards.push('paper');
+          if (bot.deck.scissors > 0) availableCards.push('scissors');
+          if (availableCards.length > 0) {
+            const botChoice = availableCards[Math.floor(Math.random() * availableCards.length)];
+            bot.choice = botChoice;
+            bot.deck[botChoice] -= 1;
+          }
+        }
+      }
+
+      handleReveal(roomId, io);
+    }
+  }, 1000);
 }
 
 async function startServer() {
@@ -96,7 +216,7 @@ async function startServer() {
         isBotRoom: true,
         players: {
           [socket.id]: { id: socket.id, name: playerName || 'لاعب', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false },
-          'bot': { id: 'bot', name: 'الكمبيوتر 🤖', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: true }
+          'bot': { id: 'bot', name: 'الكمبيوتر', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: true }
         },
         gameState: 'playing',
         round: 1,
@@ -104,6 +224,7 @@ async function startServer() {
       };
       socket.join(roomId);
       socket.emit('room_created', roomId);
+      startRoundTimer(roomId, io);
       io.to(roomId).emit('room_state', rooms[roomId]);
     });
 
@@ -121,6 +242,7 @@ async function startServer() {
       room.players[socket.id] = { id: socket.id, name: playerName || 'لاعب', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false };
       room.gameState = 'playing';
       socket.join(roomId);
+      startRoundTimer(roomId, io);
       io.to(roomId).emit('room_state', room);
     });
 
@@ -139,6 +261,7 @@ async function startServer() {
       room.players[socket.id] = { id: socket.id, name: playerName || 'لاعب', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false };
       room.gameState = 'playing';
       socket.join(roomId);
+      startRoundTimer(roomId, io);
       io.to(roomId).emit('room_state', room);
     });
 
@@ -171,54 +294,7 @@ async function startServer() {
       const p2 = room.players[playerIds[1]];
 
       if (p1.choice && p2.choice) {
-        room.gameState = 'revealing';
-        io.to(roomId).emit('room_state', room);
-
-        setTimeout(() => {
-          const winnerCode = getWinner(p1.choice!, p2.choice!);
-          
-          let points = 1;
-          if (room.round >= 4 && room.round <= 6) points = 2;
-          else if (room.round >= 7 && room.round <= 9) points = 3;
-
-          if (winnerCode === 1) {
-            p1.score += points;
-            room.roundWinner = p1.id;
-          } else if (winnerCode === 2) {
-            p2.score += points;
-            room.roundWinner = p2.id;
-          } else {
-            room.roundWinner = 'draw';
-          }
-          room.gameState = 'roundResult';
-          io.to(roomId).emit('room_state', room);
-        }, 1200);
-      } else {
-        io.to(roomId).emit('room_state', room);
-      }
-    });
-
-    socket.on('next_round', (roomId: string) => {
-      const room = rooms[roomId];
-      if (!room || room.gameState !== 'roundResult') return;
-
-      const player = room.players[socket.id];
-      if (player) player.readyForNext = true;
-
-      const allReady = Object.values(room.players).every(p => p.readyForNext);
-      if (allReady) {
-        if (room.round >= 9) {
-          room.gameState = 'gameOver';
-        } else {
-          room.round += 1;
-          room.gameState = 'playing';
-          room.roundWinner = null;
-          Object.values(room.players).forEach(p => {
-            p.choice = null;
-            p.readyForNext = p.id === 'bot';
-          });
-        }
-        io.to(roomId).emit('room_state', room);
+        handleReveal(roomId, io);
       } else {
         io.to(roomId).emit('room_state', room);
       }
@@ -242,6 +318,7 @@ async function startServer() {
           p.choice = null;
           p.readyForNext = p.id === 'bot';
         });
+        startRoundTimer(roomId, io);
         io.to(roomId).emit('room_state', room);
       } else {
         io.to(roomId).emit('room_state', room);
@@ -253,6 +330,10 @@ async function startServer() {
       if (room && room.players[socket.id]) {
         delete room.players[socket.id];
         socket.leave(roomId);
+        if (roomTimers[roomId]) {
+          clearInterval(roomTimers[roomId]);
+          delete roomTimers[roomId];
+        }
         if (Object.keys(room.players).length === 0) {
           delete rooms[roomId];
         } else {
@@ -268,6 +349,10 @@ async function startServer() {
         const room = rooms[roomId];
         if (room.players[socket.id]) {
           delete room.players[socket.id];
+          if (roomTimers[roomId]) {
+            clearInterval(roomTimers[roomId]);
+            delete roomTimers[roomId];
+          }
           if (Object.keys(room.players).length === 0) {
             delete rooms[roomId];
           } else {

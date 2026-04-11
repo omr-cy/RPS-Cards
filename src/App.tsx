@@ -26,12 +26,13 @@ interface Room {
   gameState: 'waiting' | 'playing' | 'revealing' | 'roundResult' | 'gameOver';
   round: number;
   roundWinner: string | 'draw' | null;
+  timeLeft?: number;
 }
 
-const CARD_EMOJIS: Record<CardType, string> = {
-  rock: '🪨',
-  paper: '📄',
-  scissors: '✂️'
+const CARD_IMAGES: Record<CardType, string> = {
+  rock: '/rock.png',
+  paper: '/paper.png',
+  scissors: '/scissors.png'
 };
 
 const CARD_NAMES: Record<CardType, string> = {
@@ -150,13 +151,13 @@ export default function App() {
           animate={{ y: 0, opacity: 1 }}
           className="max-w-md w-full text-center"
         >
-          <div className="text-5xl sm:text-6xl mb-6 sm:mb-8 flex justify-center gap-4">
-            <motion.span animate={{ y: [0, -10, 0] }} transition={{ repeat: Infinity, duration: 2, delay: 0 }}>🪨</motion.span>
-            <motion.span animate={{ y: [0, -10, 0] }} transition={{ repeat: Infinity, duration: 2, delay: 0.2 }}>📄</motion.span>
-            <motion.span animate={{ y: [0, -10, 0] }} transition={{ repeat: Infinity, duration: 2, delay: 0.4 }}>✂️</motion.span>
+          <div className="mb-6 sm:mb-8 flex justify-center gap-4 sm:gap-6">
+            <motion.img src="/rock.png" alt="حجر" className="w-16 h-16 sm:w-24 sm:h-24 object-contain drop-shadow-lg" animate={{ y: [0, -12, 0] }} transition={{ repeat: Infinity, duration: 2, delay: 0 }} />
+            <motion.img src="/paper.png" alt="ورقة" className="w-14 h-14 sm:w-20 sm:h-20 object-contain drop-shadow-lg" animate={{ y: [0, -12, 0] }} transition={{ repeat: Infinity, duration: 2, delay: 0.2 }} />
+            <motion.img src="/scissors.png" alt="مقص" className="w-14 h-14 sm:w-20 sm:h-20 object-contain drop-shadow-lg" animate={{ y: [0, -12, 0] }} transition={{ repeat: Infinity, duration: 2, delay: 0.4 }} />
           </div>
           <h1 className="text-3xl sm:text-4xl font-black mb-2 sm:mb-4 text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">
-            صراع البطاقات المحدودة
+            صراع البطاقات حجر ورقة مقص
           </h1>
           <p className="text-slate-400 mb-8 sm:mb-10 leading-relaxed text-base sm:text-lg">
             العب مع أصدقائك عبر الشبكة المحلية! أنشئ غرفة أو انضم إلى غرفة موجودة.
@@ -203,7 +204,7 @@ export default function App() {
                     onClick={createBotRoom}
                     className="w-full py-3 sm:py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg shadow-lg shadow-emerald-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
                   >
-                    <span>🤖</span> لعب ضد الكمبيوتر
+                    <img src="/bot.png" alt="Bot" className="w-6 h-6 object-contain" /> لعب ضد الكمبيوتر
                   </button>
                 </motion.div>
               )}
@@ -452,7 +453,10 @@ export default function App() {
         <div className="flex-1 flex flex-col justify-center px-4 py-2">
           <div className="flex justify-between items-end mb-2">
             <div>
-              <h2 className="text-slate-400 text-xs sm:text-sm mb-1">{opponentName}</h2>
+              <h2 className="text-slate-400 text-xs sm:text-sm mb-1 flex items-center gap-2">
+                {opponent?.id === 'bot' ? <img src="/bot.png" alt="Bot" className="w-5 h-5 sm:w-6 sm:h-6 object-contain" /> : null}
+                {opponentName}
+              </h2>
               <div className="text-3xl sm:text-4xl font-black text-rose-400">{opponent!.score}</div>
             </div>
             <div className="text-[10px] sm:text-xs text-slate-400 bg-slate-900 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full border border-slate-800 shadow-inner">
@@ -474,6 +478,7 @@ export default function App() {
               animate={{ opacity: 1 }}
               className="text-slate-500 flex flex-col items-center gap-3 sm:gap-4"
             >
+              <div className="text-3xl sm:text-4xl font-black text-indigo-400 mb-1">{roomState.timeLeft}</div>
               {me.choice ? (
                 <>
                   <div className="w-8 h-8 sm:w-12 sm:h-12 rounded-full border-4 border-slate-800 border-t-rose-500 animate-spin"></div>
@@ -529,22 +534,14 @@ export default function App() {
                 <PlayedCard type={opponent!.choice!} isPlayer={false} winner={roomState.roundWinner === opponentId} />
               </div>
 
-              <motion.button
+              <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.5 }}
-                whileHover={!me.readyForNext ? { scale: 1.05 } : {}}
-                whileTap={!me.readyForNext ? { scale: 0.95 } : {}}
-                onClick={nextRound}
-                disabled={me.readyForNext}
-                className={`px-8 py-2.5 sm:py-3 rounded-full font-bold shadow-xl transition-all flex items-center gap-2 text-xs sm:text-sm ${
-                  me.readyForNext 
-                    ? 'bg-slate-800 text-slate-500 cursor-not-allowed' 
-                    : 'bg-gradient-to-r from-indigo-500 to-cyan-500 text-white shadow-indigo-500/25 hover:shadow-indigo-500/40'
-                }`}
+                className="text-slate-400 text-xs sm:text-sm font-medium"
               >
-                {me.readyForNext ? 'في انتظار الخصم...' : (roomState.round >= 9 ? 'النتيجة النهائية 🏆' : 'الجولة التالية ➔')}
-              </motion.button>
+                {roomState.round >= 9 ? 'جاري حساب النتيجة النهائية...' : 'جاري الانتقال للجولة التالية...'}
+              </motion.div>
             </div>
           )}
         </div>
@@ -573,8 +570,8 @@ export default function App() {
 
 const CardCount = ({ type, count }: { type: CardType, count: number }) => (
   <div className="flex-1 flex flex-col items-center gap-1 sm:gap-2">
-    <div className={`w-full max-w-[4.5rem] aspect-[3/4] rounded-xl border-2 flex items-center justify-center text-2xl sm:text-4xl shadow-inner transition-all duration-300 ${count > 0 ? 'bg-slate-800 border-slate-700 opacity-100' : 'bg-slate-900/50 border-slate-800/50 opacity-20 grayscale'}`}>
-      {CARD_EMOJIS[type]}
+    <div className={`w-full max-w-[4.5rem] aspect-[3/4] rounded-xl border-2 flex items-center justify-center shadow-inner transition-all duration-300 overflow-hidden ${count > 0 ? 'bg-slate-800 border-slate-700 opacity-100' : 'bg-slate-900/50 border-slate-800/50 opacity-20 grayscale'}`}>
+      <img src={CARD_IMAGES[type]} alt={CARD_NAMES[type]} className="w-2/3 h-2/3 object-contain drop-shadow-md" />
     </div>
     <div className={`text-[10px] sm:text-xs font-mono px-2 py-0.5 rounded-full border transition-colors duration-300 ${count > 0 ? 'bg-slate-800 border-slate-600 text-slate-300' : 'bg-slate-900 border-slate-800 text-slate-600'}`}>
       {count}
@@ -592,8 +589,8 @@ const PlayableCard = ({ type, count, onClick, disabled }: { type: CardType, coun
       disabled={!isAvailable || disabled}
       className={`flex-1 relative flex flex-col items-center gap-1 sm:gap-2 transition-all duration-300 ${(!isAvailable || disabled) ? 'opacity-40 cursor-not-allowed grayscale' : 'cursor-pointer'}`}
     >
-      <div className={`w-full max-w-[5.5rem] aspect-[3/4] rounded-xl flex items-center justify-center text-3xl sm:text-5xl shadow-xl border-2 transition-colors ${isAvailable && !disabled ? 'bg-indigo-900/30 border-indigo-500/50 hover:border-indigo-400 hover:bg-indigo-800/40' : 'bg-slate-800 border-slate-700'}`}>
-        {CARD_EMOJIS[type]}
+      <div className={`w-full max-w-[5.5rem] aspect-[3/4] rounded-xl flex items-center justify-center shadow-xl border-2 transition-colors overflow-hidden ${isAvailable && !disabled ? 'bg-indigo-900/30 border-indigo-500/50 hover:border-indigo-400 hover:bg-indigo-800/40' : 'bg-slate-800 border-slate-700'}`}>
+        <img src={CARD_IMAGES[type]} alt={CARD_NAMES[type]} className="w-2/3 h-2/3 object-contain drop-shadow-xl" />
       </div>
       <div className={`absolute -top-2 -right-2 w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[10px] sm:text-xs font-bold border-2 shadow-lg transition-colors ${isAvailable ? 'bg-indigo-500 border-slate-900 text-white' : 'bg-slate-700 border-slate-900 text-slate-400'}`}>
         {count}
@@ -608,7 +605,7 @@ const PlayedCard = ({ type, isPlayer, winner }: { type: CardType, isPlayer: bool
     initial={{ scale: 0.5, opacity: 0, x: isPlayer ? 20 : -20, rotate: isPlayer ? -10 : 10 }}
     animate={{ scale: 1, opacity: 1, x: 0, rotate: 0 }}
     transition={{ type: 'spring', damping: 15, stiffness: 150 }}
-    className={`w-16 sm:w-24 aspect-[3/4] rounded-xl flex items-center justify-center text-3xl sm:text-5xl shadow-2xl border-2 relative overflow-hidden ${
+    className={`w-16 sm:w-24 aspect-[3/4] rounded-xl flex items-center justify-center shadow-2xl border-2 relative overflow-hidden ${
       winner 
         ? isPlayer ? 'bg-indigo-500/20 border-indigo-400 shadow-indigo-500/30' : 'bg-rose-500/20 border-rose-400 shadow-rose-500/30'
         : 'bg-slate-800 border-slate-700'
@@ -622,6 +619,8 @@ const PlayedCard = ({ type, isPlayer, winner }: { type: CardType, isPlayer: bool
         className="absolute inset-0 bg-gradient-to-t from-white/10 to-transparent"
       />
     )}
-    <span className="relative z-10">{CARD_EMOJIS[type]}</span>
+    <span className="relative z-10">
+      <img src={CARD_IMAGES[type]} alt={CARD_NAMES[type]} className="w-10 h-10 sm:w-16 sm:h-16 object-contain drop-shadow-2xl" />
+    </span>
   </motion.div>
 );
