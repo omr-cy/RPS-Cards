@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { io, Socket } from 'socket.io-client';
-import { Bot, Users, Home, Trophy, XCircle, Minus, Copy } from 'lucide-react';
+import { Bot, Globe, Home, Trophy, XCircle, Minus, Copy } from 'lucide-react';
 
 type CardType = 'rock' | 'paper' | 'scissors';
 
@@ -48,7 +48,7 @@ export default function App() {
   const [appState, setAppState] = useState<'menu' | 'inRoom'>('menu');
   const [menuTab, setMenuTab] = useState<'main' | 'online' | 'local'>('main');
   const [playerName, setPlayerName] = useState('');
-  const [hostIp, setHostIp] = useState('');
+  const [ipInput, setIpInput] = useState('');
   const [roomIdInput, setRoomIdInput] = useState('');
   const [roomId, setRoomId] = useState<string | null>(null);
   const [roomState, setRoomState] = useState<Room | null>(null);
@@ -56,20 +56,48 @@ export default function App() {
   const [userIp, setUserIp] = useState<string>('جاري التحميل...');
 
   useEffect(() => {
+    if (!navigator.onLine) {
+      setUserIp('أنت غير متصل بالإنترنت');
+      return;
+    }
     fetch('https://api.ipify.org?format=json')
       .then(res => res.json())
       .then(data => setUserIp(data.ip))
       .catch(() => setUserIp('تعذر جلب الـ IP'));
   }, []);
 
-  const setupSocket = (url: string) => {
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (roomId === 'OFFLINE_BOT' && roomState?.gameState === 'playing') {
+      timer = setInterval(() => {
+        setRoomState(prev => {
+          if (!prev || prev.id !== 'OFFLINE_BOT' || prev.gameState !== 'playing') return prev;
+          const currentTime = prev.timeLeft ?? 15;
+          if (currentTime <= 1) {
+            // Auto play a random card if time runs out
+            const me = prev.players['me'];
+            if (!me.choice) {
+              const available: CardType[] = [];
+              if (me.deck.rock > 0) available.push('rock');
+              if (me.deck.paper > 0) available.push('paper');
+              if (me.deck.scissors > 0) available.push('scissors');
+              const randomChoice = available[Math.floor(Math.random() * available.length)];
+              // We can't call playCard directly here easily without refactoring, 
+              // but we can trigger the logic.
+              setTimeout(() => playCard(randomChoice), 0);
+            }
+            return { ...prev, timeLeft: 0 };
+          }
+          return { ...prev, timeLeft: currentTime - 1 };
+        });
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [roomId, roomState?.gameState]);
+
+  const setupSocket = (url?: string) => {
     if (socket) socket.disconnect();
-    // الاتصال مباشر بالـ IP المدخل بدون أي خوادم خارجية
-    socket = io(url, {
-      transports: ['websocket'],
-      reconnectionAttempts: 5,
-      timeout: 10000
-    });
+    socket = url ? io(url) : io();
 
     socket.on('room_created', (id: string) => {
       setRoomId(id);
@@ -86,7 +114,8 @@ export default function App() {
       // Auto-play last card if only one card remains and player hasn't chosen yet
       if (state.gameState === 'playing') {
         const myId = socket?.id;
-        const me = state.players[myId!];
+        if (!myId) return;
+        const me = state.players[myId];
         if (me && me.choice === null) {
           const totalCards = me.deck.rock + me.deck.paper + me.deck.scissors;
           if (totalCards === 1) {
@@ -111,28 +140,19 @@ export default function App() {
     return socket;
   };
 
-  const joinHostedGame = (ip: string) => {
-    if (!ip.trim()) {
-      setErrorMsg('يرجى إدخال عنوان IP');
-      return;
-    }
-    const url = ip.startsWith('http') ? ip : `http://${ip}:3000`;
-    const s = setupSocket(url);
-    s.emit('join_hosted_game', playerName.trim() || 'لاعب');
+  const hostGame = () => {
+    const s = setupSocket();
+    s.emit('host_game', playerName.trim() || 'لاعب');
   };
 
   const createRoom = () => {
-    const url = hostIp.trim() ? (hostIp.startsWith('http') ? hostIp : `http://${hostIp}:3000`) : window.location.origin;
-    const s = setupSocket(url);
+    const s = setupSocket();
     s.emit('create_room', playerName.trim() || 'لاعب');
-    // We'll treat this as a local host for UI purposes
-    setRoomId('LOCAL_HOST');
   };
 
   const joinRoom = () => {
     if (!roomIdInput.trim()) return;
-    const url = hostIp.trim() ? (hostIp.startsWith('http') ? hostIp : `http://${hostIp}:3000`) : window.location.origin;
-    const s = setupSocket(url);
+    const s = setupSocket();
     s.emit('join_room', { roomId: roomIdInput.trim().toUpperCase(), playerName: playerName.trim() || 'لاعب' });
   };
 
@@ -152,8 +172,8 @@ export default function App() {
     
     const initialPlayer: Player = {
       id: 'me',
-      name: playerName.trim() || 'أنت',
-      deck: { rock: 5, paper: 5, scissors: 5 },
+      name: playerName.trim() || 'لاعب',
+      deck: { rock: 3, paper: 3, scissors: 3 },
       score: 0,
       choice: null,
       readyForNext: false
@@ -162,7 +182,7 @@ export default function App() {
     const initialBot: Player = {
       id: 'bot',
       name: 'الكمبيوتر',
-      deck: { rock: 5, paper: 5, scissors: 5 },
+      deck: { rock: 3, paper: 3, scissors: 3 },
       score: 0,
       choice: null,
       readyForNext: true
@@ -174,13 +194,14 @@ export default function App() {
       players: { 'me': initialPlayer, 'bot': initialBot },
       gameState: 'playing',
       round: 1,
-      roundWinner: null
+      roundWinner: null,
+      timeLeft: 15
     });
   };
 
   const joinGame = () => {
-    if (!hostIp.trim()) return;
-    let url = hostIp.trim();
+    if (!ipInput.trim()) return;
+    let url = ipInput.trim();
     if (!url.startsWith('http')) {
       url = `http://${url}:3000`;
     }
@@ -246,6 +267,7 @@ export default function App() {
             newState.round += 1;
             newState.gameState = 'playing';
             newState.roundWinner = null;
+            newState.timeLeft = 15;
             me.choice = null;
             bot.choice = null;
           }
@@ -267,21 +289,24 @@ export default function App() {
   };
 
   const playAgain = () => {
-    if (!roomId || !socket) return;
+    if (!roomId) return;
+    
+    if (roomId === 'OFFLINE_BOT') {
+      createBotRoom();
+      return;
+    }
+
+    if (!socket) return;
     socket.emit('play_again', roomId);
   };
 
   const leaveRoom = () => {
-    if (roomId === 'OFFLINE_BOT') {
-      setRoomId(null);
-      setRoomState(null);
-      setAppState('menu');
-      return;
-    }
-    if (roomId && socket) {
-      socket.emit('leave_room', roomId);
-      socket.disconnect();
-      socket = null;
+    if (roomId) {
+      if (socket) {
+        socket.emit('leave_room', roomId);
+        socket.disconnect();
+        socket = null;
+      }
       setRoomId(null);
       setRoomState(null);
       setAppState('menu');
@@ -333,17 +358,71 @@ export default function App() {
                   className="flex flex-col gap-3"
                 >
                   <button
-                    onClick={() => setMenuTab('local')}
-                    className="w-full py-3 sm:py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg shadow-lg shadow-indigo-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
+                    disabled
+                    className="w-full py-3 sm:py-4 bg-slate-800 text-slate-500 rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg shadow-lg cursor-not-allowed flex items-center justify-center gap-2 relative overflow-hidden"
                   >
-                    <Users className="w-5 h-5 sm:w-6 sm:h-6" /> لعب جماعي (WiFi محلي)
+                    <Globe className="w-5 h-5 sm:w-6 sm:h-6" /> لعب عبر الإنترنت
+                    <span className="absolute top-0 right-0 bg-rose-500/20 text-rose-400 text-[10px] sm:text-xs px-2 py-0.5 rounded-bl-lg font-bold">تحت الصيانة</span>
+                  </button>
+                  <button
+                    onClick={() => setMenuTab('local')}
+                    className="w-full py-3 sm:py-4 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg shadow-lg shadow-cyan-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
+                  >
+                    <Home className="w-5 h-5 sm:w-6 sm:h-6" /> شبكة محلية (IP)
                   </button>
                   <button
                     onClick={createBotRoom}
                     className="w-full py-3 sm:py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg shadow-lg shadow-emerald-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
                   >
-                    <Bot className="w-5 h-5 sm:w-6 sm:h-6" /> ضد الكمبيوتر (Offline)
+                    <Bot className="w-5 h-5 sm:w-6 sm:h-6" /> ضد الكمبيوتر
                   </button>
+                </motion.div>
+              )}
+
+              {menuTab === 'online' && (
+                <motion.div
+                  key="online"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  className="flex flex-col gap-3"
+                >
+                  <button onClick={() => setMenuTab('main')} className="text-slate-400 hover:text-white flex items-center gap-2 mb-2 w-fit transition-colors text-sm sm:text-base">
+                    <span>➔</span> رجوع
+                  </button>
+                  <button
+                    onClick={createRoom}
+                    className="w-full py-3 sm:py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg shadow-lg shadow-indigo-500/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                  >
+                    إنشاء غرفة جديدة
+                  </button>
+                  
+                  <div className="relative flex items-center py-2">
+                    <div className="flex-grow border-t border-slate-800"></div>
+                    <span className="flex-shrink-0 mx-4 text-slate-500 text-xs sm:text-sm">أو الانضمام لغرفة</span>
+                    <div className="flex-grow border-t border-slate-800"></div>
+                  </div>
+
+                  <div className="relative w-full">
+                    <input
+                      type="text"
+                      placeholder="أدخل كود الغرفة..."
+                      value={roomIdInput}
+                      onChange={(e) => setRoomIdInput(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl sm:rounded-2xl py-3 sm:py-4 px-4 sm:px-6 text-center text-lg sm:text-xl font-mono uppercase focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+                      maxLength={6}
+                    />
+                    {roomIdInput.trim().length > 0 && (
+                      <motion.button
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        onClick={joinRoom}
+                        className="absolute left-1.5 sm:left-2 top-1.5 sm:top-2 bottom-1.5 sm:bottom-2 px-4 sm:px-6 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg sm:rounded-xl font-bold transition-all shadow-md text-sm sm:text-base"
+                      >
+                        انضمام
+                      </motion.button>
+                    )}
+                  </div>
                 </motion.div>
               )}
 
@@ -353,41 +432,47 @@ export default function App() {
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 20 }}
-                  className="flex flex-col gap-4"
+                  className="flex flex-col gap-3"
                 >
                   <button onClick={() => setMenuTab('main')} className="text-slate-400 hover:text-white flex items-center gap-2 mb-2 w-fit transition-colors text-sm sm:text-base">
                     <span>➔</span> رجوع
                   </button>
+                  <button
+                    onClick={hostGame}
+                    className="w-full py-3 sm:py-4 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg shadow-lg shadow-cyan-500/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                  >
+                    استضافة لعبة
+                  </button>
+                  <p className="text-[10px] sm:text-xs text-slate-500 text-center px-4">
+                    ملاحظة: للاستضافة، يجب تشغيل الخادم على جهاز كمبيوتر متصل بنفس الشبكة.
+                  </p>
                   
-                  <div className="space-y-2">
-                    <label className="text-slate-400 text-sm block text-right">عنوان الـ IP للمضيف (Host)</label>
-                    <input
-                      type="text"
-                      value={hostIp}
-                      onChange={(e) => setHostIp(e.target.value)}
-                      placeholder="مثال: 192.168.1.5"
-                      className="w-full bg-slate-800/50 border border-slate-700 rounded-xl px-4 py-3 text-white text-center font-mono focus:outline-none focus:border-indigo-500"
-                    />
+                  <div className="relative flex items-center py-2">
+                    <div className="flex-grow border-t border-slate-800"></div>
+                    <span className="flex-shrink-0 mx-4 text-slate-500 text-xs sm:text-sm">أو الانضمام عبر IP</span>
+                    <div className="flex-grow border-t border-slate-800"></div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      onClick={() => joinHostedGame(hostIp)}
-                      className="py-3 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-bold transition-all"
-                    >
-                      دخول كلاعب
-                    </button>
-                    <button
-                      onClick={() => createRoom()}
-                      className="py-3 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl font-bold transition-all"
-                    >
-                      بدء كمضيف
-                    </button>
+                  <div className="relative w-full">
+                    <input
+                      type="text"
+                      placeholder="أدخل IP الخصم (مثال: 192.168.1.5)"
+                      value={ipInput}
+                      onChange={(e) => setIpInput(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl sm:rounded-2xl py-3 sm:py-4 px-4 sm:px-6 text-center text-base sm:text-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
+                      dir="ltr"
+                    />
+                    {ipInput.trim().length > 0 && (
+                      <motion.button
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        onClick={joinGame}
+                        className="absolute left-1.5 sm:left-2 top-1.5 sm:top-2 bottom-1.5 sm:bottom-2 px-4 sm:px-6 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg sm:rounded-xl font-bold transition-all shadow-md text-sm sm:text-base"
+                      >
+                        انضمام
+                      </motion.button>
+                    )}
                   </div>
-                  
-                  <p className="text-[10px] text-slate-500 text-center leading-relaxed">
-                    يجب أن يكون المضيف قد قام بتشغيل الخادم على جهازه وأن تكونوا متصلين بنفس شبكة الـ WiFi.
-                  </p>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -399,11 +484,14 @@ export default function App() {
 
   if (!roomState) return null;
 
-  const myId = roomId === 'OFFLINE_BOT' ? 'me' : socket?.id;
+  const myId = roomState.isBotRoom ? 'me' : socket?.id;
   if (!myId || !roomState.players[myId]) return null;
+
   const me = roomState.players[myId];
-  const opponentId = Object.keys(roomState.players).find(id => id !== myId);
+  const opponentId = roomState.isBotRoom ? 'bot' : Object.keys(roomState.players).find(id => id !== myId);
   const opponent = opponentId ? roomState.players[opponentId] : null;
+
+  if (!opponent && !roomState.isBotRoom) return null;
   const opponentName = opponent?.name || 'الخصم';
 
   if (roomState.gameState === 'waiting') {
@@ -417,18 +505,18 @@ export default function App() {
           <div className="w-16 h-16 rounded-full border-4 border-slate-800 border-t-indigo-500 animate-spin mx-auto mb-6"></div>
           <h2 className="text-2xl font-bold mb-2 text-slate-200">في انتظار الخصم...</h2>
           
-          {roomId === 'LOCAL_HOST' || roomId === 'OFFLINE_BOT' ? (
+          {roomId === 'LOCAL_HOST' ? (
             <>
               <p className="text-slate-400 mb-6 text-sm sm:text-base">أنت الآن تستضيف اللعبة. اطلب من صديقك إدخال الـ IP الخاص بك للاتصال.</p>
               <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 mb-4">
                 <div className="text-sm text-slate-500 mb-1">عنوان الـ IP الخاص بك</div>
                 <div className="text-2xl sm:text-3xl font-mono font-black text-cyan-400 select-all">{userIp}</div>
-                <div className="text-[10px] text-slate-600 mt-2">ملاحظة: يجب أن يكون صديقك متصلاً بنفس شبكة الـ WiFi.</div>
+                <div className="text-[10px] text-slate-600 mt-2">ملاحظة: إذا كنتما على نفس الشبكة، قد تحتاج لاستخدام الـ IP المحلي (مثال: 192.168.x.x)</div>
               </div>
             </>
           ) : (
             <>
-              <p className="text-slate-400 mb-6 text-sm sm:text-base">تم الاتصال بالخادم. في انتظار انضمام الخصم...</p>
+              <p className="text-slate-400 mb-6 text-sm sm:text-base">شارك كود الغرفة مع صديقك للعب عبر الإنترنت</p>
               <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 mb-4">
                 <div className="text-sm text-slate-500 mb-1">كود الغرفة</div>
                 <div className="text-4xl font-mono font-black tracking-widest text-indigo-400">{roomId}</div>
