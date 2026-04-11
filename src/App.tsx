@@ -4,6 +4,18 @@ import { io, Socket } from 'socket.io-client';
 import { Bot, Globe, Home, Trophy, XCircle, Minus, Copy, Edit2 } from 'lucide-react';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { SplashScreen } from '@capacitor/splash-screen';
+import { registerPlugin } from '@capacitor/core';
+
+export interface LocalServerPlugin {
+  startServer(options: { port: number }): Promise<{ status: string; port: number }>;
+  stopServer(): Promise<void>;
+  broadcastMessage(options: { message: string }): Promise<void>;
+  addListener(eventName: 'onClientConnected', listenerFunc: (info: { clientId: string }) => void): any;
+  addListener(eventName: 'onClientDisconnected', listenerFunc: (info: { clientId: string }) => void): any;
+  addListener(eventName: 'onMessageReceived', listenerFunc: (info: { clientId: string; message: string }) => void): any;
+}
+
+export const LocalServer = registerPlugin<LocalServerPlugin>('LocalServer');
 
 type CardType = 'rock' | 'paper' | 'scissors';
 
@@ -161,13 +173,95 @@ export default function App() {
     return socket;
   };
 
-  const hostGame = () => {
+  useEffect(() => {
+    const initLocalServer = async () => {
+      try {
+        LocalServer.addListener('onClientConnected', (info) => {
+          console.log('Client connected:', info.clientId);
+          // If we are hosting, we might need to handle player joining
+        });
+
+        LocalServer.addListener('onMessageReceived', (info) => {
+          const data = JSON.parse(info.message);
+          handleLocalMessage(info.clientId, data);
+        });
+      } catch (e) {
+        console.warn('LocalServer listeners failed:', e);
+      }
+    };
+    initLocalServer();
+  }, []);
+
+  const handleLocalMessage = (clientId: string, data: any) => {
+    // Handle game logic for local server
+    console.log('Local message:', clientId, data);
+    
+    setRoomState(prev => {
+      if (!prev) return prev;
+      const newState = { ...prev };
+      
+      if (data.type === 'JOIN') {
+        newState.players[clientId] = {
+          id: clientId,
+          name: data.name,
+          deck: { rock: 3, paper: 3, scissors: 3 },
+          score: 0,
+          choice: null,
+          readyForNext: false
+        };
+        newState.gameState = 'playing';
+      } else if (data.type === 'PLAY_CARD') {
+        const player = newState.players[clientId];
+        if (player && !player.choice) {
+          player.choice = data.choice;
+          player.deck[data.choice] -= 1;
+          
+          // Check if both played
+          const playerIds = Object.keys(newState.players);
+          if (playerIds.every(id => newState.players[id].choice)) {
+            // Logic to reveal and resolve round
+            // This is complex for a local bridge, but we'll implement basic state sync
+            newState.gameState = 'revealing';
+          }
+        }
+      }
+      
+      // Broadcast new state to all clients
+      LocalServer.broadcastMessage({ message: JSON.stringify({ type: 'STATE_UPDATE', state: newState }) });
+      return newState;
+    });
+  };
+
+  const hostGame = async () => {
     if (!playerName.trim()) {
       setErrorMsg('يرجى إدخال اسمك أولاً');
       return;
     }
-    const s = setupSocket();
-    s.emit('host_game', playerName.trim());
+    try {
+      await LocalServer.startServer({ port: 8080 });
+      setRoomId('LOCAL_HOST');
+      setAppState('inRoom');
+      
+      const initialPlayer: Player = {
+        id: 'host',
+        name: playerName.trim(),
+        deck: { rock: 3, paper: 3, scissors: 3 },
+        score: 0,
+        choice: null,
+        readyForNext: false
+      };
+
+      setRoomState({
+        id: 'LOCAL_HOST',
+        players: { 'host': initialPlayer },
+        gameState: 'waiting',
+        round: 1,
+        roundWinner: null
+      });
+    } catch (e) {
+      console.error('Host error:', e);
+      setErrorMsg('فشل تشغيل السيرفر المحلي. تأكد من إعطاء الأذونات اللازمة.');
+    }
   };
 
   const createRoom = () => {
@@ -343,6 +437,9 @@ export default function App() {
 
   const leaveRoom = () => {
     if (roomId) {
+      if (roomId === 'LOCAL_HOST') {
+        LocalServer.stopServer();
+      }
       if (socket) {
         socket.emit('leave_room', roomId);
         socket.disconnect();
@@ -403,12 +500,12 @@ export default function App() {
               value={playerName}
               onChange={(e) => setPlayerName(e.target.value)}
               autoFocus
-              className="w-full bg-slate-950 border-2 border-slate-800 rounded-2xl py-4 px-6 text-center text-xl font-bold focus:outline-none focus:border-indigo-500 transition-all"
+              className="w-[90%] mx-auto block bg-slate-950 border-2 border-slate-800 rounded-2xl py-4 px-6 text-center text-xl font-bold focus:outline-none focus:border-indigo-500 transition-all"
               onKeyDown={(e) => e.key === 'Enter' && saveName()}
             />
             
             {errorMsg && (
-              <p className="text-rose-400 text-sm text-center animate-pulse">{errorMsg}</p>
+              <p className="text-rose-400 text-sm text-center animate-pulse max-w-[90%] mx-auto">{errorMsg}</p>
             )}
 
             <button
@@ -440,7 +537,7 @@ export default function App() {
           animate={{ y: 0, opacity: 1 }}
           className="max-w-md w-full text-center"
         >
-          <div className="mb-6 flex items-center justify-center gap-3 bg-slate-900/40 py-3 px-6 rounded-2xl border border-slate-800 w-fit mx-auto">
+          <div className="mb-6 flex items-center justify-center gap-3 bg-slate-900/40 py-3 px-6 rounded-2xl border border-slate-800 w-fit max-w-[90%] mx-auto">
             <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse" />
             <span className="text-slate-300 font-bold">المحارب: {playerName}</span>
             <button 
@@ -457,7 +554,7 @@ export default function App() {
           </h1>
           
           {errorMsg && (
-            <div className="mb-6 p-3 bg-rose-500/20 border border-rose-500/50 text-rose-400 rounded-xl text-sm sm:text-base">
+            <div className="mb-6 p-3 bg-rose-500/20 border border-rose-500/50 text-rose-400 rounded-xl text-sm sm:text-base max-w-[90%] mx-auto text-center">
               {errorMsg}
             </div>
           )}
@@ -518,7 +615,7 @@ export default function App() {
                     <div className="flex-grow border-t border-slate-800"></div>
                   </div>
 
-                  <div className="relative w-full">
+                  <div className="relative w-[90%] mx-auto">
                     <input
                       type="text"
                       placeholder="أدخل كود الغرفة..."
@@ -554,21 +651,21 @@ export default function App() {
                   </button>
                   <button
                     onClick={hostGame}
-                    className="w-[90%] mx-auto py-3 sm:py-4 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg shadow-lg shadow-cyan-500/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                    className="w-[85%] mx-auto py-3 sm:py-4 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg shadow-lg shadow-cyan-500/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
                   >
-                    استضافة لعبة
+                    استضافة لعبة (Host)
                   </button>
-                  <p className="text-[10px] sm:text-xs text-slate-500 text-center px-4">
-                    ملاحظة: للاستضافة، يجب تشغيل الخادم على جهاز كمبيوتر متصل بنفس الشبكة.
+                  <p className="text-[10px] sm:text-xs text-slate-500 text-center px-8 leading-relaxed">
+                    ملاحظة: عند الاستضافة، سيتحول جهازك إلى خادم محلي يمكن لأصدقائك الاتصال به عبر نفس الشبكة.
                   </p>
                   
-                  <div className="relative flex items-center py-2">
+                  <div className="relative flex items-center py-2 w-[90%] mx-auto">
                     <div className="flex-grow border-t border-slate-800"></div>
                     <span className="flex-shrink-0 mx-4 text-slate-500 text-xs sm:text-sm">أو الانضمام عبر IP</span>
                     <div className="flex-grow border-t border-slate-800"></div>
                   </div>
 
-                  <div className="relative w-full">
+                  <div className="relative w-[90%] mx-auto">
                     <input
                       type="text"
                       placeholder="أدخل IP الخصم (مثال: 192.168.1.5)"
@@ -599,7 +696,7 @@ export default function App() {
 
   if (!roomState) return null;
 
-  const myId = roomState.isBotRoom ? 'me' : socket?.id;
+  const myId = roomState.isBotRoom ? 'me' : (roomId === 'LOCAL_HOST' ? 'host' : socket?.id);
   if (!myId || !roomState.players[myId]) return null;
 
   const me = roomState.players[myId];
@@ -673,7 +770,7 @@ export default function App() {
           </div>
           
           {errorMsg && (
-            <div className="mt-4 text-sm text-indigo-300">
+            <div className="mt-4 text-sm text-indigo-300 max-w-[90%] mx-auto text-center">
               {errorMsg}
             </div>
           )}
