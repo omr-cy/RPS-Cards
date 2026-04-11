@@ -4,7 +4,7 @@ import { io, Socket } from 'socket.io-client';
 import { Bot, Globe, Home, Trophy, XCircle, Minus, Copy, Edit2 } from 'lucide-react';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { SplashScreen } from '@capacitor/splash-screen';
-import { registerPlugin } from '@capacitor/core';
+import { registerPlugin, Capacitor } from '@capacitor/core';
 
 export interface LocalServerPlugin {
   startServer(options: { port: number }): Promise<{ status: string; port: number }>;
@@ -175,6 +175,10 @@ export default function App() {
 
   useEffect(() => {
     const initLocalServer = async () => {
+      if (Capacitor.getPlatform() === 'web') {
+        console.warn('LocalServer plugin is only available on Android/iOS');
+        return;
+      }
       try {
         LocalServer.addListener('onClientConnected', (info) => {
           console.log('Client connected:', info.clientId);
@@ -235,6 +239,10 @@ export default function App() {
   const hostGame = async () => {
     if (!playerName.trim()) {
       setErrorMsg('يرجى إدخال اسمك أولاً');
+      return;
+    }
+    if (Capacitor.getPlatform() === 'web') {
+      setErrorMsg('ميزة الاستضافة متاحة فقط في تطبيق الأندرويد');
       return;
     }
     try {
@@ -437,7 +445,7 @@ export default function App() {
 
   const leaveRoom = () => {
     if (roomId) {
-      if (roomId === 'LOCAL_HOST') {
+      if (roomId === 'LOCAL_HOST' && Capacitor.getPlatform() !== 'web') {
         LocalServer.stopServer();
       }
       if (socket) {
@@ -500,7 +508,7 @@ export default function App() {
               value={playerName}
               onChange={(e) => setPlayerName(e.target.value)}
               autoFocus
-              className="w-[90%] mx-auto block bg-slate-950 border-2 border-slate-800 rounded-2xl py-4 px-6 text-center text-xl font-bold focus:outline-none focus:border-indigo-500 transition-all"
+              className="w-full bg-slate-950 border-2 border-slate-800 rounded-2xl py-3.5 px-6 text-center text-lg font-bold focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all"
               onKeyDown={(e) => e.key === 'Enter' && saveName()}
             />
             
@@ -644,46 +652,74 @@ export default function App() {
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 20 }}
-                  className="flex flex-col gap-3"
+                  className="flex flex-col gap-6 w-full max-w-[340px] mx-auto px-2"
                 >
-                  <button onClick={() => setMenuTab('main')} className="text-slate-400 hover:text-white flex items-center gap-2 mb-2 w-fit transition-colors text-sm sm:text-base">
-                    <span>➔</span> رجوع
-                  </button>
-                  <button
-                    onClick={hostGame}
-                    className="w-[85%] mx-auto py-3 sm:py-4 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg shadow-lg shadow-cyan-500/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                  <button 
+                    onClick={() => setMenuTab('main')} 
+                    className="text-slate-400 hover:text-white flex items-center gap-2 w-fit transition-colors text-sm font-bold group mb-1 ms-2"
                   >
-                    استضافة لعبة (Host)
+                    <span className="group-hover:-translate-x-1 transition-transform">➔</span> رجوع للقائمة
                   </button>
-                  <p className="text-[10px] sm:text-xs text-slate-500 text-center px-8 leading-relaxed">
-                    ملاحظة: عند الاستضافة، سيتحول جهازك إلى خادم محلي يمكن لأصدقائك الاتصال به عبر نفس الشبكة.
-                  </p>
-                  
-                  <div className="relative flex items-center py-2 w-[90%] mx-auto">
-                    <div className="flex-grow border-t border-slate-800"></div>
-                    <span className="flex-shrink-0 mx-4 text-slate-500 text-xs sm:text-sm">أو الانضمام عبر IP</span>
-                    <div className="flex-grow border-t border-slate-800"></div>
+
+                  {/* Host Section */}
+                  <div className="bg-slate-900/60 border border-slate-800 p-5 rounded-3xl backdrop-blur-sm shadow-xl">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="p-2 bg-cyan-500/10 rounded-xl">
+                        <Globe className="w-5 h-5 text-cyan-400" />
+                      </div>
+                      <div className="text-right">
+                        <h3 className="text-slate-200 font-bold text-sm">استضافة لعبة</h3>
+                        <p className="text-[10px] text-slate-500">حول جهازك إلى خادم محلي</p>
+                      </div>
+                    </div>
+                    
+                    <button
+                      onClick={hostGame}
+                      className="w-full py-3.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-2xl font-black text-base shadow-lg shadow-cyan-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
+                    >
+                      بدء الاستضافة (Host)
+                    </button>
+                    
+                    <p className="text-[10px] text-slate-500 text-center mt-3 px-2 leading-relaxed opacity-70">
+                      سيظهر الـ IP الخاص بك للاعبين الآخرين على نفس الشبكة للاتصال بك.
+                    </p>
                   </div>
 
-                  <div className="relative w-[90%] mx-auto">
-                    <input
-                      type="text"
-                      placeholder="أدخل IP الخصم (مثال: 192.168.1.5)"
-                      value={ipInput}
-                      onChange={(e) => setIpInput(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-xl sm:rounded-2xl py-3 sm:py-4 px-4 sm:px-6 text-center text-base sm:text-lg focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
-                      dir="ltr"
-                    />
-                    {ipInput.trim().length > 0 && (
-                      <motion.button
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        onClick={joinGame}
-                        className="absolute left-1.5 sm:left-2 top-1.5 sm:top-2 bottom-1.5 sm:bottom-2 px-4 sm:px-6 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg sm:rounded-xl font-bold transition-all shadow-md text-sm sm:text-base"
-                      >
-                        انضمام
-                      </motion.button>
-                    )}
+                  {/* Join Section */}
+                  <div className="bg-slate-900/60 border border-slate-800 p-5 rounded-3xl backdrop-blur-sm shadow-xl">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="p-2 bg-indigo-500/10 rounded-xl">
+                        <Bot className="w-5 h-5 text-indigo-400" />
+                      </div>
+                      <div className="text-right">
+                        <h3 className="text-slate-200 font-bold text-sm">انضمام لصديق</h3>
+                        <p className="text-[10px] text-slate-500">الاتصال بجهاز صديقك عبر الـ IP</p>
+                      </div>
+                    </div>
+
+                    <div className="relative group">
+                      <input
+                        type="text"
+                        placeholder="مثال: 192.168.1.5"
+                        value={ipInput}
+                        onChange={(e) => setIpInput(e.target.value)}
+                        className="w-full bg-slate-950 border-2 border-slate-800 rounded-2xl py-4 px-6 text-center text-lg font-mono focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all placeholder:text-slate-700"
+                        dir="ltr"
+                      />
+                      <AnimatePresence>
+                        {ipInput.trim().length > 0 && (
+                          <motion.button
+                            initial={{ opacity: 0, scale: 0.9, x: 10 }}
+                            animate={{ opacity: 1, scale: 1, x: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, x: 10 }}
+                            onClick={joinGame}
+                            className="absolute left-2 top-2 bottom-2 px-6 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-black transition-all shadow-lg shadow-indigo-500/30 text-sm"
+                          >
+                            اتصال
+                          </motion.button>
+                        )}
+                      </AnimatePresence>
+                    </div>
                   </div>
                 </motion.div>
               )}
@@ -723,24 +759,23 @@ export default function App() {
           animate={{ scale: 1, opacity: 1 }}
           className="bg-slate-900 p-6 sm:p-8 rounded-3xl border border-slate-800 shadow-2xl max-w-sm w-full text-center"
         >
-          <div className="w-16 h-16 rounded-full border-4 border-slate-800 border-t-indigo-500 animate-spin mx-auto mb-6"></div>
-          <h2 className="text-2xl font-bold mb-2 text-slate-200">في انتظار الخصم...</h2>
+          <div className="w-12 h-12 rounded-full border-4 border-slate-800 border-t-indigo-500 animate-spin mx-auto mb-6"></div>
+          <h2 className="text-xl font-bold mb-2 text-slate-200">في انتظار الخصم...</h2>
           
           {roomId === 'LOCAL_HOST' ? (
             <>
-              <p className="text-slate-400 mb-6 text-sm sm:text-base">أنت الآن تستضيف اللعبة. اطلب من صديقك إدخال الـ IP الخاص بك للاتصال.</p>
-              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 mb-4">
-                <div className="text-sm text-slate-500 mb-1">عنوان الـ IP الخاص بك</div>
-                <div className="text-2xl sm:text-3xl font-mono font-black text-cyan-400 select-all">{userIp}</div>
-                <div className="text-[10px] text-slate-600 mt-2">ملاحظة: إذا كنتما على نفس الشبكة، قد تحتاج لاستخدام الـ IP المحلي (مثال: 192.168.x.x)</div>
+              <p className="text-slate-400 mb-4 text-xs sm:text-sm px-4">أنت الآن تستضيف اللعبة. اطلب من صديقك إدخال الـ IP الخاص بك للاتصال.</p>
+              <div className="bg-slate-950 p-3 rounded-2xl border border-slate-800 mb-4">
+                <div className="text-[10px] text-slate-500 mb-1">عنوان الـ IP الخاص بك</div>
+                <div className="text-xl sm:text-2xl font-mono font-black text-cyan-400 select-all">{userIp}</div>
               </div>
             </>
           ) : (
             <>
-              <p className="text-slate-400 mb-6 text-sm sm:text-base">شارك كود الغرفة مع صديقك للعب عبر الإنترنت</p>
-              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 mb-4">
-                <div className="text-sm text-slate-500 mb-1">كود الغرفة</div>
-                <div className="text-4xl font-mono font-black tracking-widest text-indigo-400">{roomId}</div>
+              <p className="text-slate-400 mb-4 text-xs sm:text-sm px-4">شارك كود الغرفة مع صديقك للعب عبر الإنترنت</p>
+              <div className="bg-slate-950 p-3 rounded-2xl border border-slate-800 mb-4">
+                <div className="text-[10px] text-slate-500 mb-1">كود الغرفة</div>
+                <div className="text-3xl font-mono font-black tracking-widest text-indigo-400">{roomId}</div>
               </div>
             </>
           )}
@@ -814,15 +849,15 @@ export default function App() {
               {finalWin ? 'لقد انتصرت!' : finalLoss ? 'لقد خسرت!' : 'تعادل!'}
             </div>
             
-            <div className="flex justify-center gap-12 mb-10 bg-slate-950/50 py-6 rounded-2xl border border-slate-800">
+            <div className="flex justify-center gap-8 mb-8 bg-slate-950/50 py-5 rounded-2xl border border-slate-800">
               <div className="flex flex-col items-center">
-                <span className="text-slate-400 text-sm mb-2">{me.name}</span>
-                <span className="text-5xl font-black text-indigo-400">{me.score}</span>
+                <span className="text-slate-500 text-[10px] mb-1 uppercase tracking-wider">{me.name}</span>
+                <span className="text-4xl font-black text-indigo-400">{me.score}</span>
               </div>
-              <div className="w-px bg-slate-800"></div>
+              <div className="w-px bg-slate-800 my-2"></div>
               <div className="flex flex-col items-center">
-                <span className="text-slate-400 text-sm mb-2">{opponentName}</span>
-                <span className="text-5xl font-black text-rose-400">{opponent!.score}</span>
+                <span className="text-slate-500 text-[10px] mb-1 uppercase tracking-wider">{opponentName}</span>
+                <span className="text-4xl font-black text-rose-400">{opponent!.score}</span>
               </div>
             </div>
 
