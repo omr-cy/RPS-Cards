@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { io, Socket } from 'socket.io-client';
 import { Bot, Globe, Home, Trophy, XCircle, Minus, Copy } from 'lucide-react';
+import { StatusBar, Style } from '@capacitor/status-bar';
+import { SplashScreen } from '@capacitor/splash-screen';
 
 type CardType = 'rock' | 'paper' | 'scissors';
 
@@ -45,7 +47,7 @@ const CARD_NAMES: Record<CardType, string> = {
 let socket: Socket | null = null;
 
 export default function App() {
-  const [appState, setAppState] = useState<'menu' | 'inRoom'>('menu');
+  const [appState, setAppState] = useState<'landing' | 'nameEntry' | 'menu' | 'inRoom'>('landing');
   const [menuTab, setMenuTab] = useState<'main' | 'online' | 'local'>('main');
   const [playerName, setPlayerName] = useState('');
   const [ipInput, setIpInput] = useState('');
@@ -54,6 +56,19 @@ export default function App() {
   const [roomState, setRoomState] = useState<Room | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [userIp, setUserIp] = useState<string>('جاري التحميل...');
+
+  useEffect(() => {
+    const initCapacitor = async () => {
+      try {
+        await StatusBar.setOverlaysWebView({ overlay: true });
+        await StatusBar.setStyle({ style: Style.Dark });
+        await SplashScreen.hide();
+      } catch (e) {
+        console.warn('Capacitor not available:', e);
+      }
+    };
+    initCapacitor();
+  }, []);
 
   useEffect(() => {
     if (!navigator.onLine) {
@@ -141,19 +156,31 @@ export default function App() {
   };
 
   const hostGame = () => {
+    if (!playerName.trim()) {
+      setErrorMsg('يرجى إدخال اسمك أولاً');
+      return;
+    }
     const s = setupSocket();
-    s.emit('host_game', playerName.trim() || 'لاعب');
+    s.emit('host_game', playerName.trim());
   };
 
   const createRoom = () => {
+    if (!playerName.trim()) {
+      setErrorMsg('يرجى إدخال اسمك أولاً');
+      return;
+    }
     const s = setupSocket();
-    s.emit('create_room', playerName.trim() || 'لاعب');
+    s.emit('create_room', playerName.trim());
   };
 
   const joinRoom = () => {
+    if (!playerName.trim()) {
+      setErrorMsg('يرجى إدخال اسمك أولاً');
+      return;
+    }
     if (!roomIdInput.trim()) return;
     const s = setupSocket();
-    s.emit('join_room', { roomId: roomIdInput.trim().toUpperCase(), playerName: playerName.trim() || 'لاعب' });
+    s.emit('join_room', { roomId: roomIdInput.trim().toUpperCase(), playerName: playerName.trim() });
   };
 
   const copyRoomId = () => {
@@ -165,6 +192,10 @@ export default function App() {
   };
 
   const createBotRoom = () => {
+    if (!playerName.trim()) {
+      setErrorMsg('يرجى إدخال اسمك أولاً');
+      return;
+    }
     // Local Bot Logic (Offline)
     const rid = 'OFFLINE_BOT';
     setRoomId(rid);
@@ -172,7 +203,7 @@ export default function App() {
     
     const initialPlayer: Player = {
       id: 'me',
-      name: playerName.trim() || 'لاعب',
+      name: playerName.trim(),
       deck: { rock: 3, paper: 3, scissors: 3 },
       score: 0,
       choice: null,
@@ -200,13 +231,17 @@ export default function App() {
   };
 
   const joinGame = () => {
+    if (!playerName.trim()) {
+      setErrorMsg('يرجى إدخال اسمك أولاً');
+      return;
+    }
     if (!ipInput.trim()) return;
     let url = ipInput.trim();
     if (!url.startsWith('http')) {
       url = `http://${url}:3000`;
     }
     const s = setupSocket(url);
-    s.emit('join_hosted_game', playerName.trim() || 'لاعب');
+    s.emit('join_hosted_game', playerName.trim());
   };
 
   const playCard = (choice: CardType) => {
@@ -313,25 +348,143 @@ export default function App() {
     }
   };
 
+  if (appState === 'landing') {
+    return (
+      <div 
+        dir="rtl" 
+        className="h-[100dvh] bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4 sm:p-6 font-sans overflow-hidden"
+        style={{
+          paddingTop: 'env(safe-area-inset-top)',
+          paddingBottom: 'env(safe-area-inset-bottom)',
+        }}
+      >
+        <motion.div
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="flex flex-col items-center text-center max-w-md w-full"
+        >
+          <div className="mb-12 flex justify-center gap-6">
+            <motion.img src="rock.png" alt="حجر" className="w-24 h-24 sm:w-32 sm:h-32 object-contain drop-shadow-2xl" animate={{ y: [0, -15, 0], rotate: [0, 5, 0] }} transition={{ repeat: Infinity, duration: 3 }} />
+            <motion.img src="paper.png" alt="ورقة" className="w-20 h-20 sm:w-28 sm:h-28 object-contain drop-shadow-2xl" animate={{ y: [0, -15, 0], rotate: [0, -5, 0] }} transition={{ repeat: Infinity, duration: 3, delay: 0.3 }} />
+            <motion.img src="scissors.png" alt="مقص" className="w-20 h-20 sm:w-28 sm:h-28 object-contain drop-shadow-2xl" animate={{ y: [0, -15, 0], rotate: [0, 5, 0] }} transition={{ repeat: Infinity, duration: 3, delay: 0.6 }} />
+          </div>
+          
+          <h1 className="text-5xl sm:text-6xl font-black mb-6 text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-purple-400 to-cyan-400 leading-tight">
+            صراع<br/>البطاقات
+          </h1>
+          
+          <p className="text-slate-400 mb-12 text-lg sm:text-xl font-medium opacity-80">
+            حجر • ورقة • مقص
+          </p>
+
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setAppState('nameEntry')}
+            className="group relative px-12 py-5 bg-indigo-600 rounded-2xl font-black text-2xl shadow-[0_0_30px_rgba(79,70,229,0.4)] hover:bg-indigo-500 transition-all overflow-hidden"
+          >
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]" />
+            ابدأ الآن
+          </motion.button>
+          
+          <div className="mt-12 text-slate-600 text-sm font-mono">
+            v2.0.0 • Offline Ready
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
+  if (appState === 'nameEntry') {
+    return (
+      <div 
+        dir="rtl" 
+        className="h-[100dvh] bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4 sm:p-6 font-sans"
+        style={{
+          paddingTop: 'env(safe-area-inset-top)',
+          paddingBottom: 'env(safe-area-inset-bottom)',
+        }}
+      >
+        <motion.div
+          initial={{ x: 50, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+          className="max-w-sm w-full bg-slate-900/50 p-8 rounded-3xl border border-slate-800 backdrop-blur-sm"
+        >
+          <h2 className="text-2xl font-bold mb-6 text-center text-slate-200">مرحباً بك أيها المحارب!</h2>
+          <p className="text-slate-400 text-center mb-8">ما هو الاسم الذي تود أن يعرفك به خصومك؟</p>
+          
+          <div className="space-y-6">
+            <input
+              type="text"
+              placeholder="أدخل اسمك هنا..."
+              value={playerName}
+              onChange={(e) => setPlayerName(e.target.value)}
+              autoFocus
+              className="w-full bg-slate-950 border-2 border-slate-800 rounded-2xl py-4 px-6 text-center text-xl font-bold focus:outline-none focus:border-indigo-500 transition-all"
+              onKeyDown={(e) => e.key === 'Enter' && playerName.trim() && setAppState('menu')}
+            />
+            
+            {errorMsg && (
+              <p className="text-rose-400 text-sm text-center animate-pulse">{errorMsg}</p>
+            )}
+
+            <button
+              onClick={() => {
+                if (playerName.trim()) {
+                  setAppState('menu');
+                  setErrorMsg(null);
+                } else {
+                  setErrorMsg('يرجى إدخال اسمك للمتابعة');
+                }
+              }}
+              className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-black text-lg shadow-lg shadow-indigo-500/20 transition-all active:scale-95"
+            >
+              تأكيد الاسم
+            </button>
+            
+            <button
+              onClick={() => setAppState('landing')}
+              className="w-full py-2 text-slate-500 hover:text-slate-300 text-sm transition-colors"
+            >
+              رجوع
+            </button>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
+
   if (appState === 'menu') {
     return (
-      <div dir="rtl" className="h-[100dvh] bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4 sm:p-6 font-sans overflow-y-auto">
+      <div 
+        dir="rtl" 
+        className="h-[100dvh] bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4 sm:p-6 font-sans overflow-y-auto"
+        style={{
+          paddingTop: 'env(safe-area-inset-top)',
+          paddingBottom: 'env(safe-area-inset-bottom)',
+          paddingLeft: 'env(safe-area-inset-left)',
+          paddingRight: 'env(safe-area-inset-right)'
+        }}
+      >
         <motion.div
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           className="max-w-md w-full text-center"
         >
-          <div className="mb-6 sm:mb-8 flex justify-center gap-4 sm:gap-6">
-            <motion.img src="rock.png" alt="حجر" className="w-20 h-20 sm:w-32 sm:h-32 object-contain drop-shadow-lg" animate={{ y: [0, -12, 0] }} transition={{ repeat: Infinity, duration: 2, delay: 0 }} />
-            <motion.img src="paper.png" alt="ورقة" className="w-16 h-16 sm:w-24 sm:h-24 object-contain drop-shadow-lg" animate={{ y: [0, -12, 0] }} transition={{ repeat: Infinity, duration: 2, delay: 0.2 }} />
-            <motion.img src="scissors.png" alt="مقص" className="w-16 h-16 sm:w-24 sm:h-24 object-contain drop-shadow-lg" animate={{ y: [0, -12, 0] }} transition={{ repeat: Infinity, duration: 2, delay: 0.4 }} />
+          <div className="mb-6 flex items-center justify-center gap-3 bg-slate-900/40 py-3 px-6 rounded-2xl border border-slate-800 w-fit mx-auto">
+            <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse" />
+            <span className="text-slate-300 font-bold">المحارب: {playerName}</span>
+            <button 
+              onClick={() => setAppState('nameEntry')}
+              className="text-[10px] bg-slate-800 px-2 py-1 rounded-md text-slate-400 hover:bg-slate-700 transition-colors"
+            >
+              تعديل
+            </button>
           </div>
-          <h1 className="text-3xl sm:text-4xl font-black mb-2 sm:mb-4 text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">
-            صراع البطاقات حجر ورقة مقص
+
+          <h1 className="text-3xl sm:text-4xl font-black mb-8 text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">
+            اختر وضع اللعب
           </h1>
-          <p className="text-slate-400 mb-8 sm:mb-10 leading-relaxed text-base sm:text-lg">
-            العب مع أصدقائك عبر الشبكة المحلية! أنشئ غرفة أو انضم إلى غرفة موجودة.
-          </p>
           
           {errorMsg && (
             <div className="mb-6 p-3 bg-rose-500/20 border border-rose-500/50 text-rose-400 rounded-xl text-sm sm:text-base">
@@ -340,14 +493,6 @@ export default function App() {
           )}
 
           <div className="space-y-4">
-            <input
-              type="text"
-              placeholder="أدخل اسمك (اختياري)..."
-              value={playerName}
-              onChange={(e) => setPlayerName(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-700 rounded-xl sm:rounded-2xl py-3 sm:py-4 px-4 sm:px-6 text-center text-lg sm:text-xl focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all mb-4"
-            />
-            
             <AnimatePresence mode="wait">
               {menuTab === 'main' && (
                 <motion.div
@@ -359,20 +504,20 @@ export default function App() {
                 >
                   <button
                     disabled
-                    className="w-full py-3 sm:py-4 bg-slate-800 text-slate-500 rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg shadow-lg cursor-not-allowed flex items-center justify-center gap-2 relative overflow-hidden"
+                    className="w-[90%] mx-auto py-3 sm:py-4 bg-slate-800 text-slate-500 rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg shadow-lg cursor-not-allowed flex items-center justify-center gap-2 relative overflow-hidden"
                   >
                     <Globe className="w-5 h-5 sm:w-6 sm:h-6" /> لعب عبر الإنترنت
                     <span className="absolute top-0 right-0 bg-rose-500/20 text-rose-400 text-[10px] sm:text-xs px-2 py-0.5 rounded-bl-lg font-bold">تحت الصيانة</span>
                   </button>
                   <button
                     onClick={() => setMenuTab('local')}
-                    className="w-full py-3 sm:py-4 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg shadow-lg shadow-cyan-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
+                    className="w-[90%] mx-auto py-3 sm:py-4 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg shadow-lg shadow-cyan-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
                   >
                     <Home className="w-5 h-5 sm:w-6 sm:h-6" /> شبكة محلية (IP)
                   </button>
                   <button
                     onClick={createBotRoom}
-                    className="w-full py-3 sm:py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg shadow-lg shadow-emerald-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
+                    className="w-[90%] mx-auto py-3 sm:py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg shadow-lg shadow-emerald-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
                   >
                     <Bot className="w-5 h-5 sm:w-6 sm:h-6" /> ضد الكمبيوتر
                   </button>
@@ -392,7 +537,7 @@ export default function App() {
                   </button>
                   <button
                     onClick={createRoom}
-                    className="w-full py-3 sm:py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg shadow-lg shadow-indigo-500/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                    className="w-[90%] mx-auto py-3 sm:py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg shadow-lg shadow-indigo-500/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
                   >
                     إنشاء غرفة جديدة
                   </button>
@@ -439,7 +584,7 @@ export default function App() {
                   </button>
                   <button
                     onClick={hostGame}
-                    className="w-full py-3 sm:py-4 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg shadow-lg shadow-cyan-500/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                    className="w-[90%] mx-auto py-3 sm:py-4 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg shadow-lg shadow-cyan-500/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
                   >
                     استضافة لعبة
                   </button>
@@ -496,7 +641,16 @@ export default function App() {
 
   if (roomState.gameState === 'waiting') {
     return (
-      <div dir="rtl" className="h-[100dvh] bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4 sm:p-6 font-sans">
+      <div 
+        dir="rtl" 
+        className="h-[100dvh] bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4 sm:p-6 font-sans"
+        style={{
+          paddingTop: 'env(safe-area-inset-top)',
+          paddingBottom: 'env(safe-area-inset-bottom)',
+          paddingLeft: 'env(safe-area-inset-left)',
+          paddingRight: 'env(safe-area-inset-right)'
+        }}
+      >
         <motion.div
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
@@ -566,7 +720,16 @@ export default function App() {
     const finalLoss = me.score < opponent!.score;
     
     return (
-      <div dir="rtl" className="h-[100dvh] bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4 sm:p-6 font-sans overflow-y-auto">
+      <div 
+        dir="rtl" 
+        className="h-[100dvh] bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4 sm:p-6 font-sans overflow-y-auto"
+        style={{
+          paddingTop: 'env(safe-area-inset-top)',
+          paddingBottom: 'env(safe-area-inset-bottom)',
+          paddingLeft: 'env(safe-area-inset-left)',
+          paddingRight: 'env(safe-area-inset-right)'
+        }}
+      >
         <motion.div
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
@@ -618,15 +781,33 @@ export default function App() {
   }
 
   return (
-    <div dir="rtl" className="h-[100dvh] bg-slate-950 text-slate-100 font-sans selection:bg-indigo-500/30 overflow-hidden flex flex-col">
+    <div 
+      dir="rtl" 
+      className="h-[100dvh] bg-slate-950 text-slate-100 font-sans selection:bg-indigo-500/30 overflow-hidden flex flex-col"
+      style={{
+        paddingTop: 'env(safe-area-inset-top)',
+        paddingBottom: 'env(safe-area-inset-bottom)',
+        paddingLeft: 'env(safe-area-inset-left)',
+        paddingRight: 'env(safe-area-inset-right)'
+      }}
+    >
       <div className="max-w-md mx-auto w-full h-full flex flex-col flex-1 relative">
         {/* Header */}
         <header className="flex justify-between items-center px-4 py-3 border-b border-slate-800/80 bg-slate-900/80 backdrop-blur-md z-20">
-          <div className="flex flex-col">
-            <h1 className="text-base sm:text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">
-              صراع البطاقات
-            </h1>
-            <span className="text-[10px] sm:text-xs text-slate-500 font-mono">{roomState.isBotRoom ? 'لعب فردي' : 'لعب محلي'}</span>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={leaveRoom}
+              className="p-2 hover:bg-slate-800 rounded-full transition-colors text-slate-400 hover:text-white"
+              title="خروج"
+            >
+              <XCircle className="w-5 h-5 sm:w-6 sm:h-6" />
+            </button>
+            <div className="flex flex-col">
+              <h1 className="text-base sm:text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">
+                صراع البطاقات
+              </h1>
+              <span className="text-[10px] sm:text-xs text-slate-500 font-mono">{roomState.isBotRoom ? 'لعب فردي' : 'لعب محلي'}</span>
+            </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-3">
             <div className="flex flex-col items-end">
