@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { io, Socket } from 'socket.io-client';
+import { Bot, Globe, Home, Trophy, XCircle, Minus, Copy } from 'lucide-react';
 
 type CardType = 'rock' | 'paper' | 'scissors';
 
@@ -52,6 +53,14 @@ export default function App() {
   const [roomId, setRoomId] = useState<string | null>(null);
   const [roomState, setRoomState] = useState<Room | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [userIp, setUserIp] = useState<string>('جاري التحميل...');
+
+  useEffect(() => {
+    fetch('https://api.ipify.org?format=json')
+      .then(res => res.json())
+      .then(data => setUserIp(data.ip))
+      .catch(() => setUserIp('تعذر جلب الـ IP'));
+  }, []);
 
   const setupSocket = (url?: string) => {
     if (socket) socket.disconnect();
@@ -68,6 +77,25 @@ export default function App() {
       setRoomId(state.id);
       setAppState('inRoom');
       setErrorMsg(null);
+
+      // Auto-play last card if only one card remains and player hasn't chosen yet
+      if (state.gameState === 'playing') {
+        const myId = socket?.id;
+        const me = state.players[myId!];
+        if (me && me.choice === null) {
+          const totalCards = me.deck.rock + me.deck.paper + me.deck.scissors;
+          if (totalCards === 1) {
+            let lastChoice: CardType | null = null;
+            if (me.deck.rock === 1) lastChoice = 'rock';
+            else if (me.deck.paper === 1) lastChoice = 'paper';
+            else if (me.deck.scissors === 1) lastChoice = 'scissors';
+
+            if (lastChoice) {
+              socket?.emit('play_card', { roomId: state.id, choice: lastChoice });
+            }
+          }
+        }
+      }
     });
 
     socket.on('error_msg', (msg: string) => {
@@ -152,9 +180,9 @@ export default function App() {
           className="max-w-md w-full text-center"
         >
           <div className="mb-6 sm:mb-8 flex justify-center gap-4 sm:gap-6">
-            <motion.img src="/rock.png" alt="حجر" className="w-16 h-16 sm:w-24 sm:h-24 object-contain drop-shadow-lg" animate={{ y: [0, -12, 0] }} transition={{ repeat: Infinity, duration: 2, delay: 0 }} />
-            <motion.img src="/paper.png" alt="ورقة" className="w-14 h-14 sm:w-20 sm:h-20 object-contain drop-shadow-lg" animate={{ y: [0, -12, 0] }} transition={{ repeat: Infinity, duration: 2, delay: 0.2 }} />
-            <motion.img src="/scissors.png" alt="مقص" className="w-14 h-14 sm:w-20 sm:h-20 object-contain drop-shadow-lg" animate={{ y: [0, -12, 0] }} transition={{ repeat: Infinity, duration: 2, delay: 0.4 }} />
+            <motion.img src="/rock.png" alt="حجر" className="w-20 h-20 sm:w-32 sm:h-32 object-contain drop-shadow-lg" animate={{ y: [0, -12, 0] }} transition={{ repeat: Infinity, duration: 2, delay: 0 }} />
+            <motion.img src="/paper.png" alt="ورقة" className="w-16 h-16 sm:w-24 sm:h-24 object-contain drop-shadow-lg" animate={{ y: [0, -12, 0] }} transition={{ repeat: Infinity, duration: 2, delay: 0.2 }} />
+            <motion.img src="/scissors.png" alt="مقص" className="w-16 h-16 sm:w-24 sm:h-24 object-contain drop-shadow-lg" animate={{ y: [0, -12, 0] }} transition={{ repeat: Infinity, duration: 2, delay: 0.4 }} />
           </div>
           <h1 className="text-3xl sm:text-4xl font-black mb-2 sm:mb-4 text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">
             صراع البطاقات حجر ورقة مقص
@@ -191,20 +219,20 @@ export default function App() {
                     disabled
                     className="w-full py-3 sm:py-4 bg-slate-800 text-slate-500 rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg shadow-lg cursor-not-allowed flex items-center justify-center gap-2 relative overflow-hidden"
                   >
-                    <span>🌐</span> لعب عبر الإنترنت
+                    <Globe className="w-5 h-5 sm:w-6 sm:h-6" /> لعب عبر الإنترنت
                     <span className="absolute top-0 right-0 bg-rose-500/20 text-rose-400 text-[10px] sm:text-xs px-2 py-0.5 rounded-bl-lg font-bold">تحت الصيانة</span>
                   </button>
                   <button
                     onClick={() => setMenuTab('local')}
                     className="w-full py-3 sm:py-4 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg shadow-lg shadow-cyan-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
                   >
-                    <span>🏠</span> شبكة محلية (IP)
+                    <Home className="w-5 h-5 sm:w-6 sm:h-6" /> شبكة محلية (IP)
                   </button>
                   <button
                     onClick={createBotRoom}
                     className="w-full py-3 sm:py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg shadow-lg shadow-emerald-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
                   >
-                    <img src="/bot.png" alt="Bot" className="w-6 h-6 object-contain" /> لعب ضد الكمبيوتر
+                    <Bot className="w-5 h-5 sm:w-6 sm:h-6" /> ضد الكمبيوتر
                   </button>
                 </motion.div>
               )}
@@ -329,7 +357,14 @@ export default function App() {
           <h2 className="text-2xl font-bold mb-2 text-slate-200">في انتظار الخصم...</h2>
           
           {roomId === 'LOCAL_HOST' ? (
-            <p className="text-slate-400 mb-6 text-sm sm:text-base">أنت الآن تستضيف اللعبة. اطلب من صديقك إدخال الـ IP الخاص بك للاتصال.</p>
+            <>
+              <p className="text-slate-400 mb-6 text-sm sm:text-base">أنت الآن تستضيف اللعبة. اطلب من صديقك إدخال الـ IP الخاص بك للاتصال.</p>
+              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 mb-4">
+                <div className="text-sm text-slate-500 mb-1">عنوان الـ IP الخاص بك</div>
+                <div className="text-2xl sm:text-3xl font-mono font-black text-cyan-400 select-all">{userIp}</div>
+                <div className="text-[10px] text-slate-600 mt-2">ملاحظة: إذا كنتما على نفس الشبكة، قد تحتاج لاستخدام الـ IP المحلي (مثال: 192.168.x.x)</div>
+              </div>
+            </>
           ) : (
             <>
               <p className="text-slate-400 mb-6 text-sm sm:text-base">شارك كود الغرفة مع صديقك للعب عبر الإنترنت</p>
@@ -341,12 +376,19 @@ export default function App() {
           )}
           
           <div className="flex flex-col gap-2">
-            {roomId !== 'LOCAL_HOST' && (
+            {roomId === 'LOCAL_HOST' ? (
+              <button
+                onClick={() => navigator.clipboard.writeText(userIp)}
+                className="w-full py-3 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl font-bold transition-all text-sm sm:text-base flex items-center justify-center gap-2"
+              >
+                <Copy className="w-4 h-4" /> نسخ عنوان الـ IP
+              </button>
+            ) : (
               <button
                 onClick={copyRoomId}
-                className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold transition-all text-sm sm:text-base"
+                className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold transition-all text-sm sm:text-base flex items-center justify-center gap-2"
               >
-                نسخ كود الغرفة
+                <Copy className="w-4 h-4" /> نسخ كود الغرفة
               </button>
             )}
             <button
@@ -454,7 +496,7 @@ export default function App() {
           <div className="flex justify-between items-end mb-2">
             <div>
               <h2 className="text-slate-400 text-xs sm:text-sm mb-1 flex items-center gap-2">
-                {opponent?.id === 'bot' ? <img src="/bot.png" alt="Bot" className="w-5 h-5 sm:w-6 sm:h-6 object-contain" /> : null}
+                {opponent?.id === 'bot' ? <Bot className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-400" /> : null}
                 {opponentName}
               </h2>
               <div className="text-3xl sm:text-4xl font-black text-rose-400">{opponent!.score}</div>
@@ -522,13 +564,19 @@ export default function App() {
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
                     transition={{ type: 'spring', bounce: 0.5 }}
-                    className={`px-3 sm:px-4 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-bold whitespace-nowrap shadow-lg ${
+                    className={`px-3 sm:px-4 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-bold whitespace-nowrap shadow-lg flex items-center gap-1.5 ${
                       roomState.roundWinner === myId ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
                       roomState.roundWinner === opponentId ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' :
                       'bg-slate-500/20 text-slate-300 border border-slate-500/30'
                     }`}
                   >
-                    {roomState.roundWinner === myId ? 'فزت' : roomState.roundWinner === opponentId ? 'خسرت' : 'تعادل'}
+                    {roomState.roundWinner === myId ? (
+                      <><Trophy className="w-3 h-3 sm:w-4 sm:h-4" /> فزت</>
+                    ) : roomState.roundWinner === opponentId ? (
+                      <><XCircle className="w-3 h-3 sm:w-4 sm:h-4" /> خسرت</>
+                    ) : (
+                      <><Minus className="w-3 h-3 sm:w-4 sm:h-4" /> تعادل</>
+                    )}
                   </motion.div>
                 </div>
                 <PlayedCard type={opponent!.choice!} isPlayer={false} winner={roomState.roundWinner === opponentId} />

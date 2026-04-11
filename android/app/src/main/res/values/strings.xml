@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">CardClash</string>
+    <string name="title_activity_main">CardClash</string>
+    <string name="package_name">com.omr.cardclash</string>
+    <string name="custom_url_scheme">com.omr.cardclash</string>
+</resources>
