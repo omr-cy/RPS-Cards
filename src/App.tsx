@@ -64,7 +64,9 @@ export default function App() {
 
   const setupSocket = (url?: string) => {
     if (socket) socket.disconnect();
-    socket = url ? io(url) : io();
+    // Use the production URL if in production mode, otherwise default to current host
+    const socketUrl = url || (import.meta.env.PROD ? 'https://ais-dev-qphhy77swp7b53a3dwhodi-306494194593.europe-west1.run.app' : window.location.origin);
+    socket = io(socketUrl);
 
     socket.on('room_created', (id: string) => {
       setRoomId(id);
