@@ -55,6 +55,13 @@ jobs:
       - name: Sync Android
         run: npx cap sync android
 
+      - name: Ensure Images are Copied
+        run: |
+          echo "Ensuring game images are in Android assets"
+          mkdir -p android/app/src/main/assets/public
+          cp public/*.png android/app/src/main/assets/public/ || true
+          ls -R android/app/src/main/assets/public/
+
       - name: Regenerate Gradle Wrapper
         run: |
           cd android

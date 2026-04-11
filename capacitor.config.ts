@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.omr.cardclash',
-  appName: 'CardClash',
+  appName: 'صراع البطاقات: حجر ورقة مقص',
   webDir: 'dist'
 };
 
