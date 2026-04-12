@@ -9,6 +9,7 @@ import { registerPlugin, Capacitor } from '@capacitor/core';
 export interface LocalServerPlugin {
   startServer(options: { port: number }): Promise<{ status: string; port: number }>;
   stopServer(): Promise<void>;
+  getLocalIpAddress(): Promise<{ ip: string }>;
   broadcastMessage(options: { message: string }): Promise<void>;
   addListener(eventName: 'onClientConnected', listenerFunc: (info: { clientId: string }) => void): any;
   addListener(eventName: 'onClientDisconnected', listenerFunc: (info: { clientId: string }) => void): any;
@@ -80,6 +81,15 @@ export default function App() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [showDebug, setShowDebug] = useState(false);
 
+  // Refs to avoid stale closures in listeners
+  const roomIdRef = React.useRef<string | null>(null);
+  const roomStateRef = React.useRef<Room | null>(null);
+
+  useEffect(() => {
+    roomIdRef.current = roomId;
+    roomStateRef.current = roomState;
+  }, [roomId, roomState]);
+
   const addLog = (msg: string, type: 'info' | 'error' | 'success' = 'info') => {
     const newLog: LogEntry = { id: Date.now() + Math.random(), time: new Date().toLocaleTimeString(), msg, type };
     setLogs(prev => [newLog, ...prev].slice(0, 50));
@@ -109,14 +119,67 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!navigator.onLine) {
-      setUserIp('أنت غير متصل بالإنترنت');
-      return;
-    }
-    fetch('https://api.ipify.org?format=json')
-      .then(res => res.json())
-      .then(data => setUserIp(data.ip))
-      .catch(() => setUserIp('تعذر جلب الـ IP'));
+    const fetchIp = async () => {
+      addLog('Fetching IP address...', 'info');
+      
+      // 1. Try Native Local IP (Preferred for LAN)
+      if (Capacitor.getPlatform() !== 'web') {
+        try {
+          const result = await LocalServer.getLocalIpAddress();
+          if (result && result.ip) {
+            setUserIp(result.ip);
+            addLog(`Local IP obtained natively: ${result.ip}`, 'success');
+            return;
+          }
+        } catch (e) {
+          addLog(`Native Local IP fetch failed: ${e}`, 'error');
+        }
+      }
+
+      // 2. Fallback to WebRTC Local IP (Works in many WebViews)
+      try {
+        const pc = new RTCPeerConnection({ iceServers: [] });
+        pc.createDataChannel("");
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        
+        const ipPromise = new Promise<string>((resolve) => {
+          pc.onicecandidate = (ice) => {
+            if (!ice || !ice.candidate || !ice.candidate.candidate) return;
+            const ipMatch = /([0-9]{1,3}(\.[0-9]{1,3}){3})/.exec(ice.candidate.candidate);
+            if (ipMatch) {
+              pc.onicecandidate = null;
+              resolve(ipMatch[1]);
+            }
+          };
+          setTimeout(() => resolve(''), 1500);
+        });
+
+        const localIp = await ipPromise;
+        if (localIp && localIp !== '0.0.0.0') {
+          setUserIp(localIp);
+          addLog(`Local IP obtained via WebRTC: ${localIp}`, 'success');
+          return;
+        }
+      } catch (e) {
+        addLog(`WebRTC IP fetch failed: ${e}`, 'error');
+      }
+
+      // 3. Last Resort: Public IP (What was currently used)
+      addLog('Falling back to public IP fetch...', 'info');
+      fetch('https://api.ipify.org?format=json')
+        .then(res => res.json())
+        .then(data => {
+          setUserIp(data.ip);
+          addLog(`Public IP obtained: ${data.ip}`, 'info');
+        })
+        .catch(() => {
+          setUserIp('تعذر جلب الـ IP');
+          addLog('Failed to fetch any IP address', 'error');
+        });
+    };
+
+    fetchIp();
   }, []);
 
   useEffect(() => {
@@ -194,6 +257,13 @@ export default function App() {
       }
     });
 
+    socket.on('STATE_UPDATE', (data: any) => {
+      addLog('Received state update from local host', 'info');
+      if (data.state) {
+        setRoomState(data.state);
+      }
+    });
+
     socket.on('error_msg', (msg: string) => {
       addLog(`Socket error_msg: ${msg}`, 'error');
       setErrorMsg(msg);
@@ -232,10 +302,76 @@ export default function App() {
     initLocalServer();
   }, []);
 
-  const handleLocalMessage = (clientId: string, data: any) => {
-    // Handle game logic for local server
-    console.log('Local message:', clientId, data);
+  const broadcastLocalState = (state: Room) => {
+    addLog('Broadcasting local state update...', 'info');
+    setRoomState({ ...state });
+    if (Capacitor.getPlatform() !== 'web' && roomIdRef.current === 'LOCAL_HOST') {
+      LocalServer.broadcastMessage({ message: JSON.stringify({ type: 'STATE_UPDATE', state }) })
+        .then(() => addLog('Broadcast successful', 'success'))
+        .catch(e => addLog(`Broadcast failed: ${e}`, 'error'));
+    }
+  };
+
+  const resolveLocalRound = (state: Room) => {
+    const playerIds = Object.keys(state.players);
+    if (playerIds.length < 2) return;
     
+    const p1 = state.players[playerIds[0]];
+    const p2 = state.players[playerIds[1]];
+    
+    if (!p1.choice || !p2.choice) return;
+    
+    state.gameState = 'revealing';
+    broadcastLocalState(state);
+    
+    setTimeout(() => {
+      const winner = (c1: CardType, c2: CardType) => {
+        if (c1 === c2) return 0;
+        if ((c1 === 'rock' && c2 === 'scissors') || (c1 === 'paper' && c2 === 'rock') || (c1 === 'scissors' && c2 === 'paper')) return 1;
+        return 2;
+      };
+      
+      const winnerCode = winner(p1.choice!, p2.choice!);
+      let points = 1;
+      if (state.round >= 6 && state.round <= 8) points = 2;
+      else if (state.round === 9) points = 3;
+      
+      if (winnerCode === 1) {
+        p1.score += points;
+        state.roundWinner = p1.id;
+      } else if (winnerCode === 2) {
+        p2.score += points;
+        state.roundWinner = p2.id;
+      } else {
+        state.roundWinner = 'draw';
+      }
+      
+      state.gameState = 'roundResult';
+      broadcastLocalState(state);
+      
+      setTimeout(() => {
+        if (state.round >= 9) {
+          state.gameState = 'gameOver';
+        } else {
+          state.round += 1;
+          state.gameState = 'playing';
+          state.roundWinner = null;
+          p1.choice = null;
+          p2.choice = null;
+        }
+        broadcastLocalState(state);
+      }, 3000);
+    }, 1200);
+  };
+
+  const handleLocalMessage = (clientId: string, data: any) => {
+    addLog(`Processing local message from ${clientId}: ${data.type}`, 'info');
+    
+    if (roomIdRef.current !== 'LOCAL_HOST') {
+      addLog(`Ignoring message: not in LOCAL_HOST mode (current: ${roomIdRef.current})`, 'info');
+      return;
+    }
+
     setRoomState(prev => {
       if (!prev) return prev;
       const newState = { ...prev };
@@ -243,37 +379,40 @@ export default function App() {
       if (data.type === 'JOIN') {
         newState.players[clientId] = {
           id: clientId,
-          name: data.name,
+          name: data.name || 'لاعب مجهول',
           deck: { rock: 3, paper: 3, scissors: 3 },
           score: 0,
           choice: null,
           readyForNext: false
         };
         newState.gameState = 'playing';
+        addLog(`Player ${data.name} joined local game`, 'success');
+        // Side effect outside of updater to avoid recursion
+        setTimeout(() => broadcastLocalState(newState), 0);
       } else if (data.type === 'PLAY_CARD') {
         const player = newState.players[clientId];
         if (player && !player.choice) {
           player.choice = data.choice;
           player.deck[data.choice] -= 1;
+          addLog(`Player ${player.name} played ${data.choice}`, 'info');
           
-          // Check if both played
           const playerIds = Object.keys(newState.players);
           if (playerIds.every(id => newState.players[id].choice)) {
-            // Logic to reveal and resolve round
-            // This is complex for a local bridge, but we'll implement basic state sync
-            newState.gameState = 'revealing';
+            setTimeout(() => resolveLocalRound(newState), 0);
+          } else {
+            setTimeout(() => broadcastLocalState(newState), 0);
           }
         }
       }
       
-      // Broadcast new state to all clients
-      LocalServer.broadcastMessage({ message: JSON.stringify({ type: 'STATE_UPDATE', state: newState }) });
       return newState;
     });
   };
 
   const hostGame = async () => {
+    addLog('Host button clicked', 'info');
     if (!playerName.trim()) {
+      addLog('Host failed: Player name empty', 'error');
       setErrorMsg('يرجى إدخال اسمك أولاً');
       return;
     }
@@ -284,10 +423,15 @@ export default function App() {
     }
     try {
       addLog(`Attempting to start LocalServer on port 8080...`, 'info');
-      await LocalServer.startServer({ port: 8080 });
-      addLog(`LocalServer started successfully on port 8080`, 'success');
-      setRoomId('LOCAL_HOST');
-      setAppState('inRoom');
+      
+      // Check if LocalServer is actually available
+      if (!LocalServer || typeof LocalServer.startServer !== 'function') {
+        addLog('LocalServer plugin or startServer method is missing', 'error');
+        throw new Error('Plugin not found or missing startServer method');
+      }
+
+      const startResult = await LocalServer.startServer({ port: 8080 });
+      addLog(`LocalServer start result: ${JSON.stringify(startResult)}`, 'success');
       
       const initialPlayer: Player = {
         id: 'host',
@@ -298,6 +442,7 @@ export default function App() {
         readyForNext: false
       };
 
+      // Set state in one go to avoid partial renders
       setRoomState({
         id: 'LOCAL_HOST',
         players: { 'host': initialPlayer },
@@ -305,6 +450,10 @@ export default function App() {
         round: 1,
         roundWinner: null
       });
+      setRoomId('LOCAL_HOST');
+      setAppState('inRoom');
+      setErrorMsg(null);
+      addLog('Host state initialized successfully', 'success');
     } catch (e) {
       addLog(`Host error: ${e}`, 'error');
       console.error('Host error:', e);
@@ -392,12 +541,36 @@ export default function App() {
     }
     addLog(`Joining local game at ${url}...`, 'info');
     const s = setupSocket(url);
-    s.emit('join_hosted_game', playerName.trim());
+    
+    // We need to send a message that the local host understands
+    s.on('connect', () => {
+      s.emit('message', JSON.stringify({ type: 'JOIN', name: playerName.trim() }));
+      // Also emit the standard event just in case
+      s.emit('join_hosted_game', playerName.trim());
+    });
   };
 
   const playCard = (choice: CardType) => {
     if (!roomId) return;
     
+    if (roomIdRef.current === 'LOCAL_HOST' && roomStateRef.current) {
+      const newState = { ...roomStateRef.current };
+      const host = newState.players['host'];
+      if (host && !host.choice) {
+        host.choice = choice;
+        host.deck[choice] -= 1;
+        addLog(`Host played ${choice}`, 'info');
+        
+        const playerIds = Object.keys(newState.players);
+        if (playerIds.length >= 2 && playerIds.every(id => newState.players[id].choice)) {
+          setTimeout(() => resolveLocalRound(newState), 0);
+        } else {
+          broadcastLocalState(newState);
+        }
+      }
+      return;
+    }
+
     if (roomId === 'OFFLINE_BOT' && roomState) {
       const newState = { ...roomState };
       const me = newState.players['me'];
@@ -465,7 +638,13 @@ export default function App() {
     }
 
     if (socket) {
-      socket.emit('play_card', { roomId, choice });
+      if (roomId === 'LOCAL_HOST') {
+        // This case is handled above, but just in case
+      } else {
+        // Check if we are connected to a local server (no roomId yet or special roomId)
+        socket.emit('message', JSON.stringify({ type: 'PLAY_CARD', choice }));
+        socket.emit('play_card', { roomId, choice });
+      }
     }
   };
 
@@ -479,6 +658,23 @@ export default function App() {
     
     if (roomId === 'OFFLINE_BOT') {
       createBotRoom();
+      return;
+    }
+
+    if (roomId === 'LOCAL_HOST' && roomState) {
+      addLog('Resetting local game for play again', 'info');
+      const newState = { ...roomState };
+      const playerIds = Object.keys(newState.players);
+      playerIds.forEach(id => {
+        newState.players[id].deck = { rock: 3, paper: 3, scissors: 3 };
+        newState.players[id].score = 0;
+        newState.players[id].choice = null;
+        newState.players[id].readyForNext = false;
+      });
+      newState.gameState = 'playing';
+      newState.round = 1;
+      newState.roundWinner = null;
+      broadcastLocalState(newState);
       return;
     }
 
@@ -523,340 +719,430 @@ export default function App() {
     setErrorMsg(null);
   };
 
+  const renderDebugUI = () => (
+    <>
+      {/* Debug Toggle Button */}
+      <button 
+        onClick={() => setShowDebug(true)} 
+        className="fixed top-6 right-6 p-3.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl shadow-xl shadow-indigo-500/30 z-[60] transition-all active:scale-90 flex items-center gap-2 border border-indigo-400/30"
+        title="سجل الأخطاء"
+      >
+        <Bug className="w-5 h-5" />
+        <span className="text-xs font-bold font-sans">Debug</span>
+      </button>
+
+      {/* Debug Overlay */}
+      <AnimatePresence>
+        {showDebug && (
+          <motion.div 
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            className="fixed inset-0 z-[70] bg-slate-950/95 flex flex-col p-4 font-mono text-xs"
+            dir="ltr"
+          >
+            <div className="flex justify-between items-center mb-4 border-b border-slate-800 pb-2">
+              <h3 className="text-slate-200 font-bold text-lg font-sans" dir="rtl">سجل الأخطاء والاتصال</h3>
+              <div className="flex gap-2">
+                <button 
+                  onClick={async () => {
+                    addLog('Testing LocalServer plugin...', 'info');
+                    try {
+                      const ip = await LocalServer.getLocalIpAddress();
+                      addLog(`Plugin Test Success! IP: ${ip.ip}`, 'success');
+                    } catch (e) {
+                      addLog(`Plugin Test Failed: ${e}`, 'error');
+                    }
+                  }}
+                  className="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] rounded-lg font-bold transition-colors font-sans"
+                  dir="rtl"
+                >
+                  فحص الإضافة
+                </button>
+                <button 
+                  onClick={() => setLogs([])}
+                  className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] rounded-lg font-bold transition-colors font-sans"
+                  dir="rtl"
+                >
+                  مسح السجل
+                </button>
+                <button onClick={() => setShowDebug(false)} className="p-1.5 bg-slate-800 rounded-full text-slate-400 hover:text-white transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto space-y-2 flex flex-col-reverse">
+              {logs.length === 0 && (
+                <div className="text-slate-500 text-center py-4 font-sans" dir="rtl">لا يوجد سجلات حتى الآن</div>
+              )}
+              {logs.map(log => (
+                <div key={log.id} className={`p-2 rounded border break-words ${log.type === 'error' ? 'bg-rose-500/10 border-rose-500/30 text-rose-400' : log.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-slate-800/50 border-slate-700 text-slate-300'}`}>
+                  <span className="opacity-50 mr-2">[{log.time}]</span>
+                  {log.msg}
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+
   if (appState === 'nameEntry') {
     return (
-      <div 
-        dir="rtl" 
-        className="h-[100dvh] bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4 sm:p-6 font-sans"
-        style={{
-          paddingTop: 'env(safe-area-inset-top)',
-          paddingBottom: 'env(safe-area-inset-bottom)',
-        }}
-      >
-        <motion.div
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          className="max-w-sm w-full bg-slate-900/50 p-8 rounded-3xl border border-slate-800 backdrop-blur-sm"
+      <>
+        <div 
+          dir="rtl" 
+          className="h-[100dvh] bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4 sm:p-6 font-sans"
+          style={{
+            paddingTop: 'env(safe-area-inset-top)',
+            paddingBottom: 'env(safe-area-inset-bottom)',
+          }}
         >
-          <div className="mb-8 flex justify-center gap-4">
-            <motion.img src="./rock.png" alt="حجر" className="w-16 h-16 object-contain" animate={{ y: [0, -10, 0] }} transition={{ repeat: Infinity, duration: 2 }} />
-            <motion.img src="./paper.png" alt="ورقة" className="w-16 h-16 object-contain" animate={{ y: [0, -10, 0] }} transition={{ repeat: Infinity, duration: 2, delay: 0.2 }} />
-            <motion.img src="./scissors.png" alt="مقص" className="w-16 h-16 object-contain" animate={{ y: [0, -10, 0] }} transition={{ repeat: Infinity, duration: 2, delay: 0.4 }} />
-          </div>
+          <motion.div
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            className="max-w-sm w-full bg-slate-900/50 p-8 rounded-3xl border border-slate-800 backdrop-blur-sm"
+          >
+            <div className="mb-8 flex justify-center gap-4">
+              <motion.img src="./rock.png" alt="حجر" className="w-16 h-16 object-contain" animate={{ y: [0, -10, 0] }} transition={{ repeat: Infinity, duration: 2 }} />
+              <motion.img src="./paper.png" alt="ورقة" className="w-16 h-16 object-contain" animate={{ y: [0, -10, 0] }} transition={{ repeat: Infinity, duration: 2, delay: 0.2 }} />
+              <motion.img src="./scissors.png" alt="مقص" className="w-16 h-16 object-contain" animate={{ y: [0, -10, 0] }} transition={{ repeat: Infinity, duration: 2, delay: 0.4 }} />
+            </div>
 
-          <h2 className="text-2xl font-bold mb-6 text-center text-slate-200">مرحباً بك أيها المحارب!</h2>
-          <p className="text-slate-400 text-center mb-8">ما هو الاسم الذي تود أن يعرفك به خصومك؟</p>
-          
-          <div className="space-y-6">
-            <input
-              type="text"
-              placeholder="أدخل اسمك هنا..."
-              value={playerName}
-              onChange={(e) => setPlayerName(e.target.value)}
-              autoFocus
-              className="w-full bg-slate-950 border-2 border-slate-800 rounded-2xl py-3.5 px-6 text-center text-lg font-bold focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all"
-              onKeyDown={(e) => e.key === 'Enter' && saveName()}
-            />
+            <h2 className="text-2xl font-bold mb-6 text-center text-slate-200">مرحباً بك أيها المحارب!</h2>
+            <p className="text-slate-400 text-center mb-8">ما هو الاسم الذي تود أن يعرفك به خصومك؟</p>
             
-            {errorMsg && (
-              <p className="text-rose-400 text-sm text-center animate-pulse max-w-[90%] mx-auto">{errorMsg}</p>
-            )}
+            <div className="space-y-6">
+              <input
+                type="text"
+                placeholder="أدخل اسمك هنا..."
+                value={playerName}
+                onChange={(e) => setPlayerName(e.target.value)}
+                autoFocus
+                className="w-full bg-slate-950 border-2 border-slate-800 rounded-2xl py-3.5 px-6 text-center text-lg font-bold focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all"
+                onKeyDown={(e) => e.key === 'Enter' && saveName()}
+              />
+              
+              {errorMsg && (
+                <p className="text-rose-400 text-sm text-center animate-pulse max-w-[90%] mx-auto">{errorMsg}</p>
+              )}
 
-            <button
-              onClick={saveName}
-              className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-black text-lg shadow-lg shadow-indigo-500/20 transition-all active:scale-95"
-            >
-              تأكيد الاسم
-            </button>
-          </div>
-        </motion.div>
-      </div>
+              <button
+                onClick={saveName}
+                className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-black text-lg shadow-lg shadow-indigo-500/20 transition-all active:scale-95"
+              >
+                تأكيد الاسم
+              </button>
+            </div>
+          </motion.div>
+        </div>
+        {renderDebugUI()}
+      </>
     );
   }
 
   if (appState === 'menu') {
     return (
-      <div 
-        dir="rtl" 
-        className="h-[100dvh] bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4 sm:p-6 font-sans overflow-y-auto"
-        style={{
-          paddingTop: 'env(safe-area-inset-top)',
-          paddingBottom: 'env(safe-area-inset-bottom)',
-          paddingLeft: 'env(safe-area-inset-left)',
-          paddingRight: 'env(safe-area-inset-right)'
-        }}
-      >
-        <motion.div
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          className="max-w-md w-full text-center"
+      <>
+        <div 
+          dir="rtl" 
+          className="h-[100dvh] bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4 sm:p-6 font-sans overflow-y-auto"
+          style={{
+            paddingTop: 'env(safe-area-inset-top)',
+            paddingBottom: 'env(safe-area-inset-bottom)',
+            paddingLeft: 'env(safe-area-inset-left)',
+            paddingRight: 'env(safe-area-inset-right)'
+          }}
         >
-          <div className="mb-6 flex items-center justify-center gap-3 bg-slate-900/40 py-3 px-6 rounded-2xl border border-slate-800 w-fit max-w-[90%] mx-auto">
-            <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse" />
-            <span className="text-slate-300 font-bold">المحارب: {playerName}</span>
-            <button 
-              onClick={() => setAppState('nameEntry')}
-              className="p-1.5 bg-slate-800 rounded-lg text-slate-400 hover:bg-slate-700 hover:text-white transition-all"
-              title="تعديل الاسم"
-            >
-              <Edit2 className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
-          <h1 className="text-3xl sm:text-4xl font-black mb-8 text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">
-            اختر وضع اللعب
-          </h1>
-          
-          {errorMsg && (
-            <div className="mb-6 p-3 bg-rose-500/20 border border-rose-500/50 text-rose-400 rounded-xl text-sm sm:text-base max-w-[90%] mx-auto text-center">
-              {errorMsg}
+          <motion.div
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            className="max-w-md w-full text-center"
+          >
+            <div className="mb-6 flex items-center justify-center gap-3 bg-slate-900/40 py-3 px-6 rounded-2xl border border-slate-800 w-fit max-w-[90%] mx-auto">
+              <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse" />
+              <span className="text-slate-300 font-bold">المحارب: {playerName}</span>
+              <button 
+                onClick={() => setAppState('nameEntry')}
+                className="p-1.5 bg-slate-800 rounded-lg text-slate-400 hover:bg-slate-700 hover:text-white transition-all"
+                title="تعديل الاسم"
+              >
+                <Edit2 className="w-3.5 h-3.5" />
+              </button>
             </div>
-          )}
 
-          <div className="space-y-4">
-            <AnimatePresence mode="wait">
-              {menuTab === 'main' && (
-                <motion.div
-                  key="main"
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 20 }}
-                  className="flex flex-col gap-3"
-                >
-                  <button
-                    disabled
-                    className="w-[90%] mx-auto py-3 sm:py-4 bg-slate-800 text-slate-500 rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg shadow-lg cursor-not-allowed flex items-center justify-center gap-2 relative overflow-hidden"
-                  >
-                    <Globe className="w-5 h-5 sm:w-6 sm:h-6" /> لعب عبر الإنترنت
-                    <span className="absolute top-0 right-0 bg-rose-500/20 text-rose-400 text-[10px] sm:text-xs px-2 py-0.5 rounded-bl-lg font-bold">تحت الصيانة</span>
-                  </button>
-                  <button
-                    onClick={() => setMenuTab('local')}
-                    className="w-[90%] mx-auto py-3 sm:py-4 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg shadow-lg shadow-cyan-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
-                  >
-                    <Home className="w-5 h-5 sm:w-6 sm:h-6" /> شبكة محلية (IP)
-                  </button>
-                  <button
-                    onClick={createBotRoom}
-                    className="w-[90%] mx-auto py-3 sm:py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg shadow-lg shadow-emerald-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
-                  >
-                    <Bot className="w-5 h-5 sm:w-6 sm:h-6" /> ضد الكمبيوتر
-                  </button>
-                </motion.div>
-              )}
+            <h1 className="text-3xl sm:text-4xl font-black mb-8 text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">
+              اختر وضع اللعب
+            </h1>
+            
+            {errorMsg && (
+              <div className="mb-6 p-3 bg-rose-500/20 border border-rose-500/50 text-rose-400 rounded-xl text-sm sm:text-base max-w-[90%] mx-auto text-center">
+                {errorMsg}
+              </div>
+            )}
 
-              {menuTab === 'online' && (
-                <motion.div
-                  key="online"
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 20 }}
-                  className="flex flex-col gap-3"
-                >
-                  <button onClick={() => setMenuTab('main')} className="text-slate-400 hover:text-white flex items-center gap-2 mb-2 w-fit transition-colors text-sm sm:text-base">
-                    <span>➔</span> رجوع
-                  </button>
-                  <button
-                    onClick={createRoom}
-                    className="w-[90%] mx-auto py-3 sm:py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg shadow-lg shadow-indigo-500/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+            <div className="space-y-4">
+              <AnimatePresence mode="wait">
+                {menuTab === 'main' && (
+                  <motion.div
+                    key="main"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 20 }}
+                    className="flex flex-col gap-3"
                   >
-                    إنشاء غرفة جديدة
-                  </button>
-                  
-                  <div className="relative flex items-center py-2">
-                    <div className="flex-grow border-t border-slate-800"></div>
-                    <span className="flex-shrink-0 mx-4 text-slate-500 text-xs sm:text-sm">أو الانضمام لغرفة</span>
-                    <div className="flex-grow border-t border-slate-800"></div>
-                  </div>
-
-                  <div className="relative w-[90%] mx-auto">
-                    <input
-                      type="text"
-                      placeholder="أدخل كود الغرفة..."
-                      value={roomIdInput}
-                      onChange={(e) => setRoomIdInput(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-xl sm:rounded-2xl py-3 sm:py-4 px-4 sm:px-6 text-center text-lg sm:text-xl font-mono uppercase focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
-                      maxLength={6}
-                    />
-                    {roomIdInput.trim().length > 0 && (
-                      <motion.button
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        onClick={joinRoom}
-                        className="absolute left-1.5 sm:left-2 top-1.5 sm:top-2 bottom-1.5 sm:bottom-2 px-4 sm:px-6 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg sm:rounded-xl font-bold transition-all shadow-md text-sm sm:text-base"
-                      >
-                        انضمام
-                      </motion.button>
-                    )}
-                  </div>
-                </motion.div>
-              )}
-
-              {menuTab === 'local' && (
-                <motion.div
-                  key="local"
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 20 }}
-                  className="flex flex-col gap-6 w-full max-w-[340px] mx-auto px-2"
-                >
-                  <button 
-                    onClick={() => setMenuTab('main')} 
-                    className="text-slate-400 hover:text-white flex items-center gap-2 w-fit transition-colors text-sm font-bold group mb-1 ms-2"
-                  >
-                    <span className="group-hover:-translate-x-1 transition-transform">➔</span> رجوع للقائمة
-                  </button>
-
-                  {/* Host Section */}
-                  <div className="bg-slate-900/60 border border-slate-800 p-5 rounded-3xl backdrop-blur-sm shadow-xl">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="p-2 bg-cyan-500/10 rounded-xl">
-                        <Globe className="w-5 h-5 text-cyan-400" />
-                      </div>
-                      <div className="text-right">
-                        <h3 className="text-slate-200 font-bold text-sm">استضافة لعبة</h3>
-                        <p className="text-[10px] text-slate-500">حول جهازك إلى خادم محلي</p>
-                      </div>
-                    </div>
-                    
                     <button
-                      onClick={hostGame}
-                      className="w-full py-3.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-2xl font-black text-base shadow-lg shadow-cyan-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
+                      disabled
+                      className="w-[90%] mx-auto py-3 sm:py-4 bg-slate-800 text-slate-500 rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg shadow-lg cursor-not-allowed flex items-center justify-center gap-2 relative overflow-hidden"
                     >
-                      بدء الاستضافة (Host)
+                      <Globe className="w-5 h-5 sm:w-6 sm:h-6" /> لعب عبر الإنترنت
+                      <span className="absolute top-0 right-0 bg-rose-500/20 text-rose-400 text-[10px] sm:text-xs px-2 py-0.5 rounded-bl-lg font-bold">تحت الصيانة</span>
+                    </button>
+                    <button
+                      onClick={() => setMenuTab('local')}
+                      className="w-[90%] mx-auto py-3 sm:py-4 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg shadow-lg shadow-cyan-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
+                    >
+                      <Home className="w-5 h-5 sm:w-6 sm:h-6" /> شبكة محلية (IP)
+                    </button>
+                    <button
+                      onClick={createBotRoom}
+                      className="w-[90%] mx-auto py-3 sm:py-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg shadow-lg shadow-emerald-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
+                    >
+                      <Bot className="w-5 h-5 sm:w-6 sm:h-6" /> ضد الكمبيوتر
+                    </button>
+                  </motion.div>
+                )}
+
+                {menuTab === 'online' && (
+                  <motion.div
+                    key="online"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 20 }}
+                    className="flex flex-col gap-3"
+                  >
+                    <button onClick={() => setMenuTab('main')} className="text-slate-400 hover:text-white flex items-center gap-2 mb-2 w-fit transition-colors text-sm sm:text-base">
+                      <span>➔</span> رجوع
+                    </button>
+                    <button
+                      onClick={createRoom}
+                      className="w-[90%] mx-auto py-3 sm:py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg shadow-lg shadow-indigo-500/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                    >
+                      إنشاء غرفة جديدة
                     </button>
                     
-                    <p className="text-[10px] text-slate-500 text-center mt-3 px-2 leading-relaxed opacity-70">
-                      سيظهر الـ IP الخاص بك للاعبين الآخرين على نفس الشبكة للاتصال بك.
-                    </p>
-                  </div>
-
-                  {/* Join Section */}
-                  <div className="bg-slate-900/60 border border-slate-800 p-5 rounded-3xl backdrop-blur-sm shadow-xl">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="p-2 bg-indigo-500/10 rounded-xl">
-                        <Bot className="w-5 h-5 text-indigo-400" />
-                      </div>
-                      <div className="text-right">
-                        <h3 className="text-slate-200 font-bold text-sm">انضمام لصديق</h3>
-                        <p className="text-[10px] text-slate-500">الاتصال بجهاز صديقك عبر الـ IP</p>
-                      </div>
+                    <div className="relative flex items-center py-2">
+                      <div className="flex-grow border-t border-slate-800"></div>
+                      <span className="flex-shrink-0 mx-4 text-slate-500 text-xs sm:text-sm">أو الانضمام لغرفة</span>
+                      <div className="flex-grow border-t border-slate-800"></div>
                     </div>
 
-                    <div className="relative group">
+                    <div className="relative w-[90%] mx-auto">
                       <input
                         type="text"
-                        placeholder="مثال: 192.168.1.5"
-                        value={ipInput}
-                        onChange={(e) => setIpInput(e.target.value)}
-                        className="w-full bg-slate-950 border-2 border-slate-800 rounded-2xl py-4 px-6 text-center text-lg font-mono focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all placeholder:text-slate-700"
-                        dir="ltr"
+                        placeholder="أدخل كود الغرفة..."
+                        value={roomIdInput}
+                        onChange={(e) => setRoomIdInput(e.target.value)}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-xl sm:rounded-2xl py-3 sm:py-4 px-4 sm:px-6 text-center text-lg sm:text-xl font-mono uppercase focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
+                        maxLength={6}
                       />
-                      <AnimatePresence>
-                        {ipInput.trim().length > 0 && (
-                          <motion.button
-                            initial={{ opacity: 0, scale: 0.9, x: 10 }}
-                            animate={{ opacity: 1, scale: 1, x: 0 }}
-                            exit={{ opacity: 0, scale: 0.9, x: 10 }}
-                            onClick={joinGame}
-                            className="absolute left-2 top-2 bottom-2 px-6 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-black transition-all shadow-lg shadow-indigo-500/30 text-sm"
-                          >
-                            اتصال
-                          </motion.button>
-                        )}
-                      </AnimatePresence>
+                      {roomIdInput.trim().length > 0 && (
+                        <motion.button
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          onClick={joinRoom}
+                          className="absolute left-1.5 sm:left-2 top-1.5 sm:top-2 bottom-1.5 sm:bottom-2 px-4 sm:px-6 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg sm:rounded-xl font-bold transition-all shadow-md text-sm sm:text-base"
+                        >
+                          انضمام
+                        </motion.button>
+                      )}
                     </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        </motion.div>
-      </div>
+                  </motion.div>
+                )}
+
+                {menuTab === 'local' && (
+                  <motion.div
+                    key="local"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 20 }}
+                    className="flex flex-col gap-6 w-full max-w-[340px] mx-auto px-2"
+                  >
+                    <button 
+                      onClick={() => setMenuTab('main')} 
+                      className="text-slate-400 hover:text-white flex items-center gap-2 w-fit transition-colors text-sm font-bold group mb-1 ms-2"
+                    >
+                      <span className="group-hover:-translate-x-1 transition-transform">➔</span> رجوع للقائمة
+                    </button>
+
+                    {/* Host Section */}
+                    <div className="bg-slate-900/60 border border-slate-800 p-5 rounded-3xl backdrop-blur-sm shadow-xl">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="p-2 bg-cyan-500/10 rounded-xl">
+                          <Globe className="w-5 h-5 text-cyan-400" />
+                        </div>
+                        <div className="text-right">
+                          <h3 className="text-slate-200 font-bold text-sm">استضافة لعبة</h3>
+                          <p className="text-[10px] text-slate-500">حول جهازك إلى خادم محلي</p>
+                        </div>
+                      </div>
+                      
+                      <button
+                        onClick={hostGame}
+                        className="w-full py-3.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-2xl font-black text-base shadow-lg shadow-cyan-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
+                      >
+                        بدء الاستضافة (Host)
+                      </button>
+                      
+                      <p className="text-[10px] text-slate-500 text-center mt-3 px-2 leading-relaxed opacity-70">
+                        سيظهر الـ IP الخاص بك للاعبين الآخرين على نفس الشبكة للاتصال بك.
+                      </p>
+                    </div>
+
+                    {/* Join Section */}
+                    <div className="bg-slate-900/60 border border-slate-800 p-5 rounded-3xl backdrop-blur-sm shadow-xl">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="p-2 bg-indigo-500/10 rounded-xl">
+                          <Bot className="w-5 h-5 text-indigo-400" />
+                        </div>
+                        <div className="text-right">
+                          <h3 className="text-slate-200 font-bold text-sm">انضمام لصديق</h3>
+                          <p className="text-[10px] text-slate-500">الاتصال بجهاز صديقك عبر الـ IP</p>
+                        </div>
+                      </div>
+
+                      <div className="relative group">
+                        <input
+                          type="text"
+                          placeholder="مثال: 192.168.1.5"
+                          value={ipInput}
+                          onChange={(e) => setIpInput(e.target.value)}
+                          className="w-full bg-slate-950 border-2 border-slate-800 rounded-2xl py-4 px-6 text-center text-lg font-mono focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all placeholder:text-slate-700"
+                          dir="ltr"
+                        />
+                        <AnimatePresence>
+                          {ipInput.trim().length > 0 && (
+                            <motion.button
+                              initial={{ opacity: 0, scale: 0.9, x: 10 }}
+                              animate={{ opacity: 1, scale: 1, x: 0 }}
+                              exit={{ opacity: 0, scale: 0.9, x: 10 }}
+                              onClick={joinGame}
+                              className="absolute left-2 top-2 bottom-2 px-6 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-black transition-all shadow-lg shadow-indigo-500/30 text-sm"
+                            >
+                              اتصال
+                            </motion.button>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </motion.div>
+        </div>
+        {renderDebugUI()}
+      </>
     );
   }
 
-  if (!roomState) return null;
+  if (!roomState) return (
+    <div className="h-[100dvh] bg-slate-950">
+      {renderDebugUI()}
+    </div>
+  );
 
   const myId = roomState.isBotRoom ? 'me' : (roomId === 'LOCAL_HOST' ? 'host' : socket?.id);
-  if (!myId || !roomState.players[myId]) return null;
+  if (!myId || !roomState.players[myId]) return (
+    <div className="h-[100dvh] bg-slate-950">
+      {renderDebugUI()}
+    </div>
+  );
 
   const me = roomState.players[myId];
   const opponentId = roomState.isBotRoom ? 'bot' : Object.keys(roomState.players).find(id => id !== myId);
   const opponent = opponentId ? roomState.players[opponentId] : null;
 
-  if (!opponent && !roomState.isBotRoom && roomState.gameState !== 'waiting') return null;
+  if (!opponent && !roomState.isBotRoom && roomState.gameState !== 'waiting') return (
+    <div className="h-[100dvh] bg-slate-950">
+      {renderDebugUI()}
+    </div>
+  );
   const opponentName = opponent?.name || 'الخصم';
 
   if (roomState.gameState === 'waiting') {
     return (
-      <div 
-        dir="rtl" 
-        className="h-[100dvh] bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4 sm:p-6 font-sans"
-        style={{
-          paddingTop: 'env(safe-area-inset-top)',
-          paddingBottom: 'env(safe-area-inset-bottom)',
-          paddingLeft: 'env(safe-area-inset-left)',
-          paddingRight: 'env(safe-area-inset-right)'
-        }}
-      >
-        <motion.div
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="bg-slate-900 p-6 sm:p-8 rounded-3xl border border-slate-800 shadow-2xl max-w-sm w-full text-center"
+      <>
+        <div 
+          dir="rtl" 
+          className="h-[100dvh] bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4 sm:p-6 font-sans"
+          style={{
+            paddingTop: 'env(safe-area-inset-top)',
+            paddingBottom: 'env(safe-area-inset-bottom)',
+            paddingLeft: 'env(safe-area-inset-left)',
+            paddingRight: 'env(safe-area-inset-right)'
+          }}
         >
-          <div className="w-12 h-12 rounded-full border-4 border-slate-800 border-t-indigo-500 animate-spin mx-auto mb-6"></div>
-          <h2 className="text-xl font-bold mb-2 text-slate-200">في انتظار الخصم...</h2>
-          
-          {roomId === 'LOCAL_HOST' ? (
-            <>
-              <p className="text-slate-400 mb-4 text-xs sm:text-sm px-4">أنت الآن تستضيف اللعبة. اطلب من صديقك إدخال الـ IP الخاص بك للاتصال.</p>
-              <div className="bg-slate-950 p-3 rounded-2xl border border-slate-800 mb-4">
-                <div className="text-[10px] text-slate-500 mb-1">عنوان الـ IP الخاص بك</div>
-                <div className="text-xl sm:text-2xl font-mono font-black text-cyan-400 select-all">{userIp}</div>
-              </div>
-            </>
-          ) : (
-            <>
-              <p className="text-slate-400 mb-4 text-xs sm:text-sm px-4">شارك كود الغرفة مع صديقك للعب عبر الإنترنت</p>
-              <div className="bg-slate-950 p-3 rounded-2xl border border-slate-800 mb-4">
-                <div className="text-[10px] text-slate-500 mb-1">كود الغرفة</div>
-                <div className="text-3xl font-mono font-black tracking-widest text-indigo-400">{roomId}</div>
-              </div>
-            </>
-          )}
-          
-          <div className="flex flex-col gap-2">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-slate-900 p-6 sm:p-8 rounded-3xl border border-slate-800 shadow-2xl max-w-sm w-full text-center"
+          >
+            <div className="w-12 h-12 rounded-full border-4 border-slate-800 border-t-indigo-500 animate-spin mx-auto mb-6"></div>
+            <h2 className="text-xl font-bold mb-2 text-slate-200">في انتظار الخصم...</h2>
+            
             {roomId === 'LOCAL_HOST' ? (
-              <button
-                onClick={() => navigator.clipboard.writeText(userIp)}
-                className="w-full py-3 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl font-bold transition-all text-sm sm:text-base flex items-center justify-center gap-2"
-              >
-                <Copy className="w-4 h-4" /> نسخ عنوان الـ IP
-              </button>
+              <>
+                <p className="text-slate-400 mb-4 text-xs sm:text-sm px-4">أنت الآن تستضيف اللعبة. اطلب من صديقك إدخال الـ IP الخاص بك للاتصال.</p>
+                <div className="bg-slate-950 p-3 rounded-2xl border border-slate-800 mb-4">
+                  <div className="text-[10px] text-slate-500 mb-1">عنوان الـ IP الخاص بك</div>
+                  <div className="text-xl sm:text-2xl font-mono font-black text-cyan-400 select-all">{userIp}</div>
+                </div>
+              </>
             ) : (
-              <button
-                onClick={copyRoomId}
-                className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold transition-all text-sm sm:text-base flex items-center justify-center gap-2"
-              >
-                <Copy className="w-4 h-4" /> نسخ كود الغرفة
-              </button>
+              <>
+                <p className="text-slate-400 mb-4 text-xs sm:text-sm px-4">شارك كود الغرفة مع صديقك للعب عبر الإنترنت</p>
+                <div className="bg-slate-950 p-3 rounded-2xl border border-slate-800 mb-4">
+                  <div className="text-[10px] text-slate-500 mb-1">كود الغرفة</div>
+                  <div className="text-3xl font-mono font-black tracking-widest text-indigo-400">{roomId}</div>
+                </div>
+              </>
             )}
-            <button
-              onClick={leaveRoom}
-              className="w-full py-3 mt-2 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 rounded-xl font-bold transition-all text-sm sm:text-base"
-            >
-              إلغاء والرجوع
-            </button>
-          </div>
-          
-          {errorMsg && (
-            <div className="mt-4 text-sm text-indigo-300 max-w-[90%] mx-auto text-center">
-              {errorMsg}
+            
+            <div className="flex flex-col gap-2">
+              {roomId === 'LOCAL_HOST' ? (
+                <button
+                  onClick={() => navigator.clipboard.writeText(userIp)}
+                  className="w-full py-3 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl font-bold transition-all text-sm sm:text-base flex items-center justify-center gap-2"
+                >
+                  <Copy className="w-4 h-4" /> نسخ عنوان الـ IP
+                </button>
+              ) : (
+                <button
+                  onClick={copyRoomId}
+                  className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold transition-all text-sm sm:text-base flex items-center justify-center gap-2"
+                >
+                  <Copy className="w-4 h-4" /> نسخ كود الغرفة
+                </button>
+              )}
+              <button
+                onClick={leaveRoom}
+                className="w-full py-3 mt-2 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 rounded-xl font-bold transition-all text-sm sm:text-base"
+              >
+                إلغاء والرجوع
+              </button>
             </div>
-          )}
-        </motion.div>
-      </div>
+            
+            {errorMsg && (
+              <div className="mt-4 text-sm text-indigo-300 max-w-[90%] mx-auto text-center">
+                {errorMsg}
+              </div>
+            )}
+          </motion.div>
+        </div>
+        {renderDebugUI()}
+      </>
     );
   }
 
@@ -868,63 +1154,66 @@ export default function App() {
     const finalLoss = me.score < opponent!.score;
     
     return (
-      <div 
-        dir="rtl" 
-        className="h-[100dvh] bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4 sm:p-6 font-sans overflow-y-auto"
-        style={{
-          paddingTop: 'env(safe-area-inset-top)',
-          paddingBottom: 'env(safe-area-inset-bottom)',
-          paddingLeft: 'env(safe-area-inset-left)',
-          paddingRight: 'env(safe-area-inset-right)'
-        }}
-      >
-        <motion.div
-          initial={{ scale: 0.9, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="bg-slate-900 p-6 sm:p-8 rounded-3xl border border-slate-800 shadow-2xl max-w-sm w-full text-center relative overflow-hidden"
+      <>
+        <div 
+          dir="rtl" 
+          className="h-[100dvh] bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4 sm:p-6 font-sans overflow-y-auto"
+          style={{
+            paddingTop: 'env(safe-area-inset-top)',
+            paddingBottom: 'env(safe-area-inset-bottom)',
+            paddingLeft: 'env(safe-area-inset-left)',
+            paddingRight: 'env(safe-area-inset-right)'
+          }}
         >
-          {finalWin && <div className="absolute inset-0 bg-green-500/10 animate-pulse"></div>}
-          {finalLoss && <div className="absolute inset-0 bg-rose-500/10 animate-pulse"></div>}
-          
-          <div className="relative z-10">
-            <h2 className="text-2xl font-bold mb-2 text-slate-400">النتيجة النهائية</h2>
-            <div className="text-7xl mb-6 mt-4">
-              {finalWin ? '🏆' : finalLoss ? '💀' : '🤝'}
-            </div>
-            <div className={`text-3xl font-black mb-8 ${finalWin ? 'text-green-400' : finalLoss ? 'text-rose-400' : 'text-slate-300'}`}>
-              {finalWin ? 'لقد انتصرت!' : finalLoss ? 'لقد خسرت!' : 'تعادل!'}
-            </div>
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-slate-900 p-6 sm:p-8 rounded-3xl border border-slate-800 shadow-2xl max-w-sm w-full text-center relative overflow-hidden"
+          >
+            {finalWin && <div className="absolute inset-0 bg-green-500/10 animate-pulse"></div>}
+            {finalLoss && <div className="absolute inset-0 bg-rose-500/10 animate-pulse"></div>}
             
-            <div className="flex justify-center gap-8 mb-8 bg-slate-950/50 py-5 rounded-2xl border border-slate-800">
-              <div className="flex flex-col items-center">
-                <span className="text-slate-500 text-[10px] mb-1 uppercase tracking-wider">{me.name}</span>
-                <span className="text-4xl font-black text-indigo-400">{me.score}</span>
+            <div className="relative z-10">
+              <h2 className="text-2xl font-bold mb-2 text-slate-400">النتيجة النهائية</h2>
+              <div className="text-7xl mb-6 mt-4">
+                {finalWin ? '🏆' : finalLoss ? '💀' : '🤝'}
               </div>
-              <div className="w-px bg-slate-800 my-2"></div>
-              <div className="flex flex-col items-center">
-                <span className="text-slate-500 text-[10px] mb-1 uppercase tracking-wider">{opponentName}</span>
-                <span className="text-4xl font-black text-rose-400">{opponent!.score}</span>
+              <div className={`text-3xl font-black mb-8 ${finalWin ? 'text-green-400' : finalLoss ? 'text-rose-400' : 'text-slate-300'}`}>
+                {finalWin ? 'لقد انتصرت!' : finalLoss ? 'لقد خسرت!' : 'تعادل!'}
               </div>
-            </div>
+              
+              <div className="flex justify-center gap-8 mb-8 bg-slate-950/50 py-5 rounded-2xl border border-slate-800">
+                <div className="flex flex-col items-center">
+                  <span className="text-slate-500 text-[10px] mb-1 uppercase tracking-wider">{me.name}</span>
+                  <span className="text-4xl font-black text-indigo-400">{me.score}</span>
+                </div>
+                <div className="w-px bg-slate-800 my-2"></div>
+                <div className="flex flex-col items-center">
+                  <span className="text-slate-500 text-[10px] mb-1 uppercase tracking-wider">{opponentName}</span>
+                  <span className="text-4xl font-black text-rose-400">{opponent!.score}</span>
+                </div>
+              </div>
 
-            <div className="flex flex-col gap-3">
-              <button
-                onClick={playAgain}
-                disabled={me.readyForNext}
-                className={`w-full py-4 rounded-xl font-bold text-lg transition-all shadow-lg ${me.readyForNext ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-500/20 hover:scale-[1.02] active:scale-[0.98]'}`}
-              >
-                {me.readyForNext ? 'في انتظار الخصم...' : 'العب مرة أخرى'}
-              </button>
-              <button
-                onClick={leaveRoom}
-                className="w-full py-3 bg-slate-800/50 hover:bg-slate-800 text-slate-300 rounded-xl font-bold transition-all"
-              >
-                الرجوع للقائمة الرئيسية
-              </button>
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={playAgain}
+                  disabled={me.readyForNext}
+                  className={`w-full py-4 rounded-xl font-bold text-lg transition-all shadow-lg ${me.readyForNext ? 'bg-slate-800 text-slate-500 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-500/20 hover:scale-[1.02] active:scale-[0.98]'}`}
+                >
+                  {me.readyForNext ? 'في انتظار الخصم...' : 'العب مرة أخرى'}
+                </button>
+                <button
+                  onClick={leaveRoom}
+                  className="w-full py-3 bg-slate-800/50 hover:bg-slate-800 text-slate-300 rounded-xl font-bold transition-all"
+                >
+                  الرجوع للقائمة الرئيسية
+                </button>
+              </div>
             </div>
-          </div>
-        </motion.div>
-      </div>
+          </motion.div>
+        </div>
+        {renderDebugUI()}
+      </>
     );
   }
 
@@ -1091,45 +1380,7 @@ export default function App() {
         </div>
       </div>
 
-      {/* Debug Toggle Button */}
-      <button 
-        onClick={() => setShowDebug(true)} 
-        className="absolute bottom-4 left-4 p-3 bg-slate-800/80 backdrop-blur border border-slate-700 rounded-full text-slate-400 hover:text-white shadow-lg z-40 transition-colors"
-        title="سجل الأخطاء"
-      >
-        <Bug className="w-5 h-5" />
-      </button>
-
-      {/* Debug Overlay */}
-      <AnimatePresence>
-        {showDebug && (
-          <motion.div 
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 50 }}
-            className="absolute inset-0 z-50 bg-slate-950/95 flex flex-col p-4 font-mono text-xs"
-            dir="ltr"
-          >
-            <div className="flex justify-between items-center mb-4 border-b border-slate-800 pb-2">
-              <h3 className="text-slate-200 font-bold text-lg font-sans" dir="rtl">سجل الأخطاء والاتصال</h3>
-              <button onClick={() => setShowDebug(false)} className="p-2 bg-slate-800 rounded-full text-slate-400 hover:text-white transition-colors">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto space-y-2 flex flex-col-reverse">
-              {logs.length === 0 && (
-                <div className="text-slate-500 text-center py-4 font-sans" dir="rtl">لا يوجد سجلات حتى الآن</div>
-              )}
-              {logs.map(log => (
-                <div key={log.id} className={`p-2 rounded border break-words ${log.type === 'error' ? 'bg-rose-500/10 border-rose-500/30 text-rose-400' : log.type === 'success' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-slate-800/50 border-slate-700 text-slate-300'}`}>
-                  <span className="opacity-50 mr-2">[{log.time}]</span>
-                  {log.msg}
-                </div>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {renderDebugUI()}
     </div>
   );
 }
