@@ -175,7 +175,15 @@ async function startServer() {
   });
 
   io.on('connection', (socket) => {
-    console.log('User connected:', socket.id);
+    console.log('User connected:', socket.id, 'Transport:', socket.conn.transport.name);
+    
+    socket.conn.on('upgrade', (transport) => {
+      console.log('Transport upgraded to:', transport.name);
+    });
+
+    socket.conn.on('packet', (packet) => {
+      console.log('Packet received:', packet.type);
+    });
 
     socket.on('create_room', (playerName: string) => {
       const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();

@@ -7,6 +7,7 @@ import paperSvg from '/paper.svg';
 import scissorsSvg from '/scissors.svg';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { SplashScreen } from '@capacitor/splash-screen';
+import { Network } from '@capacitor/network';
 import { registerPlugin, Capacitor } from '@capacitor/core';
 
 export interface LocalServerPlugin {
@@ -145,21 +146,19 @@ export default function App() {
     const fetchIp = async () => {
       addLog('Fetching IP address...', 'info');
       
-      // 1. Try Native Local IP (Preferred for LAN)
-      if (Capacitor.getPlatform() !== 'web') {
-        try {
-          const result = await LocalServer.getLocalIpAddress();
-          if (result && result.ip) {
-            setUserIp(result.ip);
-            addLog(`Local IP obtained natively: ${result.ip}`, 'success');
-            return;
-          }
-        } catch (e) {
-          addLog(`Native Local IP fetch failed: ${e}`, 'error');
+      // 1. Check Network Status
+      try {
+        const status = await Network.getStatus();
+        if (!status.connected) {
+          addLog('Network not connected', 'error');
+          setUserIp('لا يوجد اتصال بالإنترنت');
+          return;
         }
+      } catch (e) {
+        addLog(`Network status check failed: ${e}`, 'error');
       }
 
-      // 2. Fallback to WebRTC Local IP (Works in many WebViews)
+      // 2. WebRTC Local IP (Works in many WebViews)
       try {
         const pc = new RTCPeerConnection({ iceServers: [] });
         pc.createDataChannel("");
@@ -175,7 +174,7 @@ export default function App() {
               resolve(ipMatch[1]);
             }
           };
-          setTimeout(() => resolve(''), 1500);
+          setTimeout(() => resolve(''), 2000);
         });
 
         const localIp = await ipPromise;
@@ -240,7 +239,7 @@ export default function App() {
       socket.disconnect();
     }
     addLog(`Setting up socket connection to ${url || 'default'}...`, 'info');
-    socket = url ? io(url) : io();
+    socket = url ? io(url, { transports: ['websocket'] }) : io({ transports: ['websocket'] });
 
     socket.on('connect', () => addLog(`Socket connected: ${socket?.id}`, 'success'));
     socket.on('connect_error', (err) => addLog(`Socket connect error: ${err.message}`, 'error'));
