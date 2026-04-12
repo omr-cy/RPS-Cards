@@ -34,6 +34,8 @@ interface Room {
 const rooms: Record<string, Room> = {};
 const roomTimers: Record<string, NodeJS.Timeout> = {};
 
+const LAN_PORT = 58291;
+
 const INITIAL_DECK: Deck = { rock: 3, paper: 3, scissors: 3 };
 
 function getWinner(choice1: CardType, choice2: CardType): 1 | 2 | 0 {
@@ -168,7 +170,7 @@ function startRoundTimer(roomId: string, io: Server) {
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = LAN_PORT; // Use the unified port
   const httpServer = createServer(app);
   const io = new Server(httpServer, {
     cors: { origin: '*' }

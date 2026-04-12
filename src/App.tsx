@@ -146,7 +146,7 @@ export default function App() {
     const fetchIp = async () => {
       addLog('Fetching IP address...', 'info');
       
-      // 1. Check Network Status
+    // 1. Check Network Status
       try {
         const status = await Network.getStatus();
         if (!status.connected) {
@@ -238,8 +238,15 @@ export default function App() {
       addLog('Disconnecting existing socket...', 'info');
       socket.disconnect();
     }
-    addLog(`Setting up socket connection to ${url || 'default'}...`, 'info');
-    socket = url ? io(url, { transports: ['websocket'] }) : io({ transports: ['websocket'] });
+    
+    // Always use the unified port if a URL is provided
+    let connectionUrl = url;
+    if (url && !url.includes(`:${LAN_PORT}`)) {
+        connectionUrl = `${url}:${LAN_PORT}`;
+    }
+    
+    addLog(`Setting up socket connection to ${connectionUrl || 'default'}...`, 'info');
+    socket = connectionUrl ? io(connectionUrl, { transports: ['websocket'] }) : io({ transports: ['websocket'] });
 
     socket.on('connect', () => addLog(`Socket connected: ${socket?.id}`, 'success'));
     socket.on('connect_error', (err) => addLog(`Socket connect error: ${err.message}`, 'error'));
