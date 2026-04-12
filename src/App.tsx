@@ -455,6 +455,10 @@ export default function App() {
       const startResult = await LocalServer.startServer({ port: LAN_PORT });
       addLog(`LocalServer start result: ${JSON.stringify(startResult)}`, 'success');
       
+      // Add delay to ensure server is ready
+      addLog('Waiting for server to initialize...', 'info');
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
       const initialPlayer: Player = {
         id: 'host',
         name: playerName.trim(),
@@ -798,8 +802,12 @@ export default function App() {
                   onClick={async () => {
                     addLog('Testing LocalServer plugin...', 'info');
                     try {
-                      const ip = await LocalServer.getLocalIpAddress();
-                      addLog(`Plugin Test Success! IP: ${ip.ip}`, 'success');
+                      if (Capacitor.getPlatform() !== 'web') {
+                        addLog('LocalServer.getLocalIpAddress() is not supported on Android, skipping.', 'info');
+                      } else {
+                        const ip = await LocalServer.getLocalIpAddress();
+                        addLog(`Plugin Test Success! IP: ${ip.ip}`, 'success');
+                      }
                     } catch (e) {
                       addLog(`Plugin Test Failed: ${e}`, 'error');
                     }
