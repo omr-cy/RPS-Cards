@@ -170,7 +170,7 @@ function startRoundTimer(roomId: string, io: Server) {
 
 async function startServer() {
   const app = express();
-  const PORT = LAN_PORT; // Use the unified port
+  const PORT = 3000; // Infrastructure requires port 3000
   const httpServer = createServer(app);
   const io = new Server(httpServer, {
     cors: { origin: '*' }
@@ -352,10 +352,6 @@ async function startServer() {
           io.to(roomId).emit('room_state', room);
         }
       }
-    });
-
-    socket.on('signaling', (data: any) => {
-      socket.to(data.roomId).emit('signaling', data);
     });
 
     socket.on('disconnect', () => {
