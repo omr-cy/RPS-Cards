@@ -113,6 +113,12 @@ const App = () => {
     }
   }, [errorMsg]);
 
+  useEffect(() => {
+    if (playerName && appState === 'nameEntry') {
+      setAppState('menu');
+    }
+  }, []);
+
   const addLog = (msg: string, type: 'info' | 'error' | 'success' = 'info') => {
     const newLog: LogEntry = { id: Date.now() + Math.random(), time: new Date().toLocaleTimeString(), msg, type };
     setLogs(prev => [newLog, ...prev].slice(0, 50));
@@ -121,30 +127,47 @@ const App = () => {
 
   // Native Bridge Setup
   useEffect(() => {
-    const statusListener = LocalServer.addListener('onStatusUpdate', (info) => {
-      setRole(info.role as any);
-      setConnectionStatus(info.status as any);
-      setClientCount(info.clientCount);
-      if (info.localIp) setUserIp(info.localIp);
-    });
+    let statusListener: any;
+    let logListener: any;
+    let messageListener: any;
 
-    const logListener = LocalServer.addListener('onLog', (info) => {
-      addLog(info.message, info.type as any);
-    });
-
-    const messageListener = LocalServer.addListener('onMessageReceived', (info) => {
-      try {
-        const data = JSON.parse(info.message);
-        handleNativeMessage(data);
-      } catch (e) {
-        addLog(`Received non-JSON message: ${info.message}`, 'info');
+    const setupListeners = async () => {
+      if (!Capacitor.isNativePlatform()) {
+        addLog('Native listeners skipped (Web Platform)', 'info');
+        return;
       }
-    });
+
+      try {
+        statusListener = await LocalServer.addListener('onStatusUpdate', (info) => {
+          setRole(info.role as any);
+          setConnectionStatus(info.status as any);
+          setClientCount(info.clientCount);
+          if (info.localIp) setUserIp(info.localIp);
+        });
+
+        logListener = await LocalServer.addListener('onLog', (info) => {
+          addLog(info.message, info.type as any);
+        });
+
+        messageListener = await LocalServer.addListener('onMessageReceived', (info) => {
+          try {
+            const data = JSON.parse(info.message);
+            handleNativeMessage(data);
+          } catch (e) {
+            addLog(`Received non-JSON message: ${info.message}`, 'info');
+          }
+        });
+      } catch (e) {
+        addLog(`Failed to setup native listeners: ${e}`, 'error');
+      }
+    };
+
+    setupListeners();
 
     return () => {
-      statusListener.remove();
-      logListener.remove();
-      messageListener.remove();
+      if (statusListener && typeof statusListener.remove === 'function') statusListener.remove();
+      if (logListener && typeof logListener.remove === 'function') logListener.remove();
+      if (messageListener && typeof messageListener.remove === 'function') messageListener.remove();
     };
   }, []);
 
@@ -152,13 +175,15 @@ const App = () => {
     if (data.type === 'ROOM_READY') {
       addLog('Room is ready, joining...', 'success');
       setAppState('inRoom');
-      LocalServer.getStatus().then(status => {
-        if (status.role === 'HOST') {
-          sendNativeAction({ type: 'host_join', playerName: playerNameRef.current });
-        } else if (status.role === 'CLIENT') {
-          sendNativeAction({ type: 'join_game', playerName: playerNameRef.current });
-        }
-      });
+      if (Capacitor.isNativePlatform()) {
+        LocalServer.getStatus().then(status => {
+          if (status.role === 'HOST') {
+            sendNativeAction({ type: 'host_join', playerName: playerNameRef.current });
+          } else if (status.role === 'CLIENT') {
+            sendNativeAction({ type: 'join_game', playerName: playerNameRef.current });
+          }
+        }).catch(e => addLog(`Failed to get status: ${e}`, 'error'));
+      }
     } else if (data.type === 'room_state') {
       setRoomState(data.state);
       setRoomId(data.state.id);
@@ -173,7 +198,11 @@ const App = () => {
 
   const sendNativeAction = async (action: any) => {
     try {
-      await LocalServer.sendMessage({ message: JSON.stringify(action) });
+      if (Capacitor.isNativePlatform()) {
+        await LocalServer.sendMessage({ message: JSON.stringify(action) });
+      } else {
+        addLog(`Action skipped on web: ${action.type}`, 'info');
+      }
     } catch (e) {
       addLog(`Failed to send action: ${e}`, 'error');
     }
@@ -353,16 +382,24 @@ const App = () => {
   };
 
   const createOnlineRoom = () => {
+    if (!Capacitor.isNativePlatform()) {
+      setErrorMsg('ميزة اللعب أونلاين متاحة حالياً فقط في تطبيق الأندرويد');
+      return;
+    }
     const serverUrl = window.location.hostname;
     LocalServer.connectToServer({ ip: serverUrl, port: 3000 })
       .then(() => {
         const checkVerified = setInterval(() => {
-          LocalServer.getStatus().then(status => {
-            if (status.status === 'VERIFIED') {
-              clearInterval(checkVerified);
-              sendNativeAction({ type: 'create_room', playerName: playerName.trim() });
-            }
-          });
+          if (Capacitor.isNativePlatform()) {
+            LocalServer.getStatus().then(status => {
+              if (status.status === 'VERIFIED') {
+                clearInterval(checkVerified);
+                sendNativeAction({ type: 'create_room', playerName: playerName.trim() });
+              }
+            }).catch(() => clearInterval(checkVerified));
+          } else {
+            clearInterval(checkVerified);
+          }
         }, 500);
       })
       .catch(e => setErrorMsg('تعذر الاتصال بالخادم'));
@@ -370,16 +407,24 @@ const App = () => {
 
   const joinOnlineRoom = () => {
     if (!roomIdInput.trim()) return;
+    if (!Capacitor.isNativePlatform()) {
+      setErrorMsg('ميزة اللعب أونلاين متاحة حالياً فقط في تطبيق الأندرويد');
+      return;
+    }
     const serverUrl = window.location.hostname;
     LocalServer.connectToServer({ ip: serverUrl, port: 3000 })
       .then(() => {
         const checkVerified = setInterval(() => {
-          LocalServer.getStatus().then(status => {
-            if (status.status === 'VERIFIED') {
-              clearInterval(checkVerified);
-              sendNativeAction({ type: 'join_room', roomId: roomIdInput.trim().toUpperCase(), playerName: playerName.trim() });
-            }
-          });
+          if (Capacitor.isNativePlatform()) {
+            LocalServer.getStatus().then(status => {
+              if (status.status === 'VERIFIED') {
+                clearInterval(checkVerified);
+                sendNativeAction({ type: 'join_room', roomId: roomIdInput.trim().toUpperCase(), playerName: playerName.trim() });
+              }
+            }).catch(() => clearInterval(checkVerified));
+          } else {
+            clearInterval(checkVerified);
+          }
         }, 500);
       })
       .catch(e => setErrorMsg('تعذر الاتصال بالخادم'));
@@ -520,13 +565,30 @@ const App = () => {
   };
 
   const leaveRoom = async () => {
-    if (roomId) {
-      sendNativeAction({ type: 'leave_room', roomId });
-    }
-    await LocalServer.stopAll();
+    const currentRoomId = roomId;
+    
+    addLog('Leaving room and returning to menu...', 'info');
+
+    // 1. Reset UI State First (Immediate feedback)
     setRoomId(null);
     setRoomState(null);
     setAppState('menu');
+    setMenuTab('main');
+    setConnectionStatus('DISCONNECTED');
+    setRole('NONE');
+
+    // 2. Cleanup Native (Background)
+    try {
+      if (currentRoomId && currentRoomId !== OFFLINE_BOT_ID) {
+        sendNativeAction({ type: 'leave_room', roomId: currentRoomId });
+      }
+      if (Capacitor.isNativePlatform()) {
+        await LocalServer.stopAll();
+      }
+    } catch (e) {
+      console.warn('Native cleanup failed:', e);
+      addLog(`Native cleanup failed: ${e}`, 'error');
+    }
   };
 
   const validateName = (name: string) => {
@@ -798,22 +860,8 @@ const App = () => {
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: 20 }}
-                    className="flex flex-col gap-6 w-full max-w-[340px] mx-auto px-2 relative"
+                    className="flex flex-col gap-6 w-full max-w-[340px] mx-auto px-2"
                   >
-                    <AnimatePresence>
-                      {connectionStatus === 'CONNECTING' && (
-                        <motion.div
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                          className="absolute inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-center rounded-3xl"
-                        >
-                          <div className="w-12 h-12 rounded-full border-4 border-slate-800 border-t-indigo-500 animate-spin mb-4"></div>
-                          <p className="text-indigo-400 font-bold animate-pulse">جاري الاتصال...</p>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-
                     <button 
                       onClick={() => setMenuTab('main')} 
                       className="text-slate-400 hover:text-white flex items-center gap-2 w-fit transition-colors text-sm font-bold group mb-1 ms-2"
@@ -821,7 +869,33 @@ const App = () => {
                       <span className="group-hover:-translate-x-1 transition-transform">➔</span> رجوع للقائمة
                     </button>
 
-                    {/* Host Section */}
+                    <div className="relative flex flex-col gap-6">
+                      <AnimatePresence>
+                        {connectionStatus === 'CONNECTING' && (
+                          <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="absolute inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-center rounded-3xl"
+                          >
+                            <div className="w-12 h-12 rounded-full border-4 border-slate-800 border-t-indigo-500 animate-spin mb-4"></div>
+                            <p className="text-indigo-400 font-bold animate-pulse">جاري الاتصال...</p>
+                            <button 
+                              onClick={async () => {
+                                if (Capacitor.isNativePlatform()) {
+                                  await LocalServer.stopAll();
+                                }
+                                setConnectionStatus('DISCONNECTED');
+                              }}
+                              className="mt-4 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-bold transition-colors"
+                            >
+                              إلغاء الاتصال
+                            </button>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+
+                      {/* Host Section */}
                     <div className="bg-slate-900/60 border border-slate-800 p-5 rounded-3xl backdrop-blur-sm shadow-xl">
                       <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-3">
@@ -890,7 +964,8 @@ const App = () => {
                         </AnimatePresence>
                       </div>
                     </div>
-                  </motion.div>
+                  </div>
+                </motion.div>
                 )}
               </AnimatePresence>
             </div>
@@ -1038,8 +1113,8 @@ const App = () => {
             animate={{ scale: 1, opacity: 1 }}
             className="bg-slate-900 p-6 sm:p-8 rounded-3xl border border-slate-800 shadow-2xl max-w-sm w-full text-center relative overflow-hidden"
           >
-            {finalWin && <div className="absolute inset-0 bg-green-500/10 animate-pulse"></div>}
-            {finalLoss && <div className="absolute inset-0 bg-rose-500/10 animate-pulse"></div>}
+            {finalWin && <div className="absolute inset-0 bg-green-500/10 animate-pulse pointer-events-none"></div>}
+            {finalLoss && <div className="absolute inset-0 bg-rose-500/10 animate-pulse pointer-events-none"></div>}
             
             <div className="relative z-10">
               <h2 className="text-2xl font-bold mb-2 text-slate-400">النتيجة النهائية</h2>
