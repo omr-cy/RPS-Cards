@@ -72,7 +72,7 @@ interface LogEntry {
 
 let socket: Socket | null = null;
 
-export default function App() {
+const App = () => {
   const [appState, setAppState] = useState<'nameEntry' | 'menu' | 'inRoom'>('nameEntry');
   const [menuTab, setMenuTab] = useState<'main' | 'online' | 'local'>('main');
   const [playerName, setPlayerName] = useState(() => localStorage.getItem('cardClashPlayerName') || '');
@@ -82,6 +82,11 @@ export default function App() {
   const [roomState, setRoomState] = useState<Room | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [userIp, setUserIp] = useState<string>('جاري التحميل...');
+  
+  // WebRTC State
+  const peerConnection = React.useRef<RTCPeerConnection | null>(null);
+  const dataChannel = React.useRef<RTCDataChannel | null>(null);
+  const isInitiator = React.useRef<boolean>(false);
   
   // Debug State
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -233,11 +238,47 @@ export default function App() {
     return () => clearInterval(timer);
   }, [roomId, roomState?.gameState]);
 
-  const setupSocket = (url?: string) => {
-    if (socket) {
-      addLog('Disconnecting existing socket...', 'info');
-      socket.disconnect();
+  const initWebRTC = (roomId: string) => {
+    peerConnection.current = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+    
+    peerConnection.current.onicecandidate = (event) => {
+      if (event.candidate) {
+        socket?.emit('signal', { roomId, signal: { candidate: event.candidate } });
+      }
+    };
+
+    if (isInitiator.current) {
+      dataChannel.current = peerConnection.current.createDataChannel('gameData');
+      dataChannel.current.onopen = () => addLog('WebRTC DataChannel open', 'success');
+      peerConnection.current.createOffer().then(offer => {
+        peerConnection.current?.setLocalDescription(offer);
+        socket?.emit('signal', { roomId, signal: { offer } });
+      });
+    } else {
+      peerConnection.current.ondatachannel = (event) => {
+        dataChannel.current = event.channel;
+        dataChannel.current.onopen = () => addLog('WebRTC DataChannel open', 'success');
+        dataChannel.current.onmessage = (e) => handleGameData(JSON.parse(e.data));
+      };
     }
+  };
+
+  const handleGameData = (data: any) => {
+    addLog(`Received game data: ${data.type}`, 'info');
+    // Handle game state updates here
+  };
+
+  const sendGameData = (data: any) => {
+    if (dataChannel.current && dataChannel.current.readyState === 'open') {
+      dataChannel.current.send(JSON.stringify(data));
+    } else {
+      // Fallback to socket if WebRTC not ready
+      socket?.emit('game_data', data);
+    }
+  };
+
+  const setupSocket = (url?: string) => {
+    if (socket) return socket;
     
     // Always use the unified port if a URL is provided
     let connectionUrl = url;
@@ -252,14 +293,35 @@ export default function App() {
     socket.on('connect_error', (err) => addLog(`Socket connect error: ${err.message}`, 'error'));
     socket.on('disconnect', (reason) => addLog(`Socket disconnected: ${reason}`, 'info'));
 
+    socket.on('signal', async (data: { senderId: string, signal: any }) => {
+      if (!peerConnection.current) return;
+      
+      if (data.signal.offer) {
+        await peerConnection.current.setRemoteDescription(new RTCSessionDescription(data.signal.offer));
+        const answer = await peerConnection.current.createAnswer();
+        await peerConnection.current.setLocalDescription(answer);
+        socket?.emit('signal', { roomId: roomIdRef.current, signal: { answer } });
+      } else if (data.signal.answer) {
+        await peerConnection.current.setRemoteDescription(new RTCSessionDescription(data.signal.answer));
+      } else if (data.signal.candidate) {
+        await peerConnection.current.addIceCandidate(new RTCIceCandidate(data.signal.candidate));
+      }
+    });
+
     socket.on('room_created', (id: string) => {
       addLog(`Room created: ${id}`, 'success');
       setRoomId(id);
       setAppState('inRoom');
       setErrorMsg(null);
+      isInitiator.current = true;
+      initWebRTC(id);
     });
 
     socket.on('room_state', (state: Room) => {
+      if (!roomIdRef.current) {
+        isInitiator.current = false;
+        initWebRTC(state.id);
+      }
       setRoomState(state);
       setRoomId(state.id);
       setAppState('inRoom');
@@ -675,7 +737,8 @@ export default function App() {
         // This case is handled above, but just in case
       } else {
         // Check if we are connected to a local server (no roomId yet or special roomId)
-        socket.emit('message', JSON.stringify({ type: 'PLAY_CARD', choice }));
+        const gameData = { type: 'PLAY_CARD', choice };
+        sendGameData(gameData);
         socket.emit('play_card', { roomId, choice });
       }
     }
@@ -1496,3 +1559,5 @@ const PlayedCard = ({ type, isPlayer, winner }: { type: CardType, isPlayer: bool
     </span>
   </motion.div>
 );
+
+export default App;

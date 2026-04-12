@@ -187,6 +187,13 @@ async function startServer() {
       console.log('Packet received:', packet.type);
     });
 
+    socket.on('signal', (data: { roomId: string, signal: any }) => {
+      socket.to(data.roomId).emit('signal', {
+        senderId: socket.id,
+        signal: data.signal
+      });
+    });
+
     socket.on('create_room', (playerName: string) => {
       const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
       rooms[roomId] = {
