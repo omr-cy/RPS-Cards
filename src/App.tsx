@@ -363,9 +363,22 @@ const App = () => {
     }
   };
 
+  const isValidIp = (ip: string) => {
+    return /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(ip);
+  };
+
+  const handleIpChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value;
+    // Convert Arabic numerals to English numerals
+    value = value.replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d).toString());
+    // Remove any character that is not a digit or a dot
+    value = value.replace(/[^0-9.]/g, '');
+    setIpInput(value);
+  };
+
   const joinGame = async () => {
-    if (!ipInput.trim()) {
-      setErrorMsg('يرجى إدخال عنوان IP');
+    if (!isValidIp(ipInput.trim())) {
+      setErrorMsg('يرجى إدخال عنوان IP صحيح');
       return;
     }
     if (Capacitor.getPlatform() === 'web') {
@@ -566,6 +579,7 @@ const App = () => {
 
   const leaveRoom = async () => {
     const currentRoomId = roomId;
+    const currentRole = role;
     
     addLog('Leaving room and returning to menu...', 'info');
 
@@ -580,7 +594,9 @@ const App = () => {
     // 2. Cleanup Native (Background)
     try {
       if (currentRoomId && currentRoomId !== OFFLINE_BOT_ID) {
-        sendNativeAction({ type: 'leave_room', roomId: currentRoomId });
+        if (currentRole !== 'HOST') {
+          sendNativeAction({ type: 'leave_room', roomId: currentRoomId });
+        }
       }
       if (Capacitor.isNativePlatform()) {
         await LocalServer.stopAll();
@@ -761,7 +777,6 @@ const App = () => {
             className="max-w-md w-full text-center"
           >
             <div className="mb-6 flex items-center justify-center gap-3 bg-slate-900/40 py-3 px-6 rounded-2xl border border-slate-800 w-fit max-w-[90%] mx-auto">
-              <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse" />
               <span className="text-slate-300 font-bold">المحارب: {playerName}</span>
               <button 
                 onClick={() => setAppState('nameEntry')}
@@ -831,7 +846,7 @@ const App = () => {
                       <div className="flex-grow border-t border-slate-800"></div>
                     </div>
 
-                    <div className="relative w-[90%] mx-auto">
+                    <div className="w-[90%] mx-auto flex flex-col gap-3">
                       <input
                         type="text"
                         placeholder="أدخل كود الغرفة..."
@@ -840,16 +855,22 @@ const App = () => {
                         className="w-full bg-slate-900 border border-slate-700 rounded-xl sm:rounded-2xl py-3 sm:py-4 px-4 sm:px-6 text-center text-lg sm:text-xl font-mono uppercase focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all"
                         maxLength={6}
                       />
-                      {roomIdInput.trim().length > 0 && (
-                        <motion.button
-                          initial={{ opacity: 0, scale: 0.9 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          onClick={joinOnlineRoom}
-                          className="absolute left-1.5 sm:left-2 top-1.5 sm:top-2 bottom-1.5 sm:bottom-2 px-4 sm:px-6 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg sm:rounded-xl font-bold transition-all shadow-md text-sm sm:text-base"
-                        >
-                          انضمام
-                        </motion.button>
-                      )}
+                      <AnimatePresence>
+                        {roomIdInput.trim().length > 0 && (
+                          <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                          >
+                            <button
+                              onClick={joinOnlineRoom}
+                              className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl sm:rounded-2xl font-bold transition-all shadow-md text-sm sm:text-base hover:scale-[1.02] active:scale-[0.98]"
+                            >
+                              انضمام
+                            </button>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
                   </motion.div>
                 )}
@@ -940,26 +961,30 @@ const App = () => {
                         </div>
                       </div>
 
-                      <div className="relative group">
+                      <div className="flex flex-col gap-3">
                         <input
                           type="text"
+                          inputMode="decimal"
                           placeholder="مثال: 192.168.1.5"
                           value={ipInput}
-                          onChange={(e) => setIpInput(e.target.value)}
+                          onChange={handleIpChange}
                           className="w-full bg-slate-950 border-2 border-slate-800 rounded-2xl py-4 px-6 text-center text-lg font-mono focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all placeholder:text-slate-700"
                           dir="ltr"
                         />
                         <AnimatePresence>
-                          {ipInput.trim().length > 0 && (
-                            <motion.button
-                              initial={{ opacity: 0, scale: 0.9, x: 10 }}
-                              animate={{ opacity: 1, scale: 1, x: 0 }}
-                              exit={{ opacity: 0, scale: 0.9, x: 10 }}
-                              onClick={joinGame}
-                              className="absolute left-2 top-2 bottom-2 px-6 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-black transition-all shadow-lg shadow-indigo-500/30 text-sm"
+                          {isValidIp(ipInput.trim()) && (
+                            <motion.div
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: 'auto' }}
+                              exit={{ opacity: 0, height: 0 }}
                             >
-                              اتصال
-                            </motion.button>
+                              <button
+                                onClick={joinGame}
+                                className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl font-black transition-all shadow-lg shadow-indigo-500/30 text-sm hover:scale-[1.02] active:scale-[0.98]"
+                              >
+                                اتصال
+                              </button>
+                            </motion.div>
                           )}
                         </AnimatePresence>
                       </div>
@@ -1186,7 +1211,7 @@ const App = () => {
             </button>
             <div className="flex flex-col">
               <h1 className="text-base sm:text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">
-                صراع البطاقات
+                صراع البطاقات: حجر ورقة مقص
               </h1>
               <span className="text-[10px] sm:text-xs text-slate-500 font-mono">{roomState.isBotRoom ? 'لعب فردي' : 'لعب محلي'}</span>
             </div>
@@ -1218,9 +1243,9 @@ const App = () => {
             </div>
           </div>
           <div className="flex justify-between gap-2 sm:gap-4">
-             <CardCount type="rock" count={opponent?.deck.rock || 0} />
-             <CardCount type="paper" count={opponent?.deck.paper || 0} />
-             <CardCount type="scissors" count={opponent?.deck.scissors || 0} />
+             <CardCount type="rock" count={(opponent?.deck.rock || 0) + (roomState.gameState === 'playing' && opponent?.choice === 'rock' ? 1 : 0)} />
+             <CardCount type="paper" count={(opponent?.deck.paper || 0) + (roomState.gameState === 'playing' && opponent?.choice === 'paper' ? 1 : 0)} />
+             <CardCount type="scissors" count={(opponent?.deck.scissors || 0) + (roomState.gameState === 'playing' && opponent?.choice === 'scissors' ? 1 : 0)} />
           </div>
         </div>
 
