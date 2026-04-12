@@ -63,6 +63,8 @@ const CARD_NAMES: Record<CardType, string> = {
 };
 
 const LAN_PORT = 3000;
+const OFFLINE_BOT_ID = 'OFFLINE_BOT';
+const INITIAL_DECK: Deck = { rock: 3, paper: 3, scissors: 3 };
 
 interface LogEntry {
   id: number;
@@ -172,8 +174,7 @@ const App = () => {
       addLog('Initializing Capacitor...', 'info');
       try {
         if (Capacitor.isNativePlatform()) {
-          await StatusBar.setStyle({ style: Style.Dark });
-          await StatusBar.setBackgroundColor({ color: '#1e1b4b' }); // Indigo 900
+          await StatusBar.hide();
         }
         await SplashScreen.hide();
         addLog('Capacitor initialized successfully', 'success');
@@ -186,10 +187,44 @@ const App = () => {
   }, []);
 
   useEffect(() => {
-    if (playerName && appState === 'nameEntry') {
-      setAppState('menu');
+    let timer: NodeJS.Timeout;
+    if (roomId === OFFLINE_BOT_ID && roomState?.gameState === 'playing') {
+      timer = setInterval(() => {
+        setRoomState(prev => {
+          if (!prev || prev.gameState !== 'playing') return prev;
+          if (prev.timeLeft && prev.timeLeft > 0) {
+            return { ...prev, timeLeft: prev.timeLeft - 1 };
+          } else {
+            // Auto play for player if time runs out
+            const me = prev.players.me;
+            if (!me.choice) {
+              const availableCards = (Object.keys(me.deck) as CardType[]).filter(t => me.deck[t] > 0);
+              if (availableCards.length > 0) {
+                const randomChoice = availableCards[Math.floor(Math.random() * availableCards.length)];
+                me.choice = randomChoice;
+                me.deck[randomChoice] -= 1;
+              }
+            }
+            
+            // Bot auto play
+            const bot = prev.players.bot;
+            if (!bot.choice) {
+              const availableBotCards = (Object.keys(bot.deck) as CardType[]).filter(t => bot.deck[t] > 0);
+              if (availableBotCards.length > 0) {
+                const botChoice = availableBotCards[Math.floor(Math.random() * availableBotCards.length)];
+                bot.choice = botChoice;
+                bot.deck[botChoice] -= 1;
+              }
+            }
+            
+            setTimeout(() => handleOfflineReveal(prev), 0);
+            return prev;
+          }
+        });
+      }, 1000);
     }
-  }, []);
+    return () => clearInterval(timer);
+  }, [roomId, roomState?.gameState]);
 
   const fetchIp = async () => {
     addLog('Fetching IP address...', 'info');
@@ -354,19 +389,22 @@ const App = () => {
   };
 
   const createBotRoom = () => {
-    const serverUrl = window.location.hostname;
-    LocalServer.connectToServer({ ip: serverUrl, port: 3000 })
-      .then(() => {
-        const checkVerified = setInterval(() => {
-          LocalServer.getStatus().then(status => {
-            if (status.status === 'VERIFIED') {
-              clearInterval(checkVerified);
-              sendNativeAction({ type: 'create_bot_room', playerName: playerName.trim() });
-            }
-          });
-        }, 500);
-      })
-      .catch(e => setErrorMsg('تعذر الاتصال بالخادم'));
+    const newRoom: Room = {
+      id: OFFLINE_BOT_ID,
+      isBotRoom: true,
+      players: {
+        me: { id: 'me', name: playerName.trim() || 'لاعب', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false },
+        bot: { id: 'bot', name: 'الكمبيوتر', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: true }
+      },
+      gameState: 'playing',
+      round: 1,
+      roundWinner: null,
+      timeLeft: 15
+    };
+    setRoomState(newRoom);
+    setRoomId(OFFLINE_BOT_ID);
+    setAppState('inRoom');
+    addLog('Started offline game against bot', 'success');
   };
 
   const copyRoomId = () => {
@@ -379,12 +417,109 @@ const App = () => {
 
   const playCard = (choice: CardType) => {
     if (!roomState || roomState.gameState !== 'playing' || !roomId) return;
-    sendNativeAction({ type: 'play_card', roomId, choice });
+    
+    if (roomId === OFFLINE_BOT_ID) {
+      const newState = { ...roomState };
+      const me = newState.players.me;
+      if (me.choice || me.deck[choice] <= 0) return;
+      
+      me.choice = choice;
+      me.deck[choice] -= 1;
+      
+      // Bot choice
+      const bot = newState.players.bot;
+      const availableBotCards = (Object.keys(bot.deck) as CardType[]).filter(t => bot.deck[t] > 0);
+      const botChoice = availableBotCards[Math.floor(Math.random() * availableBotCards.length)];
+      bot.choice = botChoice;
+      bot.deck[botChoice] -= 1;
+      
+      setRoomState(newState);
+      handleOfflineReveal(newState);
+    } else {
+      sendNativeAction({ type: 'play_card', roomId, choice });
+    }
+  };
+
+  const handleOfflineReveal = (state: Room) => {
+    setRoomState(prev => {
+      if (!prev) return prev;
+      return { ...prev, gameState: 'revealing' };
+    });
+    
+    setTimeout(() => {
+      setRoomState(prev => {
+        if (!prev) return prev;
+        const newState = { ...prev };
+        const p1 = newState.players.me;
+        const p2 = newState.players.bot;
+        
+        const getWinner = (c1: CardType, c2: CardType) => {
+          if (c1 === c2) return 0;
+          if ((c1 === 'rock' && c2 === 'scissors') || (c1 === 'paper' && c2 === 'rock') || (c1 === 'scissors' && c2 === 'paper')) return 1;
+          return 2;
+        };
+        
+        const winnerCode = getWinner(p1.choice!, p2.choice!);
+        let points = 1;
+        if (newState.round >= 6 && newState.round <= 8) points = 2;
+        else if (newState.round === 9) points = 3;
+        
+        if (winnerCode === 1) {
+          p1.score += points;
+          newState.roundWinner = 'me';
+        } else if (winnerCode === 2) {
+          p2.score += points;
+          newState.roundWinner = 'bot';
+        } else {
+          newState.roundWinner = 'draw';
+        }
+        
+        newState.gameState = 'roundResult';
+        
+        setTimeout(() => {
+          setRoomState(last => {
+            if (!last) return last;
+            const finalState = { ...last };
+            if (finalState.round >= 9) {
+              finalState.gameState = 'gameOver';
+            } else {
+              finalState.round += 1;
+              finalState.gameState = 'playing';
+              finalState.roundWinner = null;
+              finalState.timeLeft = 15;
+              finalState.players.me.choice = null;
+              finalState.players.bot.choice = null;
+              finalState.players.me.readyForNext = false;
+              finalState.players.bot.readyForNext = true;
+            }
+            return finalState;
+          });
+        }, 3000);
+
+        return newState;
+      });
+    }, 1200);
   };
 
   const playAgain = () => {
     if (!roomId) return;
-    sendNativeAction({ type: 'play_again', roomId });
+    if (roomId === OFFLINE_BOT_ID) {
+      const newState: Room = {
+        id: OFFLINE_BOT_ID,
+        isBotRoom: true,
+        players: {
+          me: { id: 'me', name: playerName.trim() || 'لاعب', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false },
+          bot: { id: 'bot', name: 'الكمبيوتر', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: true }
+        },
+        gameState: 'playing',
+        round: 1,
+        roundWinner: null,
+        timeLeft: 15
+      };
+      setRoomState(newState);
+    } else {
+      sendNativeAction({ type: 'play_again', roomId });
+    }
   };
 
   const leaveRoom = async () => {
@@ -448,11 +583,10 @@ const App = () => {
       {/* Debug Toggle Button */}
       <button 
         onClick={() => setShowDebug(true)} 
-        className="fixed top-6 right-6 p-3.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl shadow-xl shadow-indigo-500/30 z-[60] transition-all active:scale-90 flex items-center gap-2 border border-indigo-400/30"
+        className="fixed top-6 left-6 p-3 bg-slate-900/50 hover:bg-slate-800 text-slate-400 hover:text-white rounded-full shadow-xl z-[60] transition-all active:scale-90 flex items-center justify-center border border-slate-700/50 backdrop-blur-sm"
         title="سجل الأخطاء"
       >
         <Bug className="w-5 h-5" />
-        <span className="text-xs font-bold font-sans">Debug</span>
       </button>
 
       {/* Debug Overlay */}
@@ -594,10 +728,10 @@ const App = () => {
                     className="flex flex-col gap-3"
                   >
                     <button
-                      onClick={() => setMenuTab('online')}
-                      className="w-[90%] mx-auto py-3 sm:py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg shadow-lg shadow-indigo-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
+                      disabled
+                      className="w-[90%] mx-auto py-3 sm:py-4 bg-slate-800 text-slate-500 rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg shadow-lg cursor-not-allowed flex items-center justify-center gap-2"
                     >
-                      <Globe className="w-5 h-5 sm:w-6 sm:h-6" /> لعب عبر الإنترنت
+                      <Globe className="w-5 h-5 sm:w-6 sm:h-6" /> لعب عبر الإنترنت (قريباً)
                     </button>
                     <button
                       onClick={() => setMenuTab('local')}
