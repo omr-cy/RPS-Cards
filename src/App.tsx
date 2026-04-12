@@ -83,11 +83,6 @@ const App = () => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [userIp, setUserIp] = useState<string>('جاري التحميل...');
   
-  // WebRTC State
-  const peerConnection = React.useRef<RTCPeerConnection | null>(null);
-  const dataChannel = React.useRef<RTCDataChannel | null>(null);
-  const isInitiator = React.useRef<boolean>(false);
-  
   // Debug State
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [showDebug, setShowDebug] = useState(false);
@@ -122,7 +117,7 @@ const App = () => {
       try {
         if (Capacitor.isNativePlatform()) {
           await StatusBar.setStyle({ style: Style.Dark });
-          await StatusBar.setBackgroundColor({ color: '#0f172a' }); // Slate 900
+          await StatusBar.setBackgroundColor({ color: '#1e1b4b' }); // Indigo 900
         }
         await SplashScreen.hide();
         addLog('Capacitor initialized successfully', 'success');
@@ -156,37 +151,8 @@ const App = () => {
         addLog(`Network status check failed: ${e}`, 'error');
       }
 
-      // 2. WebRTC Local IP (Works in many WebViews)
-      try {
-        const pc = new RTCPeerConnection({ iceServers: [] });
-        pc.createDataChannel("");
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        
-        const ipPromise = new Promise<string>((resolve) => {
-          pc.onicecandidate = (ice) => {
-            if (!ice || !ice.candidate || !ice.candidate.candidate) return;
-            const ipMatch = /([0-9]{1,3}(\.[0-9]{1,3}){3})/.exec(ice.candidate.candidate);
-            if (ipMatch) {
-              pc.onicecandidate = null;
-              resolve(ipMatch[1]);
-            }
-          };
-          setTimeout(() => resolve(''), 2000);
-        });
-
-        const localIp = await ipPromise;
-        if (localIp && localIp !== '0.0.0.0') {
-          setUserIp(localIp);
-          addLog(`Local IP obtained via WebRTC: ${localIp}`, 'success');
-          return;
-        }
-      } catch (e) {
-        addLog(`WebRTC IP fetch failed: ${e}`, 'error');
-      }
-
-      // 3. Last Resort: Public IP (What was currently used)
-      addLog('Falling back to public IP fetch...', 'info');
+      // 2. Public IP fetch
+      addLog('Fetching public IP address...', 'info');
       fetch('https://api.ipify.org?format=json')
         .then(res => res.json())
         .then(data => {
@@ -231,45 +197,6 @@ const App = () => {
     return () => clearInterval(timer);
   }, [roomId, roomState?.gameState]);
 
-  const initWebRTC = (roomId: string) => {
-    peerConnection.current = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
-    
-    peerConnection.current.onicecandidate = (event) => {
-      if (event.candidate) {
-        socket?.emit('signal', { roomId, signal: { candidate: event.candidate } });
-      }
-    };
-
-    if (isInitiator.current) {
-      dataChannel.current = peerConnection.current.createDataChannel('gameData');
-      dataChannel.current.onopen = () => addLog('WebRTC DataChannel open', 'success');
-      peerConnection.current.createOffer().then(offer => {
-        peerConnection.current?.setLocalDescription(offer);
-        socket?.emit('signal', { roomId, signal: { offer } });
-      });
-    } else {
-      peerConnection.current.ondatachannel = (event) => {
-        dataChannel.current = event.channel;
-        dataChannel.current.onopen = () => addLog('WebRTC DataChannel open', 'success');
-        dataChannel.current.onmessage = (e) => handleGameData(JSON.parse(e.data));
-      };
-    }
-  };
-
-  const handleGameData = (data: any) => {
-    addLog(`Received game data: ${data.type}`, 'info');
-    // Handle game state updates here
-  };
-
-  const sendGameData = (data: any) => {
-    if (dataChannel.current && dataChannel.current.readyState === 'open') {
-      dataChannel.current.send(JSON.stringify(data));
-    } else {
-      // Fallback to socket if WebRTC not ready
-      socket?.emit('game_data', data);
-    }
-  };
-
   const setupSocket = (url?: string) => {
     if (socket) return socket;
     
@@ -279,42 +206,21 @@ const App = () => {
         connectionUrl = `${url}:${LAN_PORT}`;
     }
     
-    addLog(`Setting up socket connection to ${connectionUrl || 'default'}...`, 'info');
+    addLog(`Setting up WebSocket connection to ${connectionUrl || 'default'}...`, 'info');
     socket = connectionUrl ? io(connectionUrl, { transports: ['websocket'] }) : io({ transports: ['websocket'] });
 
-    socket.on('connect', () => addLog(`Socket connected: ${socket?.id}`, 'success'));
-    socket.on('connect_error', (err) => addLog(`Socket connect error: ${err.message}`, 'error'));
-    socket.on('disconnect', (reason) => addLog(`Socket disconnected: ${reason}`, 'info'));
-
-    socket.on('signal', async (data: { senderId: string, signal: any }) => {
-      if (!peerConnection.current) return;
-      
-      if (data.signal.offer) {
-        await peerConnection.current.setRemoteDescription(new RTCSessionDescription(data.signal.offer));
-        const answer = await peerConnection.current.createAnswer();
-        await peerConnection.current.setLocalDescription(answer);
-        socket?.emit('signal', { roomId: roomIdRef.current, signal: { answer } });
-      } else if (data.signal.answer) {
-        await peerConnection.current.setRemoteDescription(new RTCSessionDescription(data.signal.answer));
-      } else if (data.signal.candidate) {
-        await peerConnection.current.addIceCandidate(new RTCIceCandidate(data.signal.candidate));
-      }
-    });
+    socket.on('connect', () => addLog(`WebSocket connected: ${socket?.id}`, 'success'));
+    socket.on('connect_error', (err) => addLog(`WebSocket connect error: ${err.message}`, 'error'));
+    socket.on('disconnect', (reason) => addLog(`WebSocket disconnected: ${reason}`, 'info'));
 
     socket.on('room_created', (id: string) => {
       addLog(`Room created: ${id}`, 'success');
       setRoomId(id);
       setAppState('inRoom');
       setErrorMsg(null);
-      isInitiator.current = true;
-      initWebRTC(id);
     });
 
     socket.on('room_state', (state: Room) => {
-      if (!roomIdRef.current) {
-        isInitiator.current = false;
-        initWebRTC(state.id);
-      }
       setRoomState(state);
       setRoomId(state.id);
       setAppState('inRoom');
@@ -730,8 +636,6 @@ const App = () => {
         // This case is handled above, but just in case
       } else {
         // Check if we are connected to a local server (no roomId yet or special roomId)
-        const gameData = { type: 'PLAY_CARD', choice };
-        sendGameData(gameData);
         socket.emit('play_card', { roomId, choice });
       }
     }
