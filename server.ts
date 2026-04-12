@@ -1,7 +1,7 @@
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import { createServer } from 'http';
-import { Server } from 'socket.io';
+import { WebSocketServer, WebSocket } from 'ws';
 import path from 'path';
 
 type CardType = 'rock' | 'paper' | 'scissors';
@@ -19,6 +19,7 @@ interface Player {
   score: number;
   choice: CardType | null;
   readyForNext: boolean;
+  ws: WebSocket;
 }
 
 interface Room {
@@ -34,8 +35,6 @@ interface Room {
 const rooms: Record<string, Room> = {};
 const roomTimers: Record<string, NodeJS.Timeout> = {};
 
-const LAN_PORT = 58291;
-
 const INITIAL_DECK: Deck = { rock: 3, paper: 3, scissors: 3 };
 
 function getWinner(choice1: CardType, choice2: CardType): 1 | 2 | 0 {
@@ -50,7 +49,18 @@ function getWinner(choice1: CardType, choice2: CardType): 1 | 2 | 0 {
   return 2;
 }
 
-function startNextRound(roomId: string, io: Server) {
+function broadcastToRoom(roomId: string, data: any) {
+  const room = rooms[roomId];
+  if (!room) return;
+  const message = JSON.stringify(data);
+  Object.values(room.players).forEach(player => {
+    if (player.ws.readyState === WebSocket.OPEN) {
+      player.ws.send(message);
+    }
+  });
+}
+
+function startNextRound(roomId: string) {
   const room = rooms[roomId];
   if (!room) return;
 
@@ -64,12 +74,12 @@ function startNextRound(roomId: string, io: Server) {
       p.choice = null;
       p.readyForNext = p.id === 'bot';
     });
-    startRoundTimer(roomId, io);
+    startRoundTimer(roomId);
   }
-  io.to(roomId).emit('room_state', room);
+  broadcastToRoom(roomId, { type: 'room_state', state: room });
 }
 
-function handleReveal(roomId: string, io: Server) {
+function handleReveal(roomId: string) {
   const room = rooms[roomId];
   if (!room) return;
 
@@ -79,7 +89,7 @@ function handleReveal(roomId: string, io: Server) {
   }
 
   room.gameState = 'revealing';
-  io.to(roomId).emit('room_state', room);
+  broadcastToRoom(roomId, { type: 'room_state', state: room });
 
   setTimeout(() => {
     const playerIds = Object.keys(room.players);
@@ -102,13 +112,13 @@ function handleReveal(roomId: string, io: Server) {
       room.roundWinner = 'draw';
     }
     room.gameState = 'roundResult';
-    io.to(roomId).emit('room_state', room);
+    broadcastToRoom(roomId, { type: 'room_state', state: room });
 
-    setTimeout(() => startNextRound(roomId, io), 3000);
+    setTimeout(() => startNextRound(roomId), 3000);
   }, 1200);
 }
 
-function startRoundTimer(roomId: string, io: Server) {
+function startRoundTimer(roomId: string) {
   const room = rooms[roomId];
   if (!room) return;
 
@@ -126,12 +136,11 @@ function startRoundTimer(roomId: string, io: Server) {
     }
 
     currentRoom.timeLeft! -= 1;
-    io.to(roomId).emit('room_state', currentRoom);
+    broadcastToRoom(roomId, { type: 'room_state', state: currentRoom });
 
     if (currentRoom.timeLeft! <= 0) {
       clearInterval(roomTimers[roomId]);
       
-      // Auto-pick for players who haven't chosen
       Object.values(currentRoom.players).forEach(player => {
         if (!player.choice && player.id !== 'bot') {
           const availableCards: CardType[] = [];
@@ -147,7 +156,6 @@ function startRoundTimer(roomId: string, io: Server) {
         }
       });
 
-      // Also ensure bot has chosen (just in case)
       if (currentRoom.isBotRoom) {
         const bot = currentRoom.players['bot'];
         if (!bot.choice) {
@@ -163,223 +171,165 @@ function startRoundTimer(roomId: string, io: Server) {
         }
       }
 
-      handleReveal(roomId, io);
+      handleReveal(roomId);
     }
   }, 1000);
 }
 
 async function startServer() {
   const app = express();
-  const PORT = 3000; // Infrastructure requires port 3000
+  const PORT = 3000;
   const httpServer = createServer(app);
-  const io = new Server(httpServer, {
-    cors: { origin: '*' }
-  });
+  const wss = new WebSocketServer({ server: httpServer });
 
-  io.on('connection', (socket) => {
-    console.log('User connected:', socket.id, 'Transport:', socket.conn.transport.name);
-    
-    socket.conn.on('upgrade', (transport) => {
-      console.log('Transport upgraded to:', transport.name);
-    });
+  wss.on('connection', (ws) => {
+    const socketId = Math.random().toString(36).substring(2, 10);
+    console.log('User connected:', socketId);
 
-    socket.conn.on('packet', (packet) => {
-      console.log('Packet received:', packet.type);
-    });
+    // Handshake: Send PING
+    ws.send(JSON.stringify({ type: 'PING' }));
 
-    socket.on('signal', (data: { roomId: string, signal: any }) => {
-      socket.to(data.roomId).emit('signal', {
-        senderId: socket.id,
-        signal: data.signal
-      });
-    });
-
-    socket.on('create_room', (playerName: string) => {
-      const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
-      rooms[roomId] = {
-        id: roomId,
-        players: {
-          [socket.id]: { id: socket.id, name: playerName || 'لاعب', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false }
-        },
-        gameState: 'waiting',
-        round: 1,
-        roundWinner: null
-      };
-      socket.join(roomId);
-      socket.emit('room_created', roomId);
-      io.to(roomId).emit('room_state', rooms[roomId]);
-    });
-
-    socket.on('host_game', (playerName: string) => {
-      const roomId = 'LOCAL_HOST';
-      rooms[roomId] = {
-        id: roomId,
-        players: {
-          [socket.id]: { id: socket.id, name: playerName || 'لاعب', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false }
-        },
-        gameState: 'waiting',
-        round: 1,
-        roundWinner: null
-      };
-      socket.join(roomId);
-      socket.emit('room_created', roomId);
-      io.to(roomId).emit('room_state', rooms[roomId]);
-    });
-
-    socket.on('create_bot_room', (playerName: string) => {
-      const roomId = 'BOT_' + Math.random().toString(36).substring(2, 8).toUpperCase();
-      rooms[roomId] = {
-        id: roomId,
-        isBotRoom: true,
-        players: {
-          [socket.id]: { id: socket.id, name: playerName || 'لاعب', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false },
-          'bot': { id: 'bot', name: 'الكمبيوتر', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: true }
-        },
-        gameState: 'playing',
-        round: 1,
-        roundWinner: null
-      };
-      socket.join(roomId);
-      socket.emit('room_created', roomId);
-      startRoundTimer(roomId, io);
-      io.to(roomId).emit('room_state', rooms[roomId]);
-    });
-
-    socket.on('join_room', ({ roomId, playerName }: { roomId: string, playerName: string }) => {
-      const room = rooms[roomId];
-      if (!room) {
-        socket.emit('error_msg', 'الغرفة غير موجودة');
-        return;
-      }
-      if (Object.keys(room.players).length >= 2) {
-        socket.emit('error_msg', 'الغرفة ممتلئة');
-        return;
-      }
-
-      room.players[socket.id] = { id: socket.id, name: playerName || 'لاعب', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false };
-      room.gameState = 'playing';
-      socket.join(roomId);
-      startRoundTimer(roomId, io);
-      io.to(roomId).emit('room_state', room);
-    });
-
-    socket.on('join_hosted_game', (playerName: string) => {
-      const roomId = 'LOCAL_HOST';
-      const room = rooms[roomId];
-      if (!room) {
-        socket.emit('error_msg', 'لا يوجد لعبة مستضافة على هذا الـ IP حالياً');
-        return;
-      }
-      if (Object.keys(room.players).length >= 2) {
-        socket.emit('error_msg', 'اللعبة ممتلئة');
-        return;
-      }
-
-      room.players[socket.id] = { id: socket.id, name: playerName || 'لاعب', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false };
-      room.gameState = 'playing';
-      socket.join(roomId);
-      startRoundTimer(roomId, io);
-      io.to(roomId).emit('room_state', room);
-    });
-
-    socket.on('play_card', ({ roomId, choice }: { roomId: string, choice: CardType }) => {
-      const room = rooms[roomId];
-      if (!room || room.gameState !== 'playing') return;
-      
-      const player = room.players[socket.id];
-      if (!player || player.choice || player.deck[choice] <= 0) return;
-
-      player.choice = choice;
-      player.deck[choice] -= 1;
-
-      if (room.isBotRoom) {
-        const bot = room.players['bot'];
-        const availableCards: CardType[] = [];
-        if (bot.deck.rock > 0) availableCards.push('rock');
-        if (bot.deck.paper > 0) availableCards.push('paper');
-        if (bot.deck.scissors > 0) availableCards.push('scissors');
+    ws.on('message', (data) => {
+      try {
+        const message = JSON.parse(data.toString());
         
-        if (availableCards.length > 0) {
-          const botChoice = availableCards[Math.floor(Math.random() * availableCards.length)];
-          bot.choice = botChoice;
-          bot.deck[botChoice] -= 1;
+        if (message.type === 'PONG') {
+          console.log('Handshake verified with:', socketId);
+          return;
         }
-      }
 
-      const playerIds = Object.keys(room.players);
-      const p1 = room.players[playerIds[0]];
-      const p2 = room.players[playerIds[1]];
+        if (message.type === 'create_bot_room') {
+          const roomId = 'BOT_' + Math.random().toString(36).substring(2, 8).toUpperCase();
+          const me: Player = { id: socketId, name: message.playerName || 'لاعب', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false, ws };
+          const bot: Player = { id: 'bot', name: 'الكمبيوتر', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: true, ws: ws }; // Bot uses same ws but it's fine
+          
+          rooms[roomId] = {
+            id: roomId,
+            isBotRoom: true,
+            players: { [socketId]: me, 'bot': bot },
+            gameState: 'playing',
+            round: 1,
+            roundWinner: null
+          };
+          ws.send(JSON.stringify({ type: 'room_created', roomId }));
+          startRoundTimer(roomId);
+          broadcastToRoom(roomId, { type: 'room_state', state: rooms[roomId] });
+        }
 
-      if (p1.choice && p2.choice) {
-        handleReveal(roomId, io);
-      } else {
-        io.to(roomId).emit('room_state', room);
+        if (message.type === 'create_room') {
+          const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
+          rooms[roomId] = {
+            id: roomId,
+            players: {
+              [socketId]: { id: socketId, name: message.playerName || 'لاعب', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false, ws }
+            },
+            gameState: 'waiting',
+            round: 1,
+            roundWinner: null
+          };
+          ws.send(JSON.stringify({ type: 'room_created', roomId }));
+          broadcastToRoom(roomId, { type: 'room_state', state: rooms[roomId] });
+        }
+
+        if (message.type === 'join_room') {
+          const { roomId, playerName } = message;
+          const room = rooms[roomId];
+          if (!room) {
+            ws.send(JSON.stringify({ type: 'error_msg', msg: 'الغرفة غير موجودة' }));
+            return;
+          }
+          if (Object.keys(room.players).length >= 2) {
+            ws.send(JSON.stringify({ type: 'error_msg', msg: 'الغرفة ممتلئة' }));
+            return;
+          }
+
+          room.players[socketId] = { id: socketId, name: playerName || 'لاعب', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false, ws };
+          room.gameState = 'playing';
+          startRoundTimer(roomId);
+          broadcastToRoom(roomId, { type: 'room_state', state: room });
+        }
+
+        if (message.type === 'play_card') {
+          const { roomId, choice } = message;
+          const room = rooms[roomId];
+          if (!room || room.gameState !== 'playing') return;
+          
+          const player = room.players[socketId];
+          if (!player || player.choice || player.deck[choice as CardType] <= 0) return;
+
+          player.choice = choice as CardType;
+          player.deck[choice as CardType] -= 1;
+
+          const playerIds = Object.keys(room.players);
+          const p1 = room.players[playerIds[0]];
+          const p2 = room.players[playerIds[1]];
+
+          if (p1 && p2 && p1.choice && p2.choice) {
+            handleReveal(roomId);
+          } else {
+            broadcastToRoom(roomId, { type: 'room_state', state: room });
+          }
+        }
+
+        if (message.type === 'play_again') {
+          const { roomId } = message;
+          const room = rooms[roomId];
+          if (!room || room.gameState !== 'gameOver') return;
+
+          const player = room.players[socketId];
+          if (player) player.readyForNext = true;
+
+          const allReady = Object.values(room.players).every(p => p.readyForNext);
+          if (allReady) {
+            room.round = 1;
+            room.gameState = 'playing';
+            room.roundWinner = null;
+            Object.values(room.players).forEach(p => {
+              p.deck = { ...INITIAL_DECK };
+              p.score = 0;
+              p.choice = null;
+              p.readyForNext = p.id === 'bot';
+            });
+            startRoundTimer(roomId);
+          }
+          broadcastToRoom(roomId, { type: 'room_state', state: room });
+        }
+
+        if (message.type === 'leave_room') {
+          const { roomId } = message;
+          handleDisconnect(socketId, roomId);
+        }
+
+      } catch (e) {
+        console.error('Error processing message:', e);
       }
     });
 
-    socket.on('play_again', (roomId: string) => {
-      const room = rooms[roomId];
-      if (!room || room.gameState !== 'gameOver') return;
-
-      const player = room.players[socket.id];
-      if (player) player.readyForNext = true;
-
-      const allReady = Object.values(room.players).every(p => p.readyForNext);
-      if (allReady) {
-        room.round = 1;
-        room.gameState = 'playing';
-        room.roundWinner = null;
-        Object.values(room.players).forEach(p => {
-          p.deck = { ...INITIAL_DECK };
-          p.score = 0;
-          p.choice = null;
-          p.readyForNext = p.id === 'bot';
-        });
-        startRoundTimer(roomId, io);
-        io.to(roomId).emit('room_state', room);
-      } else {
-        io.to(roomId).emit('room_state', room);
-      }
+    ws.on('close', () => {
+      console.log('User disconnected:', socketId);
+      handleDisconnect(socketId);
     });
 
-    socket.on('leave_room', (roomId: string) => {
-      const room = rooms[roomId];
-      if (room && room.players[socket.id]) {
-        delete room.players[socket.id];
-        socket.leave(roomId);
-        if (roomTimers[roomId]) {
-          clearInterval(roomTimers[roomId]);
-          delete roomTimers[roomId];
-        }
-        if (Object.keys(room.players).length === 0) {
-          delete rooms[roomId];
-        } else {
-          room.gameState = 'waiting';
-          io.to(roomId).emit('error_msg', 'الخصم غادر الغرفة');
-          io.to(roomId).emit('room_state', room);
-        }
-      }
-    });
-
-    socket.on('disconnect', () => {
-      for (const roomId in rooms) {
-        const room = rooms[roomId];
-        if (room.players[socket.id]) {
-          delete room.players[socket.id];
-          if (roomTimers[roomId]) {
-            clearInterval(roomTimers[roomId]);
-            delete roomTimers[roomId];
+    function handleDisconnect(id: string, specificRoomId?: string) {
+      const roomIds = specificRoomId ? [specificRoomId] : Object.keys(rooms);
+      roomIds.forEach(rid => {
+        const room = rooms[rid];
+        if (room && room.players[id]) {
+          delete room.players[id];
+          if (roomTimers[rid]) {
+            clearInterval(roomTimers[rid]);
+            delete roomTimers[rid];
           }
           if (Object.keys(room.players).length === 0) {
-            delete rooms[roomId];
+            delete rooms[rid];
           } else {
             room.gameState = 'waiting';
-            io.to(roomId).emit('error_msg', 'الخصم غادر الغرفة');
-            io.to(roomId).emit('room_state', room);
+            broadcastToRoom(rid, { type: 'error_msg', msg: 'الخصم غادر الغرفة' });
+            broadcastToRoom(rid, { type: 'room_state', state: room });
           }
         }
-      }
-    });
+      });
+    }
   });
 
   if (process.env.NODE_ENV !== 'production') {

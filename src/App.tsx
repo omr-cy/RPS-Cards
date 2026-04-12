@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { io, Socket } from 'socket.io-client';
-import { Bot, Globe, Home, Trophy, XCircle, Minus, Copy, Edit2, Bug, X } from 'lucide-react';
+import { Bot, Globe, Home, Trophy, XCircle, Minus, Copy, Edit2, Bug, X, Wifi, ShieldCheck, Activity } from 'lucide-react';
 import rockSvg from '/rock.svg';
 import paperSvg from '/paper.svg';
 import scissorsSvg from '/scissors.svg';
@@ -12,12 +11,14 @@ import { registerPlugin, Capacitor } from '@capacitor/core';
 
 export interface LocalServerPlugin {
   startServer(options: { port: number }): Promise<{ status: string; port: number }>;
-  stopServer(): Promise<void>;
+  connectToServer(options: { ip: string; port: number }): Promise<void>;
+  stopAll(): Promise<void>;
+  sendMessage(options: { message: string }): Promise<void>;
+  getStatus(): Promise<{ role: string; status: string; clientCount: number; localIp: string }>;
   getLocalIpAddress(): Promise<{ ip: string }>;
-  broadcastMessage(options: { message: string }): Promise<void>;
-  addListener(eventName: 'onClientConnected', listenerFunc: (info: { clientId: string }) => void): any;
-  addListener(eventName: 'onClientDisconnected', listenerFunc: (info: { clientId: string }) => void): any;
-  addListener(eventName: 'onMessageReceived', listenerFunc: (info: { clientId: string; message: string }) => void): any;
+  addListener(eventName: 'onStatusUpdate', listenerFunc: (info: { role: string; status: string; clientCount: number; localIp: string }) => void): any;
+  addListener(eventName: 'onMessageReceived', listenerFunc: (info: { clientId?: string; message: string }) => void): any;
+  addListener(eventName: 'onLog', listenerFunc: (info: { message: string; type: string; timestamp: number }) => void): any;
 }
 
 export const LocalServer = registerPlugin<LocalServerPlugin>('LocalServer');
@@ -70,8 +71,6 @@ interface LogEntry {
   type: 'info' | 'error' | 'success';
 }
 
-let socket: Socket | null = null;
-
 const App = () => {
   const [appState, setAppState] = useState<'nameEntry' | 'menu' | 'inRoom'>('nameEntry');
   const [menuTab, setMenuTab] = useState<'main' | 'online' | 'local'>('main');
@@ -83,18 +82,25 @@ const App = () => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [userIp, setUserIp] = useState<string>('جاري التحميل...');
   
+  // Native Networking State
+  const [connectionStatus, setConnectionStatus] = useState<'DISCONNECTED' | 'CONNECTING' | 'VERIFIED'>('DISCONNECTED');
+  const [role, setRole] = useState<'HOST' | 'CLIENT' | 'NONE'>('NONE');
+  const [clientCount, setClientCount] = useState(0);
+  
   // Debug State
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [showDebug, setShowDebug] = useState(false);
 
   // Refs to avoid stale closures in listeners
-  const roomIdRef = React.useRef<string | null>(null);
-  const roomStateRef = React.useRef<Room | null>(null);
+  const roomIdRef = useRef<string | null>(null);
+  const roomStateRef = useRef<Room | null>(null);
+  const playerNameRef = useRef<string>('');
 
   useEffect(() => {
     roomIdRef.current = roomId;
     roomStateRef.current = roomState;
-  }, [roomId, roomState]);
+    playerNameRef.current = playerName;
+  }, [roomId, roomState, playerName]);
 
   useEffect(() => {
     if (errorMsg) {
@@ -109,6 +115,56 @@ const App = () => {
     const newLog: LogEntry = { id: Date.now() + Math.random(), time: new Date().toLocaleTimeString(), msg, type };
     setLogs(prev => [newLog, ...prev].slice(0, 50));
     console.log(`[${type.toUpperCase()}] ${msg}`);
+  };
+
+  // Native Bridge Setup
+  useEffect(() => {
+    const statusListener = LocalServer.addListener('onStatusUpdate', (info) => {
+      setRole(info.role as any);
+      setConnectionStatus(info.status as any);
+      setClientCount(info.clientCount);
+      if (info.localIp) setUserIp(info.localIp);
+    });
+
+    const logListener = LocalServer.addListener('onLog', (info) => {
+      addLog(info.message, info.type as any);
+    });
+
+    const messageListener = LocalServer.addListener('onMessageReceived', (info) => {
+      try {
+        const data = JSON.parse(info.message);
+        handleNativeMessage(data);
+      } catch (e) {
+        addLog(`Received non-JSON message: ${info.message}`, 'info');
+      }
+    });
+
+    return () => {
+      statusListener.remove();
+      logListener.remove();
+      messageListener.remove();
+    };
+  }, []);
+
+  const handleNativeMessage = (data: any) => {
+    if (data.type === 'room_state') {
+      setRoomState(data.state);
+      setRoomId(data.state.id);
+      setAppState('inRoom');
+    } else if (data.type === 'room_created') {
+      setRoomId(data.roomId);
+    } else if (data.type === 'error_msg') {
+      setErrorMsg(data.msg);
+      addLog(`Server Error: ${data.msg}`, 'error');
+    }
+  };
+
+  const sendNativeAction = async (action: any) => {
+    try {
+      await LocalServer.sendMessage({ message: JSON.stringify(action) });
+    } catch (e) {
+      addLog(`Failed to send action: ${e}`, 'error');
+    }
   };
 
   useEffect(() => {
@@ -214,315 +270,103 @@ const App = () => {
     fetchIp();
   }, []);
 
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (roomId === 'OFFLINE_BOT' && roomState?.gameState === 'playing') {
-      timer = setInterval(() => {
-        setRoomState(prev => {
-          if (!prev || prev.id !== 'OFFLINE_BOT' || prev.gameState !== 'playing') return prev;
-          const currentTime = prev.timeLeft ?? 15;
-          if (currentTime <= 1) {
-            // Auto play a random card if time runs out
-            const me = prev.players['me'];
-            if (!me.choice) {
-              const available: CardType[] = [];
-              if (me.deck.rock > 0) available.push('rock');
-              if (me.deck.paper > 0) available.push('paper');
-              if (me.deck.scissors > 0) available.push('scissors');
-              const randomChoice = available[Math.floor(Math.random() * available.length)];
-              // We can't call playCard directly here easily without refactoring, 
-              // but we can trigger the logic.
-              setTimeout(() => playCard(randomChoice), 0);
-            }
-            return { ...prev, timeLeft: 0 };
-          }
-          return { ...prev, timeLeft: currentTime - 1 };
-        });
-      }, 1000);
-    }
-    return () => clearInterval(timer);
-  }, [roomId, roomState?.gameState]);
-
-  const setupSocket = (url?: string) => {
-    if (socket) return socket;
-    
-    // Always use the unified port if a URL is provided
-    let connectionUrl = url;
-    if (url && !url.includes(`:${LAN_PORT}`)) {
-        connectionUrl = `${url}:${LAN_PORT}`;
-    }
-    
-    addLog(`Setting up WebSocket connection to ${connectionUrl || 'default'}...`, 'info');
-    socket = connectionUrl ? io(connectionUrl, { transports: ['websocket'] }) : io({ transports: ['websocket'] });
-
-    socket.on('connect', () => addLog(`WebSocket connected: ${socket?.id}`, 'success'));
-    socket.on('connect_error', (err) => addLog(`WebSocket connect error: ${err.message}`, 'error'));
-    socket.on('disconnect', (reason) => addLog(`WebSocket disconnected: ${reason}`, 'info'));
-
-    socket.on('room_created', (id: string) => {
-      addLog(`Room created: ${id}`, 'success');
-      setRoomId(id);
-      setAppState('inRoom');
-      setErrorMsg(null);
-    });
-
-    socket.on('room_state', (state: Room) => {
-      setRoomState(state);
-      setRoomId(state.id);
-      setAppState('inRoom');
-      setErrorMsg(null);
-
-      // Auto-play last card if only one card remains and player hasn't chosen yet
-      if (state.gameState === 'playing') {
-        const myId = socket?.id;
-        if (!myId) return;
-        const me = state.players[myId];
-        if (me && me.choice === null) {
-          const totalCards = me.deck.rock + me.deck.paper + me.deck.scissors;
-          if (totalCards === 1) {
-            let lastChoice: CardType | null = null;
-            if (me.deck.rock === 1) lastChoice = 'rock';
-            else if (me.deck.paper === 1) lastChoice = 'paper';
-            else if (me.deck.scissors === 1) lastChoice = 'scissors';
-
-            if (lastChoice) {
-              socket?.emit('play_card', { roomId: state.id, choice: lastChoice });
-            }
-          }
-        }
-      }
-    });
-
-    socket.on('STATE_UPDATE', (data: any) => {
-      addLog('Received state update from local host', 'info');
-      if (data.state) {
-        setRoomState(data.state);
-      }
-    });
-
-    socket.on('error_msg', (msg: string) => {
-      addLog(`Socket error_msg: ${msg}`, 'error');
-      setErrorMsg(msg);
-      setTimeout(() => setErrorMsg(null), 3000);
-    });
-
-    return socket;
-  };
-
-  useEffect(() => {
-    const initLocalServer = async () => {
-      addLog('Initializing LocalServer plugin...', 'info');
-      if (Capacitor.getPlatform() === 'web') {
-        addLog('LocalServer plugin is only available on Android/iOS (Web detected)', 'error');
-        console.warn('LocalServer plugin is only available on Android/iOS');
-        return;
-      }
-      try {
-        LocalServer.addListener('onClientConnected', (info) => {
-          addLog(`Local client connected: ${info.clientId}`, 'success');
-          console.log('Client connected:', info.clientId);
-          // If we are hosting, we might need to handle player joining
-        });
-
-        LocalServer.addListener('onMessageReceived', (info) => {
-          addLog(`Local message received from ${info.clientId}`, 'info');
-          const data = JSON.parse(info.message);
-          handleLocalMessage(info.clientId, data);
-        });
-        addLog('LocalServer listeners added successfully', 'success');
-      } catch (e) {
-        addLog(`LocalServer listeners failed: ${e}`, 'error');
-        console.warn('LocalServer listeners failed:', e);
-      }
-    };
-    initLocalServer();
-  }, []);
-
-  const broadcastLocalState = (state: Room) => {
-    addLog('Broadcasting local state update...', 'info');
-    setRoomState({ ...state });
-    if (Capacitor.getPlatform() !== 'web' && roomIdRef.current === 'LOCAL_HOST') {
-      LocalServer.broadcastMessage({ message: JSON.stringify({ type: 'STATE_UPDATE', state }) })
-        .then(() => addLog('Broadcast successful', 'success'))
-        .catch(e => addLog(`Broadcast failed: ${e}`, 'error'));
-    }
-  };
-
-  const resolveLocalRound = (state: Room) => {
-    const playerIds = Object.keys(state.players);
-    if (playerIds.length < 2) return;
-    
-    const p1 = state.players[playerIds[0]];
-    const p2 = state.players[playerIds[1]];
-    
-    if (!p1.choice || !p2.choice) return;
-    
-    state.gameState = 'revealing';
-    broadcastLocalState(state);
-    
-    setTimeout(() => {
-      const winner = (c1: CardType, c2: CardType) => {
-        if (c1 === c2) return 0;
-        if ((c1 === 'rock' && c2 === 'scissors') || (c1 === 'paper' && c2 === 'rock') || (c1 === 'scissors' && c2 === 'paper')) return 1;
-        return 2;
-      };
-      
-      const winnerCode = winner(p1.choice!, p2.choice!);
-      let points = 1;
-      if (state.round >= 6 && state.round <= 8) points = 2;
-      else if (state.round === 9) points = 3;
-      
-      if (winnerCode === 1) {
-        p1.score += points;
-        state.roundWinner = p1.id;
-      } else if (winnerCode === 2) {
-        p2.score += points;
-        state.roundWinner = p2.id;
-      } else {
-        state.roundWinner = 'draw';
-      }
-      
-      state.gameState = 'roundResult';
-      broadcastLocalState(state);
-      
-      setTimeout(() => {
-        if (state.round >= 9) {
-          state.gameState = 'gameOver';
-        } else {
-          state.round += 1;
-          state.gameState = 'playing';
-          state.roundWinner = null;
-          p1.choice = null;
-          p2.choice = null;
-        }
-        broadcastLocalState(state);
-      }, 3000);
-    }, 1200);
-  };
-
-  const handleLocalMessage = (clientId: string, data: any) => {
-    addLog(`Processing local message from ${clientId}: ${data.type}`, 'info');
-    
-    if (roomIdRef.current !== 'LOCAL_HOST') {
-      addLog(`Ignoring message: not in LOCAL_HOST mode (current: ${roomIdRef.current})`, 'info');
-      return;
-    }
-
-    setRoomState(prev => {
-      if (!prev) return prev;
-      const newState = { ...prev };
-      
-      if (data.type === 'JOIN') {
-        newState.players[clientId] = {
-          id: clientId,
-          name: data.name || 'لاعب مجهول',
-          deck: { rock: 3, paper: 3, scissors: 3 },
-          score: 0,
-          choice: null,
-          readyForNext: false
-        };
-        newState.gameState = 'playing';
-        addLog(`Player ${data.name} joined local game`, 'success');
-        // Side effect outside of updater to avoid recursion
-        setTimeout(() => broadcastLocalState(newState), 0);
-      } else if (data.type === 'PLAY_CARD') {
-        const player = newState.players[clientId];
-        if (player && !player.choice) {
-          player.choice = data.choice;
-          player.deck[data.choice] -= 1;
-          addLog(`Player ${player.name} played ${data.choice}`, 'info');
-          
-          const playerIds = Object.keys(newState.players);
-          if (playerIds.every(id => newState.players[id].choice)) {
-            setTimeout(() => resolveLocalRound(newState), 0);
-          } else {
-            setTimeout(() => broadcastLocalState(newState), 0);
-          }
-        }
-      }
-      
-      return newState;
-    });
-  };
-
   const hostGame = async () => {
     addLog('Host button clicked', 'info');
     if (!playerName.trim()) {
-      addLog('Host failed: Player name empty', 'error');
       setErrorMsg('يرجى إدخال اسمك أولاً');
       return;
     }
     if (Capacitor.getPlatform() === 'web') {
-      addLog('Host game failed: Web platform detected', 'error');
       setErrorMsg('ميزة الاستضافة متاحة فقط في تطبيق الأندرويد');
       return;
     }
     try {
-      addLog(`Attempting to start LocalServer on port ${LAN_PORT}...`, 'info');
-      
-      // Refresh IP before hosting
-      await fetchIp();
-      
-      // Check if LocalServer is actually available
-      if (!LocalServer || typeof LocalServer.startServer !== 'function') {
-        addLog('LocalServer plugin or startServer method is missing', 'error');
-        throw new Error('Plugin not found or missing startServer method');
-      }
-
-      const startResult = await LocalServer.startServer({ port: LAN_PORT });
-      addLog(`LocalServer start result: ${JSON.stringify(startResult)}`, 'success');
-      
-      // Add delay to ensure server is ready
-      addLog('Waiting for server to initialize...', 'info');
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      const initialPlayer: Player = {
-        id: 'host',
-        name: playerName.trim(),
-        deck: { rock: 3, paper: 3, scissors: 3 },
-        score: 0,
-        choice: null,
-        readyForNext: false
-      };
-
-      // Set state in one go to avoid partial renders
-      setRoomState({
-        id: 'LOCAL_HOST',
-        players: { 'host': initialPlayer },
-        gameState: 'waiting',
-        round: 1,
-        roundWinner: null
-      });
-      setRoomId('LOCAL_HOST');
-      setAppState('inRoom');
-      setErrorMsg(null);
-      addLog('Host state initialized successfully', 'success');
+      await LocalServer.startServer({ port: LAN_PORT });
+      // Handshake will be handled by native. Once verified, we can send join.
+      const checkVerified = setInterval(() => {
+        LocalServer.getStatus().then(status => {
+          if (status.status === 'VERIFIED') {
+            clearInterval(checkVerified);
+            sendNativeAction({ type: 'host_join', playerName: playerName.trim() });
+          }
+        });
+      }, 500);
     } catch (e) {
-      addLog(`Host error: ${e}`, 'error');
-      console.error('Host error:', e);
-      setErrorMsg('فشل تشغيل السيرفر المحلي. تأكد من إعطاء الأذونات اللازمة.');
+      addLog(`Host failed: ${e}`, 'error');
     }
   };
 
-  const createRoom = () => {
-    if (!playerName.trim()) {
-      setErrorMsg('يرجى إدخال اسمك أولاً');
+  const joinGame = async () => {
+    if (!ipInput.trim()) {
+      setErrorMsg('يرجى إدخال عنوان IP');
       return;
     }
-    addLog(`Creating online room...`, 'info');
-    const s = setupSocket();
-    s.emit('create_room', playerName.trim());
+    if (Capacitor.getPlatform() === 'web') {
+      setErrorMsg('ميزة الانضمام متاحة فقط في تطبيق الأندرويد');
+      return;
+    }
+    try {
+      await LocalServer.connectToServer({ ip: ipInput.trim(), port: LAN_PORT });
+      const checkVerified = setInterval(() => {
+        LocalServer.getStatus().then(status => {
+          if (status.status === 'VERIFIED') {
+            clearInterval(checkVerified);
+            sendNativeAction({ type: 'join_game', playerName: playerName.trim() });
+          }
+        });
+      }, 500);
+    } catch (e) {
+      addLog(`Join failed: ${e}`, 'error');
+    }
   };
 
-  const joinRoom = () => {
-    if (!playerName.trim()) {
-      setErrorMsg('يرجى إدخال اسمك أولاً');
-      return;
-    }
+  const createOnlineRoom = () => {
+    const serverUrl = window.location.hostname;
+    LocalServer.connectToServer({ ip: serverUrl, port: 3000 })
+      .then(() => {
+        const checkVerified = setInterval(() => {
+          LocalServer.getStatus().then(status => {
+            if (status.status === 'VERIFIED') {
+              clearInterval(checkVerified);
+              sendNativeAction({ type: 'create_room', playerName: playerName.trim() });
+            }
+          });
+        }, 500);
+      })
+      .catch(e => setErrorMsg('تعذر الاتصال بالخادم'));
+  };
+
+  const joinOnlineRoom = () => {
     if (!roomIdInput.trim()) return;
-    addLog(`Joining online room: ${roomIdInput.trim().toUpperCase()}`, 'info');
-    const s = setupSocket();
-    s.emit('join_room', { roomId: roomIdInput.trim().toUpperCase(), playerName: playerName.trim() });
+    const serverUrl = window.location.hostname;
+    LocalServer.connectToServer({ ip: serverUrl, port: 3000 })
+      .then(() => {
+        const checkVerified = setInterval(() => {
+          LocalServer.getStatus().then(status => {
+            if (status.status === 'VERIFIED') {
+              clearInterval(checkVerified);
+              sendNativeAction({ type: 'join_room', roomId: roomIdInput.trim().toUpperCase(), playerName: playerName.trim() });
+            }
+          });
+        }, 500);
+      })
+      .catch(e => setErrorMsg('تعذر الاتصال بالخادم'));
+  };
+
+  const createBotRoom = () => {
+    const serverUrl = window.location.hostname;
+    LocalServer.connectToServer({ ip: serverUrl, port: 3000 })
+      .then(() => {
+        const checkVerified = setInterval(() => {
+          LocalServer.getStatus().then(status => {
+            if (status.status === 'VERIFIED') {
+              clearInterval(checkVerified);
+              sendNativeAction({ type: 'create_bot_room', playerName: playerName.trim() });
+            }
+          });
+        }, 500);
+      })
+      .catch(e => setErrorMsg('تعذر الاتصال بالخادم'));
   };
 
   const copyRoomId = () => {
@@ -533,214 +377,24 @@ const App = () => {
     }
   };
 
-  const createBotRoom = () => {
-    if (!playerName.trim()) {
-      setErrorMsg('يرجى إدخال اسمك أولاً');
-      return;
-    }
-    // Local Bot Logic (Offline)
-    const rid = 'OFFLINE_BOT';
-    setRoomId(rid);
-    setAppState('inRoom');
-    
-    const initialPlayer: Player = {
-      id: 'me',
-      name: playerName.trim(),
-      deck: { rock: 3, paper: 3, scissors: 3 },
-      score: 0,
-      choice: null,
-      readyForNext: false
-    };
-    
-    const initialBot: Player = {
-      id: 'bot',
-      name: 'الكمبيوتر',
-      deck: { rock: 3, paper: 3, scissors: 3 },
-      score: 0,
-      choice: null,
-      readyForNext: true
-    };
-
-    setRoomState({
-      id: rid,
-      isBotRoom: true,
-      players: { 'me': initialPlayer, 'bot': initialBot },
-      gameState: 'playing',
-      round: 1,
-      roundWinner: null,
-      timeLeft: 15
-    });
-  };
-
-  const joinGame = () => {
-    if (!playerName.trim()) {
-      setErrorMsg('يرجى إدخال اسمك أولاً');
-      return;
-    }
-    if (!ipInput.trim()) return;
-    let url = ipInput.trim();
-    if (!url.startsWith('http')) {
-      url = `http://${url}:${LAN_PORT}`;
-    }
-    addLog(`Joining local game at ${url}...`, 'info');
-    const s = setupSocket(url);
-    
-    // We need to send a message that the local host understands
-    s.on('connect', () => {
-      s.emit('message', JSON.stringify({ type: 'JOIN', name: playerName.trim() }));
-      // Also emit the standard event just in case
-      s.emit('join_hosted_game', playerName.trim());
-    });
-  };
-
   const playCard = (choice: CardType) => {
-    if (!roomId) return;
-    
-    if (roomIdRef.current === 'LOCAL_HOST' && roomStateRef.current) {
-      const newState = { ...roomStateRef.current };
-      const host = newState.players['host'];
-      if (host && !host.choice) {
-        host.choice = choice;
-        host.deck[choice] -= 1;
-        addLog(`Host played ${choice}`, 'info');
-        
-        const playerIds = Object.keys(newState.players);
-        if (playerIds.length >= 2 && playerIds.every(id => newState.players[id].choice)) {
-          setTimeout(() => resolveLocalRound(newState), 0);
-        } else {
-          broadcastLocalState(newState);
-        }
-      }
-      return;
-    }
-
-    if (roomId === 'OFFLINE_BOT' && roomState) {
-      const newState = { ...roomState };
-      const me = newState.players['me'];
-      const bot = newState.players['bot'];
-      
-      if (me.choice) return;
-      
-      me.choice = choice;
-      me.deck[choice] -= 1;
-      
-      // Bot choice
-      const available: CardType[] = [];
-      if (bot.deck.rock > 0) available.push('rock');
-      if (bot.deck.paper > 0) available.push('paper');
-      if (bot.deck.scissors > 0) available.push('scissors');
-      
-      const botChoice = available[Math.floor(Math.random() * available.length)];
-      bot.choice = botChoice;
-      bot.deck[botChoice] -= 1;
-      
-      newState.gameState = 'revealing';
-      setRoomState({ ...newState });
-      
-      setTimeout(() => {
-        const winner = (c1: CardType, c2: CardType) => {
-          if (c1 === c2) return 0;
-          if ((c1 === 'rock' && c2 === 'scissors') || (c1 === 'paper' && c2 === 'rock') || (c1 === 'scissors' && c2 === 'paper')) return 1;
-          return 2;
-        };
-        
-        const winnerCode = winner(me.choice!, bot.choice!);
-        let points = 1;
-        if (newState.round >= 6 && newState.round <= 8) points = 2;
-        else if (newState.round === 9) points = 3;
-        
-        if (winnerCode === 1) {
-          me.score += points;
-          newState.roundWinner = 'me';
-        } else if (winnerCode === 2) {
-          bot.score += points;
-          newState.roundWinner = 'bot';
-        } else {
-          newState.roundWinner = 'draw';
-        }
-        
-        newState.gameState = 'roundResult';
-        setRoomState({ ...newState });
-        
-        setTimeout(() => {
-          if (newState.round >= 9) {
-            newState.gameState = 'gameOver';
-          } else {
-            newState.round += 1;
-            newState.gameState = 'playing';
-            newState.roundWinner = null;
-            newState.timeLeft = 15;
-            me.choice = null;
-            bot.choice = null;
-          }
-          setRoomState({ ...newState });
-        }, 3000);
-      }, 1200);
-      
-      return;
-    }
-
-    if (socket) {
-      if (roomId === 'LOCAL_HOST') {
-        // This case is handled above, but just in case
-      } else {
-        // Check if we are connected to a local server (no roomId yet or special roomId)
-        socket.emit('play_card', { roomId, choice });
-      }
-    }
-  };
-
-  const nextRound = () => {
-    if (!roomId || !socket) return;
-    socket.emit('next_round', roomId);
+    if (!roomState || roomState.gameState !== 'playing' || !roomId) return;
+    sendNativeAction({ type: 'play_card', roomId, choice });
   };
 
   const playAgain = () => {
     if (!roomId) return;
-    
-    if (roomId === 'OFFLINE_BOT') {
-      createBotRoom();
-      return;
-    }
-
-    if (roomId === 'LOCAL_HOST' && roomState) {
-      addLog('Resetting local game for play again', 'info');
-      const newState = { ...roomState };
-      const playerIds = Object.keys(newState.players);
-      playerIds.forEach(id => {
-        newState.players[id].deck = { rock: 3, paper: 3, scissors: 3 };
-        newState.players[id].score = 0;
-        newState.players[id].choice = null;
-        newState.players[id].readyForNext = false;
-      });
-      newState.gameState = 'playing';
-      newState.round = 1;
-      newState.roundWinner = null;
-      broadcastLocalState(newState);
-      return;
-    }
-
-    if (!socket) return;
-    socket.emit('play_again', roomId);
+    sendNativeAction({ type: 'play_again', roomId });
   };
 
-  const leaveRoom = () => {
+  const leaveRoom = async () => {
     if (roomId) {
-      addLog(`Leaving room: ${roomId}`, 'info');
-      if (roomId === 'LOCAL_HOST' && Capacitor.getPlatform() !== 'web') {
-        addLog('Stopping LocalServer...', 'info');
-        LocalServer.stopServer().then(() => addLog('LocalServer stopped', 'success')).catch(e => addLog(`Failed to stop LocalServer: ${e}`, 'error'));
-      }
-      if (socket) {
-        addLog('Disconnecting socket...', 'info');
-        socket.emit('leave_room', roomId);
-        socket.disconnect();
-        socket = null;
-      }
-      setRoomId(null);
-      setRoomState(null);
-      setAppState('menu');
+      sendNativeAction({ type: 'leave_room', roomId });
     }
+    await LocalServer.stopAll();
+    setRoomId(null);
+    setRoomState(null);
+    setAppState('menu');
   };
 
   const validateName = (name: string) => {
@@ -814,25 +468,6 @@ const App = () => {
             <div className="flex justify-between items-center mb-4 border-b border-slate-800 pb-2">
               <h3 className="text-slate-200 font-bold text-lg font-sans" dir="rtl">سجل الأخطاء والاتصال</h3>
               <div className="flex gap-2">
-                <button 
-                  onClick={async () => {
-                    addLog('Testing LocalServer plugin...', 'info');
-                    try {
-                      if (Capacitor.getPlatform() !== 'web') {
-                        addLog('LocalServer.getLocalIpAddress() is not supported on Android, skipping.', 'info');
-                      } else {
-                        const ip = await LocalServer.getLocalIpAddress();
-                        addLog(`Plugin Test Success! IP: ${ip.ip}`, 'success');
-                      }
-                    } catch (e) {
-                      addLog(`Plugin Test Failed: ${e}`, 'error');
-                    }
-                  }}
-                  className="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] rounded-lg font-bold transition-colors font-sans"
-                  dir="rtl"
-                >
-                  فحص الإضافة
-                </button>
                 <button 
                   onClick={() => setLogs([])}
                   className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] rounded-lg font-bold transition-colors font-sans"
@@ -959,11 +594,10 @@ const App = () => {
                     className="flex flex-col gap-3"
                   >
                     <button
-                      disabled
-                      className="w-[90%] mx-auto py-3 sm:py-4 bg-slate-800 text-slate-500 rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg shadow-lg cursor-not-allowed flex items-center justify-center gap-2 relative overflow-hidden"
+                      onClick={() => setMenuTab('online')}
+                      className="w-[90%] mx-auto py-3 sm:py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg shadow-lg shadow-indigo-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
                     >
                       <Globe className="w-5 h-5 sm:w-6 sm:h-6" /> لعب عبر الإنترنت
-                      <span className="absolute top-0 right-0 bg-rose-500/20 text-rose-400 text-[10px] sm:text-xs px-2 py-0.5 rounded-bl-lg font-bold">تحت الصيانة</span>
                     </button>
                     <button
                       onClick={() => setMenuTab('local')}
@@ -992,7 +626,7 @@ const App = () => {
                       <span>➔</span> رجوع
                     </button>
                     <button
-                      onClick={createRoom}
+                      onClick={createOnlineRoom}
                       className="w-[90%] mx-auto py-3 sm:py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg shadow-lg shadow-indigo-500/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
                     >
                       إنشاء غرفة جديدة
@@ -1017,7 +651,7 @@ const App = () => {
                         <motion.button
                           initial={{ opacity: 0, scale: 0.9 }}
                           animate={{ opacity: 1, scale: 1 }}
-                          onClick={joinRoom}
+                          onClick={joinOnlineRoom}
                           className="absolute left-1.5 sm:left-2 top-1.5 sm:top-2 bottom-1.5 sm:bottom-2 px-4 sm:px-6 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg sm:rounded-xl font-bold transition-all shadow-md text-sm sm:text-base"
                         >
                           انضمام
@@ -1128,7 +762,22 @@ const App = () => {
     </div>
   );
 
-  const myId = roomState.isBotRoom ? 'me' : (roomId === 'LOCAL_HOST' ? 'host' : socket?.id);
+  // In LAN mode, the host is 'host' and the client is their clientId.
+  // In Online mode, it depends on the server.
+  // We'll try to find the player that matches the current role/status.
+  let myId = '';
+  if (roomState.isBotRoom) {
+    myId = 'me';
+  } else if (role === 'HOST') {
+    myId = 'host';
+  } else {
+    // If we are a client, our ID is likely the one that isn't 'host' (in LAN) 
+    // or we can look for our name in the players list.
+    const ids = Object.keys(roomState.players);
+    const foundId = ids.find(id => roomState.players[id].name === playerName);
+    myId = foundId || ids[0];
+  }
+
   if (!myId || !roomState.players[myId]) return (
     <div className="h-[100dvh] bg-slate-950">
       {renderDebugUI()}
@@ -1136,7 +785,7 @@ const App = () => {
   );
 
   const me = roomState.players[myId];
-  const opponentId = roomState.isBotRoom ? 'bot' : Object.keys(roomState.players).find(id => id !== myId);
+  const opponentId = Object.keys(roomState.players).find(id => id !== myId);
   const opponent = opponentId ? roomState.players[opponentId] : null;
 
   if (!opponent && !roomState.isBotRoom && roomState.gameState !== 'waiting') return (
@@ -1167,7 +816,7 @@ const App = () => {
             <div className="w-12 h-12 rounded-full border-4 border-slate-800 border-t-indigo-500 animate-spin mx-auto mb-6"></div>
             <h2 className="text-xl font-bold mb-2 text-slate-200">في انتظار الخصم...</h2>
             
-            {roomId === 'LOCAL_HOST' ? (
+            {role === 'HOST' ? (
               <>
                 <p className="text-slate-400 mb-4 text-xs sm:text-sm px-4">أنت الآن تستضيف اللعبة. اطلب من صديقك إدخال الـ IP الخاص بك للاتصال.</p>
                 <div className="bg-slate-950 p-3 rounded-2xl border border-slate-800 mb-4">
@@ -1186,7 +835,7 @@ const App = () => {
             )}
             
             <div className="flex flex-col gap-2">
-              {roomId === 'LOCAL_HOST' ? (
+              {role === 'HOST' ? (
                 <button
                   onClick={() => navigator.clipboard.writeText(userIp)}
                   className="w-full py-3 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl font-bold transition-all text-sm sm:text-base flex items-center justify-center gap-2"
@@ -1216,11 +865,8 @@ const App = () => {
   }
 
   if (roomState.gameState === 'gameOver') {
-    const isWin = roomState.roundWinner === myId;
-    const isLoss = roomState.roundWinner === opponentId;
-    // Actually, roundWinner at gameOver isn't the final winner. We need to compare scores.
-    const finalWin = me.score > opponent!.score;
-    const finalLoss = me.score < opponent!.score;
+    const finalWin = me.score > (opponent?.score || 0);
+    const finalLoss = me.score < (opponent?.score || 0);
     
     return (
       <>
@@ -1260,7 +906,7 @@ const App = () => {
                 <div className="w-px bg-slate-800 my-2"></div>
                 <div className="flex flex-col items-center">
                   <span className="text-slate-500 text-[10px] mb-1 uppercase tracking-wider">{opponentName}</span>
-                  <span className="text-4xl font-black text-rose-400">{opponent!.score}</span>
+                  <span className="text-4xl font-black text-rose-400">{opponent?.score || 0}</span>
                 </div>
               </div>
 
@@ -1338,16 +984,16 @@ const App = () => {
                 {opponent?.id === 'bot' ? <Bot className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-400" /> : null}
                 {opponentName}
               </h2>
-              <div className="text-3xl sm:text-4xl font-black text-rose-400">{opponent!.score}</div>
+              <div className="text-3xl sm:text-4xl font-black text-rose-400">{opponent?.score || 0}</div>
             </div>
             <div className="text-[10px] sm:text-xs text-slate-400 bg-slate-900 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full border border-slate-800 shadow-inner">
               البطاقات المتبقية
             </div>
           </div>
           <div className="flex justify-between gap-2 sm:gap-4">
-             <CardCount type="rock" count={opponent!.deck.rock} />
-             <CardCount type="paper" count={opponent!.deck.paper} />
-             <CardCount type="scissors" count={opponent!.deck.scissors} />
+             <CardCount type="rock" count={opponent?.deck.rock || 0} />
+             <CardCount type="paper" count={opponent?.deck.paper || 0} />
+             <CardCount type="scissors" count={opponent?.deck.scissors || 0} />
           </div>
         </div>
 
