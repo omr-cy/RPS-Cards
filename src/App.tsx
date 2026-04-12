@@ -135,36 +135,82 @@ const App = () => {
     }
   }, []);
 
-  useEffect(() => {
-    const fetchIp = async () => {
-      addLog('Fetching IP address...', 'info');
-      
+  const fetchIp = async () => {
+    addLog('Fetching IP address...', 'info');
+    
     // 1. Check Network Status
+    try {
+      const status = await Network.getStatus();
+      if (!status.connected) {
+        addLog('Network not connected', 'error');
+        setUserIp('لا يوجد اتصال بالإنترنت');
+        return;
+      }
+    } catch (e) {
+      addLog(`Network status check failed: ${e}`, 'error');
+    }
+
+    // 2. Try to get Local IP via Plugin (Android) - Highest Priority
+    if (Capacitor.getPlatform() !== 'web') {
       try {
-        const status = await Network.getStatus();
-        if (!status.connected) {
-          addLog('Network not connected', 'error');
-          setUserIp('لا يوجد اتصال بالإنترنت');
+        addLog('Attempting to get Local IP via plugin...', 'info');
+        const result = await LocalServer.getLocalIpAddress();
+        if (result && result.ip && result.ip !== '0.0.0.0' && !result.ip.startsWith('127.')) {
+          setUserIp(result.ip);
+          addLog(`Local IP obtained via plugin: ${result.ip}`, 'success');
           return;
         }
       } catch (e) {
-        addLog(`Network status check failed: ${e}`, 'error');
+        addLog(`Plugin IP fetch failed: ${e}`, 'error');
       }
+    }
 
-      // 2. Public IP fetch
-      addLog('Fetching public IP address...', 'info');
-      fetch('https://api.ipify.org?format=json')
-        .then(res => res.json())
-        .then(data => {
-          setUserIp(data.ip);
-          addLog(`Public IP obtained: ${data.ip}`, 'info');
-        })
-        .catch(() => {
-          setUserIp('تعذر جلب الـ IP');
-          addLog('Failed to fetch any IP address', 'error');
-        });
-    };
+    // 3. WebRTC Local IP Trick (Fallback for local)
+    try {
+      addLog('Attempting WebRTC local IP trick...', 'info');
+      const pc = new RTCPeerConnection({ iceServers: [] });
+      pc.createDataChannel("");
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      
+      const ipPromise = new Promise<string>((resolve) => {
+        pc.onicecandidate = (ice) => {
+          if (!ice || !ice.candidate || !ice.candidate.candidate) return;
+          const ipMatch = /([0-9]{1,3}(\.[0-9]{1,3}){3})/.exec(ice.candidate.candidate);
+          if (ipMatch) {
+            pc.onicecandidate = null;
+            resolve(ipMatch[1]);
+          }
+        };
+        setTimeout(() => resolve(''), 2000);
+      });
 
+      const localIp = await ipPromise;
+      if (localIp && localIp !== '0.0.0.0' && !localIp.startsWith('127.')) {
+        setUserIp(localIp);
+        addLog(`Local IP obtained via WebRTC: ${localIp}`, 'success');
+        return;
+      }
+    } catch (e) {
+      addLog(`WebRTC IP trick failed: ${e}`, 'error');
+    }
+
+    // 4. Last Resort: Public IP (Only if local fails)
+    addLog('Falling back to public IP fetch...', 'info');
+    try {
+      const response = await fetch('https://api.ipify.org?format=json');
+      const data = await response.json();
+      if (data.ip) {
+        setUserIp(data.ip);
+        addLog(`Public IP obtained: ${data.ip}`, 'info');
+      }
+    } catch (e) {
+      setUserIp('تعذر جلب الـ IP');
+      addLog('Failed to fetch any IP address', 'error');
+    }
+  };
+
+  useEffect(() => {
     fetchIp();
   }, []);
 
@@ -413,6 +459,9 @@ const App = () => {
     }
     try {
       addLog(`Attempting to start LocalServer on port ${LAN_PORT}...`, 'info');
+      
+      // Refresh IP before hosting
+      await fetchIp();
       
       // Check if LocalServer is actually available
       if (!LocalServer || typeof LocalServer.startServer !== 'function') {
@@ -995,14 +1044,23 @@ const App = () => {
 
                     {/* Host Section */}
                     <div className="bg-slate-900/60 border border-slate-800 p-5 rounded-3xl backdrop-blur-sm shadow-xl">
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className="p-2 bg-cyan-500/10 rounded-xl">
-                          <Globe className="w-5 h-5 text-cyan-400" />
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-cyan-500/10 rounded-xl">
+                            <Globe className="w-5 h-5 text-cyan-400" />
+                          </div>
+                          <div className="text-right">
+                            <h3 className="text-slate-200 font-bold text-sm">استضافة لعبة</h3>
+                            <p className="text-[10px] text-slate-500">حول جهازك إلى خادم محلي</p>
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <h3 className="text-slate-200 font-bold text-sm">استضافة لعبة</h3>
-                          <p className="text-[10px] text-slate-500">حول جهازك إلى خادم محلي</p>
-                        </div>
+                        <button 
+                          onClick={fetchIp}
+                          className="p-2 hover:bg-slate-800 rounded-lg transition-colors text-slate-500 hover:text-cyan-400"
+                          title="تحديث الـ IP"
+                        >
+                          <Bug className="w-4 h-4" />
+                        </button>
                       </div>
                       
                       <button
