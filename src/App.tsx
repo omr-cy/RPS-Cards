@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { io, Socket } from 'socket.io-client';
 import { Bot, Globe, Home, Trophy, XCircle, Minus, Copy, Edit2, Bug, X } from 'lucide-react';
+import rockSvg from '/rock.svg';
+import paperSvg from '/paper.svg';
+import scissorsSvg from '/scissors.svg';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { SplashScreen } from '@capacitor/splash-screen';
 import { registerPlugin, Capacitor } from '@capacitor/core';
@@ -46,9 +49,9 @@ interface Room {
 }
 
 const CARD_IMAGES: Record<CardType, string> = {
-  rock: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjOTQ0NzhmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTEyIDEwbC0yIDJtNC0ybDIgMm0tNiA0aDZtLTYtOGg2bS03IDhoOG0tOSA0aDEwbS0xMS0xMmgxMm0tMTMgNGgxNG0tMTUgNGgxNm0tMTctOGgxOG0tMTkgNGgyMG0tMjEgNGgyMm0tMjMtMTJoMjRtLTI1IDRoMjZtLTI3IDRoMjhtLTI5LTExaDMwIi8+PGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMTAiIGZpbGw9IiM0NzU1NjkiLz48cGF0aCBkPSJNMTIgN2MtMi43NiAwLTUgMi4yNC01IDVzMi4yNCA1IDUgNSA1LTIuMjQgNS01LTIuMjQtNS01LTV6IiBmaWxsPSIjNjQ3NDhiIi8+PC9zdmc+',
-  paper: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjOTQ0NzhmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHJlY3QgeD0iNSIgeT0iMyIgd2lkdGg9IjE0IiBoZWlnaHQ9IjE4IiByeD0iMiIgZmlsbD0iI2Y4ZmFmYyIvPjxwYXRoIGQ9Ik05IDdoN005IDExaDdNOSAxNWg0IiBzdHJva2U9IiNlMmU4ZjAiLz48L3N2Zz4=',
-  scissors: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjOTQ0NzhmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PGNpcmNsZSBjeD0iNiIgY3k9IjciIHI9IjMiIGZpbGw9IiNmZWYyZjIiLz48Y2lyY2xlIGN4PSI2IiBjeT0iMTciIHI9IjMiIGZpbGw9IiNmZWYyZjIiLz48cGF0aCBkPSJNOSA4LjVsMTIgMTBNOSA0LjVsMTIgMTBNOSA0LjVsMTIgMTBNOSA4LjVsMTIgMTBNOSA4LjVsMTIgMTBNOSAxNS41bDEyLTEwTTkgMTkuNWwxMi0xMCIvPjwvc3ZnPg=='
+  rock: rockSvg,
+  paper: paperSvg,
+  scissors: scissorsSvg
 };
 
 const CARD_NAMES: Record<CardType, string> = {
@@ -56,6 +59,8 @@ const CARD_NAMES: Record<CardType, string> = {
   paper: 'ورقة',
   scissors: 'مقص'
 };
+
+const LAN_PORT = 58291;
 
 interface LogEntry {
   id: number;
@@ -89,6 +94,24 @@ export default function App() {
     roomIdRef.current = roomId;
     roomStateRef.current = roomState;
   }, [roomId, roomState]);
+
+  useEffect(() => {
+    if (errorMsg) {
+      const timer = setTimeout(() => {
+        setErrorMsg(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [errorMsg]);
+
+  useEffect(() => {
+    if (errorMsg) {
+      const timer = setTimeout(() => {
+        setErrorMsg(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [errorMsg]);
 
   const addLog = (msg: string, type: 'info' | 'error' | 'success' = 'info') => {
     const newLog: LogEntry = { id: Date.now() + Math.random(), time: new Date().toLocaleTimeString(), msg, type };
@@ -422,7 +445,7 @@ export default function App() {
       return;
     }
     try {
-      addLog(`Attempting to start LocalServer on port 8080...`, 'info');
+      addLog(`Attempting to start LocalServer on port ${LAN_PORT}...`, 'info');
       
       // Check if LocalServer is actually available
       if (!LocalServer || typeof LocalServer.startServer !== 'function') {
@@ -430,7 +453,7 @@ export default function App() {
         throw new Error('Plugin not found or missing startServer method');
       }
 
-      const startResult = await LocalServer.startServer({ port: 8080 });
+      const startResult = await LocalServer.startServer({ port: LAN_PORT });
       addLog(`LocalServer start result: ${JSON.stringify(startResult)}`, 'success');
       
       const initialPlayer: Player = {
@@ -537,7 +560,7 @@ export default function App() {
     if (!ipInput.trim()) return;
     let url = ipInput.trim();
     if (!url.startsWith('http')) {
-      url = `http://${url}:8080`; // Changed to 8080 to match LocalServer port
+      url = `http://${url}:${LAN_PORT}`;
     }
     addLog(`Joining local game at ${url}...`, 'info');
     const s = setupSocket(url);
@@ -719,6 +742,34 @@ export default function App() {
     setErrorMsg(null);
   };
 
+  const renderErrorToast = () => (
+    <AnimatePresence>
+      {errorMsg && (
+        <motion.div
+          initial={{ opacity: 0, y: -50, scale: 0.9 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -50, scale: 0.9 }}
+          className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] w-[90%] max-w-md"
+        >
+          <div className="bg-rose-600 text-white px-4 py-3 rounded-2xl shadow-2xl shadow-rose-900/40 flex items-center justify-between gap-3 border border-rose-500/50 backdrop-blur-md">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+                <XCircle className="w-5 h-5" />
+              </div>
+              <p className="text-sm font-bold leading-tight text-right">{errorMsg}</p>
+            </div>
+            <button 
+              onClick={() => setErrorMsg(null)}
+              className="p-1.5 hover:bg-white/10 rounded-lg transition-colors flex-shrink-0"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+
   const renderDebugUI = () => (
     <>
       {/* Debug Toggle Button */}
@@ -791,6 +842,7 @@ export default function App() {
   if (appState === 'nameEntry') {
     return (
       <>
+        {renderErrorToast()}
         <div 
           dir="rtl" 
           className="h-[100dvh] bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4 sm:p-6 font-sans"
@@ -805,9 +857,9 @@ export default function App() {
             className="max-w-sm w-full bg-slate-900/50 p-8 rounded-3xl border border-slate-800 backdrop-blur-sm"
           >
             <div className="mb-8 flex justify-center gap-4">
-              <motion.img src="./rock.png" alt="حجر" className="w-16 h-16 object-contain" animate={{ y: [0, -10, 0] }} transition={{ repeat: Infinity, duration: 2 }} />
-              <motion.img src="./paper.png" alt="ورقة" className="w-16 h-16 object-contain" animate={{ y: [0, -10, 0] }} transition={{ repeat: Infinity, duration: 2, delay: 0.2 }} />
-              <motion.img src="./scissors.png" alt="مقص" className="w-16 h-16 object-contain" animate={{ y: [0, -10, 0] }} transition={{ repeat: Infinity, duration: 2, delay: 0.4 }} />
+              <motion.img src={CARD_IMAGES.rock} alt="حجر" className="w-16 h-16 object-contain" animate={{ y: [0, -10, 0] }} transition={{ repeat: Infinity, duration: 2 }} />
+              <motion.img src={CARD_IMAGES.paper} alt="ورقة" className="w-16 h-16 object-contain" animate={{ y: [0, -10, 0] }} transition={{ repeat: Infinity, duration: 2, delay: 0.2 }} />
+              <motion.img src={CARD_IMAGES.scissors} alt="مقص" className="w-16 h-16 object-contain" animate={{ y: [0, -10, 0] }} transition={{ repeat: Infinity, duration: 2, delay: 0.4 }} />
             </div>
 
             <h2 className="text-2xl font-bold mb-6 text-center text-slate-200">مرحباً بك أيها المحارب!</h2>
@@ -824,10 +876,6 @@ export default function App() {
                 onKeyDown={(e) => e.key === 'Enter' && saveName()}
               />
               
-              {errorMsg && (
-                <p className="text-rose-400 text-sm text-center animate-pulse max-w-[90%] mx-auto">{errorMsg}</p>
-              )}
-
               <button
                 onClick={saveName}
                 className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 text-white rounded-2xl font-black text-lg shadow-lg shadow-indigo-500/20 transition-all active:scale-95"
@@ -845,6 +893,7 @@ export default function App() {
   if (appState === 'menu') {
     return (
       <>
+        {renderErrorToast()}
         <div 
           dir="rtl" 
           className="h-[100dvh] bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4 sm:p-6 font-sans overflow-y-auto"
@@ -876,12 +925,6 @@ export default function App() {
               اختر وضع اللعب
             </h1>
             
-            {errorMsg && (
-              <div className="mb-6 p-3 bg-rose-500/20 border border-rose-500/50 text-rose-400 rounded-xl text-sm sm:text-base max-w-[90%] mx-auto text-center">
-                {errorMsg}
-              </div>
-            )}
-
             <div className="space-y-4">
               <AnimatePresence mode="wait">
                 {menuTab === 'main' && (
@@ -1133,12 +1176,6 @@ export default function App() {
                 إلغاء والرجوع
               </button>
             </div>
-            
-            {errorMsg && (
-              <div className="mt-4 text-sm text-indigo-300 max-w-[90%] mx-auto text-center">
-                {errorMsg}
-              </div>
-            )}
           </motion.div>
         </div>
         {renderDebugUI()}
@@ -1155,6 +1192,7 @@ export default function App() {
     
     return (
       <>
+        {renderErrorToast()}
         <div 
           dir="rtl" 
           className="h-[100dvh] bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4 sm:p-6 font-sans overflow-y-auto"
@@ -1218,9 +1256,11 @@ export default function App() {
   }
 
   return (
-    <div 
-      dir="rtl" 
-      className="h-[100dvh] bg-slate-950 text-slate-100 font-sans selection:bg-indigo-500/30 overflow-hidden flex flex-col"
+    <>
+      {renderErrorToast()}
+      <div 
+        dir="rtl" 
+        className="h-[100dvh] bg-slate-950 text-slate-100 font-sans selection:bg-indigo-500/30 overflow-hidden flex flex-col"
       style={{
         paddingTop: 'env(safe-area-inset-top)',
         paddingBottom: 'env(safe-area-inset-bottom)',
@@ -1382,6 +1422,7 @@ export default function App() {
 
       {renderDebugUI()}
     </div>
+    </>
   );
 }
 
