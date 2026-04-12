@@ -28,7 +28,7 @@ public class LocalServerPlugin extends Plugin {
     private GameWebSocketServer server;
     private GameWebSocketClient client;
     private String role = "NONE"; // HOST, CLIENT, NONE
-    private String connectionStatus = "DISCONNECTED"; // DISCONNECTED, CONNECTING, VERIFIED
+    private String connectionStatus = "DISCONNECTED"; // DISCONNECTED, CONNECTING, SERVER_STARTED, CONNECTION_VERIFIED
     private List<WebSocket> connectedClients = new ArrayList<>();
     
     // Game Logic State (for HOST role)
@@ -44,7 +44,7 @@ public class LocalServerPlugin extends Plugin {
             stopAll();
 
             role = "HOST";
-            connectionStatus = "CONNECTING";
+            connectionStatus = "SERVER_STARTED";
             connectedClients.clear();
 
             server = new GameWebSocketServer(new InetSocketAddress(port));
@@ -52,6 +52,9 @@ public class LocalServerPlugin extends Plugin {
             server.start();
             
             logToReact("Server started on port " + port, "success");
+            
+            // For Host, SERVER_STARTED is enough to be "READY" to show lobby
+            notifyRoomReady();
             
             JSObject ret = new JSObject();
             ret.put("status", "started");
@@ -92,6 +95,20 @@ public class LocalServerPlugin extends Plugin {
         } catch (Exception e) {
             logToReact("Connection failed: " + e.getMessage(), "error");
             call.reject("Connection failed", e);
+        }
+    }
+
+    private void notifyRoomReady() {
+        try {
+            JSONObject msg = new JSONObject();
+            msg.put("type", "ROOM_READY");
+            
+            JSObject data = new JSObject();
+            data.put("message", msg.toString());
+            notifyListeners("onMessageReceived", data);
+            logToReact("NATIVE -> REACT: ROOM_READY", "success");
+        } catch (JSONException e) {
+            e.printStackTrace();
         }
     }
 
@@ -233,9 +250,10 @@ public class LocalServerPlugin extends Plugin {
                 String type = json.optString("type");
                 
                 if (type.equals("PONG")) {
-                    connectionStatus = "VERIFIED";
+                    connectionStatus = "CONNECTION_VERIFIED";
                     logToReact("Handshake verified with client", "success");
                     updateStatusToReact();
+                    // Host is already ready, but we can notify again if needed
                     return;
                 }
 
@@ -553,9 +571,10 @@ public class LocalServerPlugin extends Plugin {
                     pong.put("type", "PONG");
                     send(pong.toString());
                     
-                    connectionStatus = "VERIFIED";
+                    connectionStatus = "CONNECTION_VERIFIED";
                     logToReact("Handshake verified with host", "success");
                     updateStatusToReact();
+                    notifyRoomReady();
                 } else {
                     JSObject data = new JSObject();
                     data.put("message", message);

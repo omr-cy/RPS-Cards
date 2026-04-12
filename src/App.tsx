@@ -85,7 +85,7 @@ const App = () => {
   const [userIp, setUserIp] = useState<string>('جاري التحميل...');
   
   // Native Networking State
-  const [connectionStatus, setConnectionStatus] = useState<'DISCONNECTED' | 'CONNECTING' | 'VERIFIED'>('DISCONNECTED');
+  const [connectionStatus, setConnectionStatus] = useState<'DISCONNECTED' | 'CONNECTING' | 'SERVER_STARTED' | 'CONNECTION_VERIFIED'>('DISCONNECTED');
   const [role, setRole] = useState<'HOST' | 'CLIENT' | 'NONE'>('NONE');
   const [clientCount, setClientCount] = useState(0);
   
@@ -149,7 +149,17 @@ const App = () => {
   }, []);
 
   const handleNativeMessage = (data: any) => {
-    if (data.type === 'room_state') {
+    if (data.type === 'ROOM_READY') {
+      addLog('Room is ready, joining...', 'success');
+      setAppState('inRoom');
+      LocalServer.getStatus().then(status => {
+        if (status.role === 'HOST') {
+          sendNativeAction({ type: 'host_join', playerName: playerNameRef.current });
+        } else if (status.role === 'CLIENT') {
+          sendNativeAction({ type: 'join_game', playerName: playerNameRef.current });
+        }
+      });
+    } else if (data.type === 'room_state') {
       setRoomState(data.state);
       setRoomId(data.state.id);
       setAppState('inRoom');
@@ -317,17 +327,10 @@ const App = () => {
     }
     try {
       await LocalServer.startServer({ port: LAN_PORT });
-      // Handshake will be handled by native. Once verified, we can send join.
-      const checkVerified = setInterval(() => {
-        LocalServer.getStatus().then(status => {
-          if (status.status === 'VERIFIED') {
-            clearInterval(checkVerified);
-            sendNativeAction({ type: 'host_join', playerName: playerName.trim() });
-          }
-        });
-      }, 500);
+      // Native will send ROOM_READY when server is started
     } catch (e) {
       addLog(`Host failed: ${e}`, 'error');
+      setErrorMsg('فشل بدء السيرفر');
     }
   };
 
@@ -342,16 +345,10 @@ const App = () => {
     }
     try {
       await LocalServer.connectToServer({ ip: ipInput.trim(), port: LAN_PORT });
-      const checkVerified = setInterval(() => {
-        LocalServer.getStatus().then(status => {
-          if (status.status === 'VERIFIED') {
-            clearInterval(checkVerified);
-            sendNativeAction({ type: 'join_game', playerName: playerName.trim() });
-          }
-        });
-      }, 500);
+      // Native will send ROOM_READY after handshake is verified
     } catch (e) {
       addLog(`Join failed: ${e}`, 'error');
+      setErrorMsg('فشل الاتصال بالسيرفر');
     }
   };
 
@@ -801,8 +798,22 @@ const App = () => {
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: 20 }}
-                    className="flex flex-col gap-6 w-full max-w-[340px] mx-auto px-2"
+                    className="flex flex-col gap-6 w-full max-w-[340px] mx-auto px-2 relative"
                   >
+                    <AnimatePresence>
+                      {connectionStatus === 'CONNECTING' && (
+                        <motion.div
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          className="absolute inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-center rounded-3xl"
+                        >
+                          <div className="w-12 h-12 rounded-full border-4 border-slate-800 border-t-indigo-500 animate-spin mb-4"></div>
+                          <p className="text-indigo-400 font-bold animate-pulse">جاري الاتصال...</p>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
                     <button 
                       onClick={() => setMenuTab('main')} 
                       className="text-slate-400 hover:text-white flex items-center gap-2 w-fit transition-colors text-sm font-bold group mb-1 ms-2"
@@ -949,6 +960,13 @@ const App = () => {
           >
             <div className="w-12 h-12 rounded-full border-4 border-slate-800 border-t-indigo-500 animate-spin mx-auto mb-6"></div>
             <h2 className="text-xl font-bold mb-2 text-slate-200">في انتظار الخصم...</h2>
+            
+            <div className="flex items-center justify-center gap-2 mb-6">
+              <div className={`w-2 h-2 rounded-full ${connectionStatus === 'CONNECTION_VERIFIED' ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`}></div>
+              <span className="text-[10px] text-slate-500 font-mono">
+                {connectionStatus === 'CONNECTION_VERIFIED' ? 'اتصال مؤمن' : 'جاري تأمين الاتصال'}
+              </span>
+            </div>
             
             {role === 'HOST' ? (
               <>
