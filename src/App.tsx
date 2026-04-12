@@ -110,15 +110,6 @@ const App = () => {
     }
   }, [errorMsg]);
 
-  useEffect(() => {
-    if (errorMsg) {
-      const timer = setTimeout(() => {
-        setErrorMsg(null);
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [errorMsg]);
-
   const addLog = (msg: string, type: 'info' | 'error' | 'success' = 'info') => {
     const newLog: LogEntry = { id: Date.now() + Math.random(), time: new Date().toLocaleTimeString(), msg, type };
     setLogs(prev => [newLog, ...prev].slice(0, 50));
@@ -129,8 +120,10 @@ const App = () => {
     const initCapacitor = async () => {
       addLog('Initializing Capacitor...', 'info');
       try {
-        await StatusBar.setOverlaysWebView({ overlay: true });
-        await StatusBar.setStyle({ style: Style.Dark });
+        if (Capacitor.isNativePlatform()) {
+          await StatusBar.setStyle({ style: Style.Dark });
+          await StatusBar.setBackgroundColor({ color: '#0f172a' }); // Slate 900
+        }
         await SplashScreen.hide();
         addLog('Capacitor initialized successfully', 'success');
       } catch (e) {
