@@ -354,6 +354,10 @@ async function startServer() {
       }
     });
 
+    socket.on('signaling', (data: any) => {
+      socket.to(data.roomId).emit('signaling', data);
+    });
+
     socket.on('disconnect', () => {
       for (const roomId in rooms) {
         const room = rooms[roomId];

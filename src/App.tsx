@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { io, Socket } from 'socket.io-client';
-import { Bot, Globe, Home, Trophy, XCircle, Minus, Copy, Edit2, Bug, X } from 'lucide-react';
+import { Bot, Globe, Home, Trophy, XCircle, Minus, Copy, Edit2, Bug, X, Camera } from 'lucide-react';
 import rockSvg from '/rock.svg';
 import paperSvg from '/paper.svg';
 import scissorsSvg from '/scissors.svg';
@@ -9,6 +9,8 @@ import { StatusBar, Style } from '@capacitor/status-bar';
 import { SplashScreen } from '@capacitor/splash-screen';
 import { Network } from '@capacitor/network';
 import { registerPlugin, Capacitor } from '@capacitor/core';
+import QRCode from 'qrcode';
+import { QrReader } from 'react-qr-reader';
 
 export interface LocalServerPlugin {
   startServer(options: { port: number }): Promise<{ status: string; port: number }>;
@@ -86,6 +88,14 @@ export default function App() {
   // Debug State
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [showDebug, setShowDebug] = useState(false);
+
+  // WebRTC State
+  const [peerConnection, setPeerConnection] = useState<RTCPeerConnection | null>(null);
+  const [dataChannel, setDataChannel] = useState<RTCDataChannel | null>(null);
+  const [isHost, setIsHost] = useState(false);
+  const [showQrScanner, setShowQrScanner] = useState(false);
+  const [showQrCode, setShowQrCode] = useState(false);
+  const [qrCodeData, setQrCodeData] = useState<string | null>(null);
 
   // Refs to avoid stale closures in listeners
   const roomIdRef = React.useRef<string | null>(null);
@@ -251,6 +261,57 @@ export default function App() {
     socket.on('connect', () => addLog(`Socket connected: ${socket?.id}`, 'success'));
     socket.on('connect_error', (err) => addLog(`Socket connect error: ${err.message}`, 'error'));
     socket.on('disconnect', (reason) => addLog(`Socket disconnected: ${reason}`, 'info'));
+    
+    socket.on('signaling', async (data: any) => {
+      if (!peerConnection) return;
+      if (data.type === 'offer') {
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+        socket?.emit('signaling', { type: 'answer', answer, roomId: roomIdRef.current });
+      } else if (data.type === 'answer') {
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+      } else if (data.type === 'candidate') {
+        await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+      }
+    });
+
+    return socket;
+  };
+
+  const initPeerConnection = (isHost: boolean) => {
+    const pc = new RTCPeerConnection({
+      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+    });
+
+    pc.onicecandidate = (event) => {
+      if (event.candidate) {
+        socket?.emit('signaling', { type: 'candidate', candidate: event.candidate, roomId: roomIdRef.current });
+      }
+    };
+
+    if (isHost) {
+      const dc = pc.createDataChannel('gameData');
+      dc.onopen = () => addLog('Data channel opened', 'success');
+      dc.onmessage = (event) => handleGameData(JSON.parse(event.data));
+      setDataChannel(dc);
+    } else {
+      pc.ondatachannel = (event) => {
+        const dc = event.channel;
+        dc.onopen = () => addLog('Data channel opened', 'success');
+        dc.onmessage = (event) => handleGameData(JSON.parse(event.data));
+        setDataChannel(dc);
+      };
+    }
+
+    setPeerConnection(pc);
+    return pc;
+  };
+
+  const handleGameData = (data: any) => {
+    addLog(`Received game data: ${data.type}`, 'info');
+    // Handle game logic here
+  };
 
     socket.on('room_created', (id: string) => {
       addLog(`Room created: ${id}`, 'success');
@@ -780,6 +841,41 @@ export default function App() {
     </AnimatePresence>
   );
 
+  const renderQrModal = () => (
+    <AnimatePresence>
+      {(showQrCode || showQrScanner) && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[100] bg-black/90 flex flex-col items-center justify-center p-4"
+        >
+          <button onClick={() => { setShowQrCode(false); setShowQrScanner(false); }} className="absolute top-4 right-4 text-white p-2">
+            <X className="w-8 h-8" />
+          </button>
+          {showQrCode && qrCodeData && (
+            <img src={qrCodeData} alt="QR Code" className="w-64 h-64 bg-white p-2 rounded-lg" />
+          )}
+          {showQrScanner && (
+            <div className="w-full max-w-sm">
+              <QrReader
+                onResult={(result, error) => {
+                  if (result) {
+                    const data = JSON.parse(result.getText());
+                    setRoomIdInput(data.roomId);
+                    setShowQrScanner(false);
+                    joinRoom();
+                  }
+                }}
+                constraints={{ facingMode: 'environment' }}
+              />
+            </div>
+          )}
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+
   const renderDebugUI = () => (
     <>
       {/* Debug Toggle Button */}
@@ -857,6 +953,7 @@ export default function App() {
     return (
       <>
         {renderErrorToast()}
+        {renderQrModal()}
         <div 
           dir="rtl" 
           className="h-[100dvh] bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4 sm:p-6 font-sans"
