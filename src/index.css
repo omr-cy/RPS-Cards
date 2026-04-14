@@ -1,4 +1,44 @@
+@import url('https://fonts.googleapis.com/css2?family=Pirata+One&family=MedievalSharp&family=Lalezar&family=Changa:wght@400;700&family=JetBrains+Mono:wght@400;700&display=swap');
 @import "tailwindcss";
+
+@theme {
+  --font-display: "Pirata One", "Lalezar", system-ui, sans-serif;
+  --font-body: "MedievalSharp", "Changa", serif;
+  --font-mono: "JetBrains Mono", monospace;
+
+  --color-game-bg: #0f0f0f;
+  --color-game-dark: #1a1a1a;
+  --color-game-red: #8b1a1a;
+  --color-game-cream: #e8e4d9;
+  --color-game-purple: #4a1a4a;
+  --color-game-teal: #2a4a4a;
+}
+
+@layer base {
+  body {
+    @apply bg-game-bg text-game-cream font-body antialiased;
+    background-image: 
+      linear-gradient(to right, rgba(0,0,0,0.1) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(0,0,0,0.1) 1px, transparent 1px),
+      radial-gradient(circle at 50% 50%, rgba(20,20,20,0.4) 0%, #0f0f0f 100%);
+    background-size: 40px 40px, 40px 40px, 100% 100%;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display tracking-wider;
+  }
+}
+
+.wood-texture {
+  background-color: #1a1a1a;
+  background-image: url("https://www.transparenttextures.com/patterns/dark-wood.png");
+}
+
+.paper-texture {
+  background-color: #e8e4d9;
+  background-image: url("https://www.transparenttextures.com/patterns/parchment.png");
+  color: #1a1a1a;
+}
 
 @keyframes shimmer {
   0% { transform: translateX(-100%); }
