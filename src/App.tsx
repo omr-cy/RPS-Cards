@@ -735,7 +735,7 @@ const App = () => {
         drag
         dragMomentum={false}
         onClick={() => setShowDebug(true)} 
-        className="fixed top-6 left-6 p-3 bg-game-dark/80 hover:bg-game-red text-game-cream rounded-md shadow-xl z-[60] transition-colors active:scale-90 flex items-center justify-center border-2 border-game-red/30 backdrop-blur-sm cursor-grab active:cursor-grabbing"
+        className="fixed top-[45%] left-2 p-3 bg-game-dark/80 hover:bg-game-red text-game-cream rounded-md shadow-xl z-[60] transition-colors active:scale-90 flex items-center justify-center border-2 border-game-red/30 backdrop-blur-sm cursor-grab active:cursor-grabbing"
         title="سجل الأخطاء (يمكنك سحب الزر)"
       >
         <Bug className="w-5 h-5 pointer-events-none" />
