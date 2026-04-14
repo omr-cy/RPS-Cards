@@ -126,6 +126,25 @@ function startRoundTimer(roomId: string) {
     clearInterval(roomTimers[roomId]);
   }
 
+  // Auto-play if only 1 card left
+  Object.values(room.players).forEach(p => {
+      const total = p.deck.rock + p.deck.paper + p.deck.scissors;
+      if (total === 1 && !p.choice) {
+        if (p.deck.rock === 1) { p.choice = 'rock'; p.deck.rock = 0; }
+        else if (p.deck.paper === 1) { p.choice = 'paper'; p.deck.paper = 0; }
+        else if (p.deck.scissors === 1) { p.choice = 'scissors'; p.deck.scissors = 0; }
+      }
+  });
+
+  // Check if both have choices
+  const playerIds = Object.keys(room.players);
+  const p1 = room.players[playerIds[0]];
+  const p2 = room.players[playerIds[1]];
+  if (p1 && p2 && p1.choice && p2.choice) {
+      handleReveal(roomId);
+      return;
+  }
+
   room.timeLeft = 15;
   
   roomTimers[roomId] = setInterval(() => {

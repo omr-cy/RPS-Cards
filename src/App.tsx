@@ -94,6 +94,7 @@ const App = () => {
   const [showDebug, setShowDebug] = useState(false);
   const [isPreloaded, setIsPreloaded] = useState(false);
   const [isRevealingLocal, setIsRevealingLocal] = useState(false);
+  const [ws, setWs] = useState<WebSocket | null>(null);
 
   // Preload Assets
   useEffect(() => {
@@ -251,8 +252,10 @@ const App = () => {
     try {
       if (Capacitor.isNativePlatform()) {
         await LocalServer.sendMessage({ message: JSON.stringify(action) });
+      } else if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(action));
       } else {
-        addLog(`Action skipped on web: ${action.type}`, 'info');
+        addLog(`Action skipped on web (no ws): ${action.type}`, 'info');
       }
     } catch (e) {
       addLog(`Failed to send action: ${e}`, 'error');
@@ -448,52 +451,118 @@ const App = () => {
   };
 
   const createOnlineRoom = () => {
-    if (!Capacitor.isNativePlatform()) {
-      setErrorMsg('ميزة اللعب أونلاين متاحة حالياً فقط في تطبيق الأندرويد');
-      return;
-    }
-    const serverUrl = window.location.hostname;
-    LocalServer.connectToServer({ ip: serverUrl, port: 3000 })
-      .then(() => {
-        const checkVerified = setInterval(() => {
-          if (Capacitor.isNativePlatform()) {
-            LocalServer.getStatus().then(status => {
-              if (status.status === 'VERIFIED') {
-                clearInterval(checkVerified);
-                sendNativeAction({ type: 'create_room', playerName: playerName.trim() });
-              }
-            }).catch(() => clearInterval(checkVerified));
+    if (Capacitor.isNativePlatform()) {
+      const serverUrl = window.location.hostname;
+      LocalServer.connectToServer({ ip: serverUrl, port: 3000 })
+        .then(() => {
+          const checkVerified = setInterval(() => {
+            if (Capacitor.isNativePlatform()) {
+              LocalServer.getStatus().then(status => {
+                if (status.status === 'VERIFIED') {
+                  clearInterval(checkVerified);
+                  sendNativeAction({ type: 'create_room', playerName: playerName.trim() });
+                }
+              }).catch(() => clearInterval(checkVerified));
+            } else {
+              clearInterval(checkVerified);
+            }
+          }, 500);
+        })
+        .catch(e => setErrorMsg('تعذر الاتصال بالخادم'));
+    } else {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${window.location.host}`;
+      const newWs = new WebSocket(wsUrl);
+      
+      newWs.onopen = () => {
+        addLog('Connected to online server', 'success');
+        setWs(newWs);
+        setConnectionStatus('CONNECTION_VERIFIED');
+        newWs.send(JSON.stringify({ type: 'create_room', playerName: playerName.trim() }));
+      };
+      
+      newWs.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'PING') {
+            newWs.send(JSON.stringify({ type: 'PONG' }));
           } else {
-            clearInterval(checkVerified);
+            handleNativeMessage(data);
           }
-        }, 500);
-      })
-      .catch(e => setErrorMsg('تعذر الاتصال بالخادم'));
+        } catch (e) {
+          addLog(`Received non-JSON message: ${event.data}`, 'info');
+        }
+      };
+      
+      newWs.onerror = (error) => {
+        addLog(`WebSocket error`, 'error');
+        setErrorMsg('فشل الاتصال بالسيرفر');
+      };
+      
+      newWs.onclose = () => {
+        addLog('Disconnected from online server', 'info');
+        setWs(null);
+        setConnectionStatus('DISCONNECTED');
+      };
+    }
   };
 
   const joinOnlineRoom = () => {
     if (!roomIdInput.trim()) return;
-    if (!Capacitor.isNativePlatform()) {
-      setErrorMsg('ميزة اللعب أونلاين متاحة حالياً فقط في تطبيق الأندرويد');
-      return;
-    }
-    const serverUrl = window.location.hostname;
-    LocalServer.connectToServer({ ip: serverUrl, port: 3000 })
-      .then(() => {
-        const checkVerified = setInterval(() => {
-          if (Capacitor.isNativePlatform()) {
-            LocalServer.getStatus().then(status => {
-              if (status.status === 'VERIFIED') {
-                clearInterval(checkVerified);
-                sendNativeAction({ type: 'join_room', roomId: roomIdInput.trim().toUpperCase(), playerName: playerName.trim() });
-              }
-            }).catch(() => clearInterval(checkVerified));
+    if (Capacitor.isNativePlatform()) {
+      const serverUrl = window.location.hostname;
+      LocalServer.connectToServer({ ip: serverUrl, port: 3000 })
+        .then(() => {
+          const checkVerified = setInterval(() => {
+            if (Capacitor.isNativePlatform()) {
+              LocalServer.getStatus().then(status => {
+                if (status.status === 'VERIFIED') {
+                  clearInterval(checkVerified);
+                  sendNativeAction({ type: 'join_room', roomId: roomIdInput.trim().toUpperCase(), playerName: playerName.trim() });
+                }
+              }).catch(() => clearInterval(checkVerified));
+            } else {
+              clearInterval(checkVerified);
+            }
+          }, 500);
+        })
+        .catch(e => setErrorMsg('تعذر الاتصال بالخادم'));
+    } else {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${window.location.host}`;
+      const newWs = new WebSocket(wsUrl);
+      
+      newWs.onopen = () => {
+        addLog('Connected to online server', 'success');
+        setWs(newWs);
+        setConnectionStatus('CONNECTION_VERIFIED');
+        newWs.send(JSON.stringify({ type: 'join_room', roomId: roomIdInput.trim().toUpperCase(), playerName: playerName.trim() }));
+      };
+      
+      newWs.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'PING') {
+            newWs.send(JSON.stringify({ type: 'PONG' }));
           } else {
-            clearInterval(checkVerified);
+            handleNativeMessage(data);
           }
-        }, 500);
-      })
-      .catch(e => setErrorMsg('تعذر الاتصال بالخادم'));
+        } catch (e) {
+          addLog(`Received non-JSON message: ${event.data}`, 'info');
+        }
+      };
+      
+      newWs.onerror = (error) => {
+        addLog(`WebSocket error`, 'error');
+        setErrorMsg('فشل الاتصال بالسيرفر');
+      };
+      
+      newWs.onclose = () => {
+        addLog('Disconnected from online server', 'info');
+        setWs(null);
+        setConnectionStatus('DISCONNECTED');
+      };
+    }
   };
 
   const createBotRoom = () => {
@@ -666,6 +735,12 @@ const App = () => {
     setConnectionStatus('DISCONNECTED');
     setRole('NONE');
 
+    // Close Web WebSocket if exists
+    if (ws) {
+      ws.close();
+      setWs(null);
+    }
+
     // 2. Cleanup Native (Background)
     try {
       if (currentRoomId && currentRoomId !== OFFLINE_BOT_ID) {
@@ -811,9 +886,6 @@ const App = () => {
             className="max-w-sm w-full bg-game-dark/80 p-8 rounded-lg border-4 border-game-red shadow-2xl backdrop-blur-sm"
           >
             <div className="mb-8 flex justify-center gap-4">
-              <motion.img src={CARD_IMAGES.rock} alt="حجر" className="w-16 h-16 object-contain drop-shadow-2xl" animate={{ y: [0, -10, 0] }} transition={{ repeat: Infinity, duration: 2 }} />
-              <motion.img src={CARD_IMAGES.paper} alt="ورقة" className="w-16 h-16 object-contain drop-shadow-2xl" animate={{ y: [0, -10, 0] }} transition={{ repeat: Infinity, duration: 2, delay: 0.2 }} />
-              <motion.img src={CARD_IMAGES.scissors} alt="مقص" className="w-16 h-16 object-contain drop-shadow-2xl" animate={{ y: [0, -10, 0] }} transition={{ repeat: Infinity, duration: 2, delay: 0.4 }} />
             </div>
 
             <h2 className="text-3xl font-display mb-6 text-center text-game-cream tracking-wider">مرحباً بك أيها المحارب!</h2>
