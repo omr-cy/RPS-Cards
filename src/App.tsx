@@ -1330,9 +1330,9 @@ const App = () => {
             </div>
           </div>
           <div className="flex justify-between gap-2 sm:gap-4">
-             <CardCount type="rock" count={(opponent?.deck.rock || 0) + (roomState.gameState === 'playing' && opponent?.choice === 'rock' ? 1 : 0)} />
-             <CardCount type="paper" count={(opponent?.deck.paper || 0) + (roomState.gameState === 'playing' && opponent?.choice === 'paper' ? 1 : 0)} />
-             <CardCount type="scissors" count={(opponent?.deck.scissors || 0) + (roomState.gameState === 'playing' && opponent?.choice === 'scissors' ? 1 : 0)} />
+             <CardCount type="rock" count={(opponent?.deck.rock || 0) + ((roomState.gameState === 'playing' || roomState.gameState === 'revealing' || (roomState.gameState === 'roundResult' && !isRevealingLocal)) && opponent?.choice === 'rock' ? 1 : 0)} />
+             <CardCount type="paper" count={(opponent?.deck.paper || 0) + ((roomState.gameState === 'playing' || roomState.gameState === 'revealing' || (roomState.gameState === 'roundResult' && !isRevealingLocal)) && opponent?.choice === 'paper' ? 1 : 0)} />
+             <CardCount type="scissors" count={(opponent?.deck.scissors || 0) + ((roomState.gameState === 'playing' || roomState.gameState === 'revealing' || (roomState.gameState === 'roundResult' && !isRevealingLocal)) && opponent?.choice === 'scissors' ? 1 : 0)} />
           </div>
         </div>
 
