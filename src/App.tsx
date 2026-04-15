@@ -28,6 +28,8 @@ interface Deck {
   scissors: number;
 }
 
+import { THEMES, getTheme, ThemeConfig, CardType } from './themes';
+
 interface Player {
   id: string;
   name: string;
@@ -46,72 +48,6 @@ interface Room {
   roundWinner: string | 'draw' | null;
   timeLeft?: number;
 }
-
-const CARD_IMAGES = {
-  ivory: {
-    rock: '/classic/rock_black.svg',
-    paper: '/classic/paper_black.svg',
-    scissors: '/classic/scissors_black.svg',
-  },
-  charcoal: {
-    rock: '/classic/rock_white.svg',
-    paper: '/classic/paper_white.svg',
-    scissors: '/classic/scissors_white.svg',
-  },
-  gold: {
-    rock: '/classic/rock_black.svg',
-    paper: '/classic/paper_black.svg',
-    scissors: '/classic/scissors_black.svg',
-  },
-  ruby: {
-    rock: '/classic/rock_white.svg',
-    paper: '/classic/paper_white.svg',
-    scissors: '/classic/scissors_white.svg',
-  }
-};
-
-const CARD_COLORS = {
-  ivory: {
-    bg: 'bg-[#E8E8E8]',
-    border: '',
-    text: 'text-[#121212]',
-    shadow: ''
-  },
-  charcoal: {
-    bg: 'bg-[#121212]',
-    border: '',
-    text: 'text-[#F5F5F5]',
-    shadow: ''
-  },
-  gold: {
-    bg: 'bg-gradient-to-br from-[#FFD700] to-[#B8860B]',
-    border: '',
-    text: 'text-[#121212]',
-    shadow: ''
-  },
-  ruby: {
-    bg: 'bg-gradient-to-br from-[#8B0000] to-[#4A0000]',
-    border: '',
-    text: 'text-[#F5F5F5]',
-    shadow: ''
-  }
-};
-
-type ThemeColor = keyof typeof CARD_COLORS;
-
-interface Theme {
-  id: string;
-  name: string;
-  colorKey: ThemeColor;
-  price: number;
-}
-
-const AVAILABLE_THEMES: Theme[] = [
-  { id: 'classic-ivory', name: 'كلاسيكي (أبيض)', colorKey: 'ivory', price: 0 },
-  { id: 'classic-charcoal', name: 'كلاسيكي (أسود)', colorKey: 'charcoal', price: 0 },
-  { id: 'royal-gold', name: 'ملكي (ذهبي)', colorKey: 'gold', price: 500 },
-  { id: 'blood-ruby', name: 'دموي (ياقوت)', colorKey: 'ruby', price: 500 },
-];
 
 const CARD_NAMES: Record<CardType, string> = {
   rock: 'حجر',
@@ -134,10 +70,10 @@ const App = () => {
   const [appState, setAppState] = useState<'nameEntry' | 'menu' | 'inRoom' | 'store' | 'profile'>('nameEntry');
   const [menuTab, setMenuTab] = useState<'main' | 'online' | 'local'>('main');
   const [playerName, setPlayerName] = useState(() => localStorage.getItem('cardClashPlayerName') || '');
-  const [selectedThemeId, setSelectedThemeId] = useState(() => localStorage.getItem('cardClashTheme') || 'classic-ivory');
+  const [selectedThemeId, setSelectedThemeId] = useState(() => localStorage.getItem('cardClashTheme') || 'classic-white');
   const [ownedThemes, setOwnedThemes] = useState<string[]>(() => {
     const saved = localStorage.getItem('cardClashOwnedThemes');
-    return saved ? JSON.parse(saved) : ['classic-ivory', 'classic-charcoal'];
+    return saved ? JSON.parse(saved) : ['classic-white', 'classic-black'];
   });
   const [coins, setCoins] = useState(() => parseInt(localStorage.getItem('cardClashCoins') || '1000'));
   const [ipInput, setIpInput] = useState('');
@@ -868,7 +804,7 @@ const App = () => {
     }
   };
 
-  const currentThemeColor = AVAILABLE_THEMES.find(t => t.id === selectedThemeId)?.colorKey || 'ivory';
+  const currentTheme = getTheme(selectedThemeId);
 
   const saveName = () => {
     const error = validateName(playerName);
@@ -1301,13 +1237,13 @@ const App = () => {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-4xl mx-auto w-full">
-            {AVAILABLE_THEMES.map(theme => {
+            {THEMES.map(theme => {
               const isOwned = ownedThemes.includes(theme.id);
               return (
                 <div key={theme.id} className="bg-game-dark/40 p-4 rounded-xl border border-white/10 flex items-center justify-between backdrop-blur-sm">
                   <div className="flex items-center gap-4">
-                    <div className={`w-16 h-20 rounded-lg flex items-center justify-center ${CARD_COLORS[theme.colorKey].bg} ${CARD_COLORS[theme.colorKey].shadow} ${CARD_COLORS[theme.colorKey].border}`}>
-                      <img src={CARD_IMAGES[theme.colorKey].rock} alt="theme preview" className="w-10 h-10 object-contain" />
+                    <div className={`w-16 h-20 rounded-lg flex items-center justify-center ${theme.colors.bg} ${theme.colors.shadow} ${theme.colors.border}`}>
+                      <img src={theme.images.rock} alt="theme preview" className="w-10 h-10 object-contain" />
                     </div>
                     <div>
                       <h3 className="text-xl font-display text-game-offwhite">{theme.name}</h3>
@@ -1375,7 +1311,7 @@ const App = () => {
             <div>
               <h2 className="text-2xl font-display text-game-offwhite mb-4 border-b border-white/10 pb-2">مكتبة الثيمات</h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                {AVAILABLE_THEMES.filter(t => ownedThemes.includes(t.id)).map(theme => (
+                {THEMES.filter(t => ownedThemes.includes(t.id)).map(theme => (
                   <button
                     key={theme.id}
                     onClick={() => selectTheme(theme.id)}
@@ -1390,8 +1326,8 @@ const App = () => {
                         <ShieldCheck className="w-3 h-3 text-game-dark" />
                       </div>
                     )}
-                    <div className={`w-16 h-24 rounded-lg flex items-center justify-center ${CARD_COLORS[theme.colorKey].bg} ${CARD_COLORS[theme.colorKey].shadow} ${CARD_COLORS[theme.colorKey].border}`}>
-                      <img src={CARD_IMAGES[theme.colorKey].rock} alt="theme preview" className="w-10 h-10 object-contain" />
+                    <div className={`w-16 h-24 rounded-lg flex items-center justify-center ${theme.colors.bg} ${theme.colors.shadow} ${theme.colors.border}`}>
+                      <img src={theme.images.rock} alt="theme preview" className="w-10 h-10 object-contain" />
                     </div>
                     <span className="font-display text-game-offwhite text-sm text-center">{theme.name}</span>
                   </button>
@@ -1649,9 +1585,9 @@ const App = () => {
             </div>
           </div>
           <div className="flex justify-between gap-2 sm:gap-4">
-             <CardCount type="scissors" count={(opponent?.deck.scissors || 0) + ((roomState.gameState === 'playing' || roomState.gameState === 'revealing' || (roomState.gameState === 'roundResult' && !isRevealingLocal)) && opponent?.choice === 'scissors' ? 1 : 0)} color="charcoal" />
-             <CardCount type="paper" count={(opponent?.deck.paper || 0) + ((roomState.gameState === 'playing' || roomState.gameState === 'revealing' || (roomState.gameState === 'roundResult' && !isRevealingLocal)) && opponent?.choice === 'paper' ? 1 : 0)} color="charcoal" />
-             <CardCount type="rock" count={(opponent?.deck.rock || 0) + ((roomState.gameState === 'playing' || roomState.gameState === 'revealing' || (roomState.gameState === 'roundResult' && !isRevealingLocal)) && opponent?.choice === 'rock' ? 1 : 0)} color="charcoal" />
+             <CardCount type="scissors" count={(opponent?.deck.scissors || 0) + ((roomState.gameState === 'playing' || roomState.gameState === 'revealing' || (roomState.gameState === 'roundResult' && !isRevealingLocal)) && opponent?.choice === 'scissors' ? 1 : 0)} theme={getTheme('classic-black')} />
+             <CardCount type="paper" count={(opponent?.deck.paper || 0) + ((roomState.gameState === 'playing' || roomState.gameState === 'revealing' || (roomState.gameState === 'roundResult' && !isRevealingLocal)) && opponent?.choice === 'paper' ? 1 : 0)} theme={getTheme('classic-black')} />
+             <CardCount type="rock" count={(opponent?.deck.rock || 0) + ((roomState.gameState === 'playing' || roomState.gameState === 'revealing' || (roomState.gameState === 'roundResult' && !isRevealingLocal)) && opponent?.choice === 'rock' ? 1 : 0)} theme={getTheme('classic-black')} />
           </div>
         </div>
 
@@ -1668,7 +1604,7 @@ const App = () => {
                     isPlayer={true} 
                     winner={roomState.gameState === 'roundResult' && roomState.roundWinner === myId} 
                     faceDown={roomState.gameState === 'playing' || roomState.gameState === 'revealing' || (roomState.gameState === 'roundResult' && !isRevealingLocal)} 
-                    themeColor={currentThemeColor}
+                    theme={currentTheme}
                   />
                 ) : (
                   <div className="w-16 sm:w-24 aspect-[3/4]" />
@@ -1731,7 +1667,7 @@ const App = () => {
                     isPlayer={false} 
                     winner={roomState.gameState === 'roundResult' && roomState.roundWinner === opponentId} 
                     faceDown={roomState.gameState === 'playing' || roomState.gameState === 'revealing' || (roomState.gameState === 'roundResult' && !isRevealingLocal)} 
-                    themeColor={'charcoal'}
+                    theme={getTheme('classic-black')}
                   />
                 ) : (
                   <div className="w-16 sm:w-24 aspect-[3/4]" />
@@ -1751,9 +1687,9 @@ const App = () => {
             </div>
           </div>
           <div className="flex justify-between gap-3 sm:gap-6">
-             <PlayableCard type="rock" count={me.deck.rock} onClick={() => playCard('rock')} disabled={roomState.gameState !== 'playing' || me.choice !== null} color={currentThemeColor} />
-             <PlayableCard type="paper" count={me.deck.paper} onClick={() => playCard('paper')} disabled={roomState.gameState !== 'playing' || me.choice !== null} color={currentThemeColor} />
-             <PlayableCard type="scissors" count={me.deck.scissors} onClick={() => playCard('scissors')} disabled={roomState.gameState !== 'playing' || me.choice !== null} color={currentThemeColor} />
+             <PlayableCard type="rock" count={me.deck.rock} onClick={() => playCard('rock')} disabled={roomState.gameState !== 'playing' || me.choice !== null} theme={currentTheme} />
+             <PlayableCard type="paper" count={me.deck.paper} onClick={() => playCard('paper')} disabled={roomState.gameState !== 'playing' || me.choice !== null} theme={currentTheme} />
+             <PlayableCard type="scissors" count={me.deck.scissors} onClick={() => playCard('scissors')} disabled={roomState.gameState !== 'playing' || me.choice !== null} theme={currentTheme} />
           </div>
         </div>
       </div>
@@ -1764,18 +1700,18 @@ const App = () => {
   );
 }
 
-const CardCount = ({ type, count, color }: { type: CardType, count: number, color: ThemeColor }) => (
+const CardCount = ({ type, count, theme }: { type: CardType, count: number, theme: ThemeConfig }) => (
   <div className="flex-1 flex flex-col items-center gap-1 sm:gap-2">
-    <div className={`w-full max-w-[4.5rem] aspect-[3/4] rounded-lg flex items-center justify-center transition-all duration-300 overflow-hidden ${count > 0 ? `${CARD_COLORS[color].bg} ${CARD_COLORS[color].shadow} ${CARD_COLORS[color].border} opacity-100` : 'bg-game-dark opacity-20 grayscale'}`}>
-      <img src={CARD_IMAGES[color][type]} alt={CARD_NAMES[type]} className={`w-2/3 h-2/3 object-contain rotate-180 ${color === 'charcoal' ? 'drop-shadow-md' : ''}`} referrerPolicy="no-referrer" />
+    <div className={`w-full max-w-[4.5rem] aspect-[3/4] rounded-lg flex items-center justify-center transition-all duration-300 overflow-hidden ${count > 0 ? `${theme.colors.bg} ${theme.colors.shadow} ${theme.colors.border} opacity-100` : 'bg-game-dark opacity-20 grayscale'}`}>
+      <img src={theme.images[type]} alt={CARD_NAMES[type]} className={`w-2/3 h-2/3 object-contain rotate-180 ${theme.id === 'classic-black' ? 'drop-shadow-md' : ''}`} referrerPolicy="no-referrer" />
     </div>
-    <div className={`w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center text-[10px] sm:text-xs font-display rounded-md transition-colors duration-300 ${count > 0 ? `${CARD_COLORS[color].bg} ${CARD_COLORS[color].shadow} ${CARD_COLORS[color].text}` : 'bg-game-dark text-game-cream/20'}`}>
+    <div className={`w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center text-[10px] sm:text-xs font-display rounded-md transition-colors duration-300 ${count > 0 ? `${theme.colors.bg} ${theme.colors.shadow} ${theme.colors.text}` : 'bg-game-dark text-game-cream/20'}`}>
       {count}
     </div>
   </div>
 );
 
-const PlayableCard = ({ type, count, onClick, disabled, color }: { type: CardType, count: number, onClick: () => void, disabled: boolean, color: ThemeColor }) => {
+const PlayableCard = ({ type, count, onClick, disabled, theme }: { type: CardType, count: number, onClick: () => void, disabled: boolean, theme: ThemeConfig }) => {
   const isAvailable = count > 0;
   return (
     <motion.button
@@ -1785,19 +1721,18 @@ const PlayableCard = ({ type, count, onClick, disabled, color }: { type: CardTyp
       disabled={!isAvailable || disabled}
       className={`flex-1 relative flex flex-col items-center gap-1 sm:gap-2 transition-all duration-300 ${(!isAvailable || disabled) ? 'opacity-40 cursor-not-allowed grayscale' : 'cursor-pointer'}`}
     >
-      <div className={`w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center text-[10px] sm:text-xs font-bold rounded-md shadow-md transition-colors ${isAvailable ? `${CARD_COLORS[color].bg} ${CARD_COLORS[color].shadow} ${CARD_COLORS[color].text}` : 'bg-game-dark text-game-cream/20'}`}>
+      <div className={`w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center text-[10px] sm:text-xs font-bold rounded-md shadow-md transition-colors ${isAvailable ? `${theme.colors.bg} ${theme.colors.shadow} ${theme.colors.text}` : 'bg-game-dark text-game-cream/20'}`}>
         {count}
       </div>
-      <div className={`w-full max-w-[5.5rem] aspect-[3/4] rounded-lg flex items-center justify-center transition-all duration-300 overflow-hidden ${isAvailable && !disabled ? `${CARD_COLORS[color].bg} ${CARD_COLORS[color].shadow} ${CARD_COLORS[color].border}` : 'bg-game-dark'}`}>
-        <img src={CARD_IMAGES[color][type]} alt={CARD_NAMES[type]} className={`w-2/3 h-2/3 object-contain ${color === 'charcoal' ? 'drop-shadow-xl' : ''}`} referrerPolicy="no-referrer" />
+      <div className={`w-full max-w-[5.5rem] aspect-[3/4] rounded-lg flex items-center justify-center transition-all duration-300 overflow-hidden ${isAvailable && !disabled ? `${theme.colors.bg} ${theme.colors.shadow} ${theme.colors.border}` : 'bg-game-dark'}`}>
+        <img src={theme.images[type]} alt={CARD_NAMES[type]} className={`w-2/3 h-2/3 object-contain ${theme.id === 'classic-black' ? 'drop-shadow-xl' : ''}`} referrerPolicy="no-referrer" />
       </div>
       <span className="text-[10px] sm:text-xs font-display text-game-cream tracking-wider">{CARD_NAMES[type]}</span>
     </motion.button>
   );
 };
 
-const PlayedCard = ({ type, isPlayer, winner, faceDown = false, themeColor }: { type: CardType, isPlayer: boolean, winner: boolean, faceDown?: boolean, themeColor: ThemeColor }) => {
-  const colorKey = themeColor;
+const PlayedCard = ({ type, isPlayer, winner, faceDown = false, theme }: { type: CardType, isPlayer: boolean, winner: boolean, faceDown?: boolean, theme: ThemeConfig }) => {
   return (
     <motion.div
       initial={{ 
@@ -1828,10 +1763,10 @@ const PlayedCard = ({ type, isPlayer, winner, faceDown = false, themeColor }: { 
     >
       {/* Front Side */}
       <div 
-        className={`absolute inset-0 rounded-lg flex items-center justify-center overflow-hidden backface-hidden ${CARD_COLORS[colorKey].bg} ${CARD_COLORS[colorKey].border} ${
+        className={`absolute inset-0 rounded-lg flex items-center justify-center overflow-hidden backface-hidden ${theme.colors.bg} ${theme.colors.border} ${
           winner 
             ? 'scale-105 transition-transform'
-            : (isPlayer || colorKey === 'ivory' ? `${CARD_COLORS[colorKey].shadow}` : '')
+            : (isPlayer || theme.id === 'classic-white' ? `${theme.colors.shadow}` : '')
         }`}
         style={{ 
           backfaceVisibility: 'hidden',
@@ -1847,21 +1782,21 @@ const PlayedCard = ({ type, isPlayer, winner, faceDown = false, themeColor }: { 
           />
         )}
         <span className="relative z-10">
-          <img src={CARD_IMAGES[colorKey][type]} alt={CARD_NAMES[type]} className={`w-10 h-10 sm:w-16 sm:h-16 object-contain drop-shadow-2xl ${!isPlayer ? 'rotate-180' : ''}`} referrerPolicy="no-referrer" />
+          <img src={theme.images[type]} alt={CARD_NAMES[type]} className={`w-10 h-10 sm:w-16 sm:h-16 object-contain drop-shadow-2xl ${!isPlayer ? 'rotate-180' : ''}`} referrerPolicy="no-referrer" />
         </span>
       </div>
 
       {/* Back Side (Face Down) */}
       <div 
-        className={`absolute inset-0 rounded-lg flex items-center justify-center ${CARD_COLORS[colorKey].bg} ${CARD_COLORS[colorKey].shadow} ${CARD_COLORS[colorKey].border}`}
+        className={`absolute inset-0 rounded-lg flex items-center justify-center ${theme.backColors.bg} ${theme.colors.shadow} ${theme.colors.border}`}
         style={{ 
           backfaceVisibility: 'hidden',
           transform: 'rotateY(180deg)'
         }}
       >
         <div className={`relative w-full h-full rounded-sm flex items-center justify-center`}>
-          <div className={`w-8 h-8 sm:w-12 sm:h-12 rounded-full flex items-center justify-center ${isPlayer ? 'bg-black/10' : 'bg-white/10'}`}>
-            <div className={`w-4 h-4 sm:w-6 sm:h-6 rounded-full ${isPlayer ? 'bg-black/10' : 'bg-white/10'}`} />
+          <div className={`w-8 h-8 sm:w-12 sm:h-12 rounded-full flex items-center justify-center ${theme.backColors.iconOuter}`}>
+            <div className={`w-4 h-4 sm:w-6 sm:h-6 rounded-full ${theme.backColors.iconInner}`} />
           </div>
         </div>
       </div>
