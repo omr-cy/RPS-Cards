@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Bot, Globe, Home, Trophy, XCircle, Minus, Copy, Edit2, Bug, X, Wifi, ShieldCheck, Activity } from 'lucide-react';
+import { Bot, Globe, Home, Trophy, XCircle, Minus, Copy, Edit2, Bug, X, Wifi, ShieldCheck, Activity, ShoppingCart, User } from 'lucide-react';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { SplashScreen } from '@capacitor/splash-screen';
 import { Network } from '@capacitor/network';
@@ -57,6 +57,16 @@ const CARD_IMAGES = {
     rock: '/classic/rock_white.svg',
     paper: '/classic/paper_white.svg',
     scissors: '/classic/scissors_white.svg',
+  },
+  gold: {
+    rock: '/classic/rock_black.svg',
+    paper: '/classic/paper_black.svg',
+    scissors: '/classic/scissors_black.svg',
+  },
+  ruby: {
+    rock: '/classic/rock_white.svg',
+    paper: '/classic/paper_white.svg',
+    scissors: '/classic/scissors_white.svg',
   }
 };
 
@@ -65,15 +75,43 @@ const CARD_COLORS = {
     bg: 'bg-[#E8E8E8]',
     border: '',
     text: 'text-[#121212]',
-    shadow: 'shadow-[0_0_20px_rgba(0,0,0,0.7)]'
+    shadow: ''
   },
   charcoal: {
     bg: 'bg-[#121212]',
     border: '',
     text: 'text-[#F5F5F5]',
     shadow: ''
+  },
+  gold: {
+    bg: 'bg-gradient-to-br from-[#FFD700] to-[#B8860B]',
+    border: '',
+    text: 'text-[#121212]',
+    shadow: ''
+  },
+  ruby: {
+    bg: 'bg-gradient-to-br from-[#8B0000] to-[#4A0000]',
+    border: '',
+    text: 'text-[#F5F5F5]',
+    shadow: ''
   }
 };
+
+type ThemeColor = keyof typeof CARD_COLORS;
+
+interface Theme {
+  id: string;
+  name: string;
+  colorKey: ThemeColor;
+  price: number;
+}
+
+const AVAILABLE_THEMES: Theme[] = [
+  { id: 'classic-ivory', name: 'كلاسيكي (أبيض)', colorKey: 'ivory', price: 0 },
+  { id: 'classic-charcoal', name: 'كلاسيكي (أسود)', colorKey: 'charcoal', price: 0 },
+  { id: 'royal-gold', name: 'ملكي (ذهبي)', colorKey: 'gold', price: 500 },
+  { id: 'blood-ruby', name: 'دموي (ياقوت)', colorKey: 'ruby', price: 500 },
+];
 
 const CARD_NAMES: Record<CardType, string> = {
   rock: 'حجر',
@@ -93,9 +131,15 @@ interface LogEntry {
 }
 
 const App = () => {
-  const [appState, setAppState] = useState<'nameEntry' | 'menu' | 'inRoom'>('nameEntry');
+  const [appState, setAppState] = useState<'nameEntry' | 'menu' | 'inRoom' | 'store' | 'profile'>('nameEntry');
   const [menuTab, setMenuTab] = useState<'main' | 'online' | 'local'>('main');
   const [playerName, setPlayerName] = useState(() => localStorage.getItem('cardClashPlayerName') || '');
+  const [selectedThemeId, setSelectedThemeId] = useState(() => localStorage.getItem('cardClashTheme') || 'classic-ivory');
+  const [ownedThemes, setOwnedThemes] = useState<string[]>(() => {
+    const saved = localStorage.getItem('cardClashOwnedThemes');
+    return saved ? JSON.parse(saved) : ['classic-ivory', 'classic-charcoal'];
+  });
+  const [coins, setCoins] = useState(() => parseInt(localStorage.getItem('cardClashCoins') || '1000'));
   const [ipInput, setIpInput] = useState('');
   const [roomIdInput, setRoomIdInput] = useState('');
   const [roomId, setRoomId] = useState<string | null>(null);
@@ -802,6 +846,30 @@ const App = () => {
     return null;
   };
 
+  const buyTheme = (theme: Theme) => {
+    if (ownedThemes.includes(theme.id)) return;
+    if (coins >= theme.price) {
+      const newCoins = coins - theme.price;
+      const newOwned = [...ownedThemes, theme.id];
+      setCoins(newCoins);
+      setOwnedThemes(newOwned);
+      localStorage.setItem('cardClashCoins', newCoins.toString());
+      localStorage.setItem('cardClashOwnedThemes', JSON.stringify(newOwned));
+      addLog(`تم شراء ثيم ${theme.name}`, 'success');
+    } else {
+      setErrorMsg('عملات غير كافية!');
+    }
+  };
+
+  const selectTheme = (themeId: string) => {
+    if (ownedThemes.includes(themeId)) {
+      setSelectedThemeId(themeId);
+      localStorage.setItem('cardClashTheme', themeId);
+    }
+  };
+
+  const currentThemeColor = AVAILABLE_THEMES.find(t => t.id === selectedThemeId)?.colorKey || 'ivory';
+
   const saveName = () => {
     const error = validateName(playerName);
     if (error) {
@@ -1008,6 +1076,20 @@ const App = () => {
                     >
                       <Bot className="w-6 h-6" /> ضد الكمبيوتر
                     </button>
+                    <div className="flex w-[90%] mx-auto gap-3">
+                      <button
+                        onClick={() => setAppState('store')}
+                        className="flex-1 py-3 bg-game-dark/50 hover:bg-game-dark text-game-cream rounded-lg font-display text-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 border border-white/10"
+                      >
+                        <ShoppingCart className="w-5 h-5" /> المتجر
+                      </button>
+                      <button
+                        onClick={() => setAppState('profile')}
+                        className="flex-1 py-3 bg-game-dark/50 hover:bg-game-dark text-game-cream rounded-lg font-display text-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 border border-white/10"
+                      >
+                        <User className="w-5 h-5" /> حسابي
+                      </button>
+                    </div>
                   </motion.div>
                 )}
 
@@ -1184,6 +1266,139 @@ const App = () => {
               </AnimatePresence>
             </div>
           </motion.div>
+        </div>
+        {renderDebugUI()}
+      </>
+    );
+  }
+
+  if (appState === 'store') {
+    return (
+      <>
+        {renderErrorToast()}
+        <div 
+          dir="rtl" 
+          className="h-[100dvh] wood-texture text-game-cream flex flex-col p-4 sm:p-6 font-body overflow-x-hidden overflow-y-auto select-none"
+          style={{
+            paddingTop: 'env(safe-area-inset-top)',
+            paddingBottom: 'env(safe-area-inset-bottom)',
+            paddingLeft: 'env(safe-area-inset-left)',
+            paddingRight: 'env(safe-area-inset-right)'
+          }}
+        >
+          <div className="flex justify-between items-center mb-8">
+            <button 
+              onClick={() => setAppState('menu')}
+              className="p-2 bg-game-dark/50 rounded-full text-game-cream hover:bg-game-dark border border-white/10 transition-all"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <h1 className="text-3xl font-display text-game-offwhite tracking-wider">متجر الثيمات</h1>
+            <div className="flex items-center gap-2 bg-game-dark/50 px-4 py-2 rounded-full border border-white/10">
+              <span className="text-game-offwhite font-display text-xl">{coins}</span>
+              <span className="text-yellow-500">🪙</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-4xl mx-auto w-full">
+            {AVAILABLE_THEMES.map(theme => {
+              const isOwned = ownedThemes.includes(theme.id);
+              return (
+                <div key={theme.id} className="bg-game-dark/40 p-4 rounded-xl border border-white/10 flex items-center justify-between backdrop-blur-sm">
+                  <div className="flex items-center gap-4">
+                    <div className={`w-16 h-20 rounded-lg flex items-center justify-center ${CARD_COLORS[theme.colorKey].bg} ${CARD_COLORS[theme.colorKey].shadow} ${CARD_COLORS[theme.colorKey].border}`}>
+                      <img src={CARD_IMAGES[theme.colorKey].rock} alt="theme preview" className="w-10 h-10 object-contain" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-display text-game-offwhite">{theme.name}</h3>
+                      {!isOwned && <p className="text-game-offwhite/60 font-display">{theme.price} 🪙</p>}
+                    </div>
+                  </div>
+                  {isOwned ? (
+                    <button disabled className="px-6 py-2 bg-game-teal/20 text-game-teal rounded-lg font-display border border-game-teal/30">
+                      مملوك
+                    </button>
+                  ) : (
+                    <button 
+                      onClick={() => buyTheme(theme)}
+                      className="px-6 py-2 bg-game-offwhite hover:bg-white text-black rounded-lg font-display shadow-lg transition-all active:scale-95"
+                    >
+                      شراء
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        {renderDebugUI()}
+      </>
+    );
+  }
+
+  if (appState === 'profile') {
+    return (
+      <>
+        {renderErrorToast()}
+        <div 
+          dir="rtl" 
+          className="h-[100dvh] wood-texture text-game-cream flex flex-col p-4 sm:p-6 font-body overflow-x-hidden overflow-y-auto select-none"
+          style={{
+            paddingTop: 'env(safe-area-inset-top)',
+            paddingBottom: 'env(safe-area-inset-bottom)',
+            paddingLeft: 'env(safe-area-inset-left)',
+            paddingRight: 'env(safe-area-inset-right)'
+          }}
+        >
+          <div className="flex justify-between items-center mb-8">
+            <button 
+              onClick={() => setAppState('menu')}
+              className="p-2 bg-game-dark/50 rounded-full text-game-cream hover:bg-game-dark border border-white/10 transition-all"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <h1 className="text-3xl font-display text-game-offwhite tracking-wider">حسابي</h1>
+            <div className="w-10" /> {/* Spacer */}
+          </div>
+
+          <div className="max-w-4xl mx-auto w-full space-y-8">
+            <div className="bg-game-dark/40 p-6 rounded-xl border border-white/10 backdrop-blur-sm flex items-center gap-6">
+              <div className="w-20 h-20 rounded-full bg-game-dark/80 border-2 border-game-offwhite/20 flex items-center justify-center">
+                <User className="w-10 h-10 text-game-offwhite/50" />
+              </div>
+              <div>
+                <h2 className="text-3xl font-display text-game-offwhite">{playerName}</h2>
+                <p className="text-game-offwhite/60 font-display mt-1">الرصيد: {coins} 🪙</p>
+              </div>
+            </div>
+
+            <div>
+              <h2 className="text-2xl font-display text-game-offwhite mb-4 border-b border-white/10 pb-2">مكتبة الثيمات</h2>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                {AVAILABLE_THEMES.filter(t => ownedThemes.includes(t.id)).map(theme => (
+                  <button
+                    key={theme.id}
+                    onClick={() => selectTheme(theme.id)}
+                    className={`relative p-4 rounded-xl border flex flex-col items-center gap-3 transition-all ${
+                      selectedThemeId === theme.id 
+                        ? 'bg-game-dark/80 border-game-teal shadow-[0_0_15px_rgba(45,212,191,0.3)]' 
+                        : 'bg-game-dark/40 border-white/10 hover:bg-game-dark/60'
+                    }`}
+                  >
+                    {selectedThemeId === theme.id && (
+                      <div className="absolute top-2 right-2 w-4 h-4 bg-game-teal rounded-full flex items-center justify-center">
+                        <ShieldCheck className="w-3 h-3 text-game-dark" />
+                      </div>
+                    )}
+                    <div className={`w-16 h-24 rounded-lg flex items-center justify-center ${CARD_COLORS[theme.colorKey].bg} ${CARD_COLORS[theme.colorKey].shadow} ${CARD_COLORS[theme.colorKey].border}`}>
+                      <img src={CARD_IMAGES[theme.colorKey].rock} alt="theme preview" className="w-10 h-10 object-contain" />
+                    </div>
+                    <span className="font-display text-game-offwhite text-sm text-center">{theme.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
         {renderDebugUI()}
       </>
@@ -1453,6 +1668,7 @@ const App = () => {
                     isPlayer={true} 
                     winner={roomState.gameState === 'roundResult' && roomState.roundWinner === myId} 
                     faceDown={roomState.gameState === 'playing' || roomState.gameState === 'revealing' || (roomState.gameState === 'roundResult' && !isRevealingLocal)} 
+                    themeColor={currentThemeColor}
                   />
                 ) : (
                   <div className="w-16 sm:w-24 aspect-[3/4]" />
@@ -1515,6 +1731,7 @@ const App = () => {
                     isPlayer={false} 
                     winner={roomState.gameState === 'roundResult' && roomState.roundWinner === opponentId} 
                     faceDown={roomState.gameState === 'playing' || roomState.gameState === 'revealing' || (roomState.gameState === 'roundResult' && !isRevealingLocal)} 
+                    themeColor={'charcoal'}
                   />
                 ) : (
                   <div className="w-16 sm:w-24 aspect-[3/4]" />
@@ -1534,9 +1751,9 @@ const App = () => {
             </div>
           </div>
           <div className="flex justify-between gap-3 sm:gap-6">
-             <PlayableCard type="rock" count={me.deck.rock} onClick={() => playCard('rock')} disabled={roomState.gameState !== 'playing' || me.choice !== null} color="ivory" />
-             <PlayableCard type="paper" count={me.deck.paper} onClick={() => playCard('paper')} disabled={roomState.gameState !== 'playing' || me.choice !== null} color="ivory" />
-             <PlayableCard type="scissors" count={me.deck.scissors} onClick={() => playCard('scissors')} disabled={roomState.gameState !== 'playing' || me.choice !== null} color="ivory" />
+             <PlayableCard type="rock" count={me.deck.rock} onClick={() => playCard('rock')} disabled={roomState.gameState !== 'playing' || me.choice !== null} color={currentThemeColor} />
+             <PlayableCard type="paper" count={me.deck.paper} onClick={() => playCard('paper')} disabled={roomState.gameState !== 'playing' || me.choice !== null} color={currentThemeColor} />
+             <PlayableCard type="scissors" count={me.deck.scissors} onClick={() => playCard('scissors')} disabled={roomState.gameState !== 'playing' || me.choice !== null} color={currentThemeColor} />
           </div>
         </div>
       </div>
@@ -1547,9 +1764,9 @@ const App = () => {
   );
 }
 
-const CardCount = ({ type, count, color }: { type: CardType, count: number, color: 'ivory' | 'charcoal' }) => (
+const CardCount = ({ type, count, color }: { type: CardType, count: number, color: ThemeColor }) => (
   <div className="flex-1 flex flex-col items-center gap-1 sm:gap-2">
-    <div className={`w-full max-w-[4.5rem] aspect-[3/4] rounded-lg flex items-center justify-center transition-all duration-300 overflow-hidden ${count > 0 ? `${CARD_COLORS[color].bg} ${CARD_COLORS[color].shadow} opacity-100` : 'bg-game-dark opacity-20 grayscale'}`}>
+    <div className={`w-full max-w-[4.5rem] aspect-[3/4] rounded-lg flex items-center justify-center transition-all duration-300 overflow-hidden ${count > 0 ? `${CARD_COLORS[color].bg} ${CARD_COLORS[color].shadow} ${CARD_COLORS[color].border} opacity-100` : 'bg-game-dark opacity-20 grayscale'}`}>
       <img src={CARD_IMAGES[color][type]} alt={CARD_NAMES[type]} className={`w-2/3 h-2/3 object-contain rotate-180 ${color === 'charcoal' ? 'drop-shadow-md' : ''}`} referrerPolicy="no-referrer" />
     </div>
     <div className={`w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center text-[10px] sm:text-xs font-display rounded-md transition-colors duration-300 ${count > 0 ? `${CARD_COLORS[color].bg} ${CARD_COLORS[color].shadow} ${CARD_COLORS[color].text}` : 'bg-game-dark text-game-cream/20'}`}>
@@ -1558,7 +1775,7 @@ const CardCount = ({ type, count, color }: { type: CardType, count: number, colo
   </div>
 );
 
-const PlayableCard = ({ type, count, onClick, disabled, color }: { type: CardType, count: number, onClick: () => void, disabled: boolean, color: 'ivory' | 'charcoal' }) => {
+const PlayableCard = ({ type, count, onClick, disabled, color }: { type: CardType, count: number, onClick: () => void, disabled: boolean, color: ThemeColor }) => {
   const isAvailable = count > 0;
   return (
     <motion.button
@@ -1571,7 +1788,7 @@ const PlayableCard = ({ type, count, onClick, disabled, color }: { type: CardTyp
       <div className={`w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center text-[10px] sm:text-xs font-bold rounded-md shadow-md transition-colors ${isAvailable ? `${CARD_COLORS[color].bg} ${CARD_COLORS[color].shadow} ${CARD_COLORS[color].text}` : 'bg-game-dark text-game-cream/20'}`}>
         {count}
       </div>
-      <div className={`w-full max-w-[5.5rem] aspect-[3/4] rounded-lg flex items-center justify-center transition-all duration-300 overflow-hidden ${isAvailable && !disabled ? `${CARD_COLORS[color].bg} ${CARD_COLORS[color].shadow}` : 'bg-game-dark'}`}>
+      <div className={`w-full max-w-[5.5rem] aspect-[3/4] rounded-lg flex items-center justify-center transition-all duration-300 overflow-hidden ${isAvailable && !disabled ? `${CARD_COLORS[color].bg} ${CARD_COLORS[color].shadow} ${CARD_COLORS[color].border}` : 'bg-game-dark'}`}>
         <img src={CARD_IMAGES[color][type]} alt={CARD_NAMES[type]} className={`w-2/3 h-2/3 object-contain ${color === 'charcoal' ? 'drop-shadow-xl' : ''}`} referrerPolicy="no-referrer" />
       </div>
       <span className="text-[10px] sm:text-xs font-display text-game-cream tracking-wider">{CARD_NAMES[type]}</span>
@@ -1579,8 +1796,8 @@ const PlayableCard = ({ type, count, onClick, disabled, color }: { type: CardTyp
   );
 };
 
-const PlayedCard = ({ type, isPlayer, winner, faceDown = false }: { type: CardType, isPlayer: boolean, winner: boolean, faceDown?: boolean }) => {
-  const colorKey = isPlayer ? 'ivory' : 'charcoal';
+const PlayedCard = ({ type, isPlayer, winner, faceDown = false, themeColor }: { type: CardType, isPlayer: boolean, winner: boolean, faceDown?: boolean, themeColor: ThemeColor }) => {
+  const colorKey = themeColor;
   return (
     <motion.div
       initial={{ 
@@ -1611,9 +1828,9 @@ const PlayedCard = ({ type, isPlayer, winner, faceDown = false }: { type: CardTy
     >
       {/* Front Side */}
       <div 
-        className={`absolute inset-0 rounded-lg flex items-center justify-center overflow-hidden backface-hidden ${CARD_COLORS[colorKey].bg} ${
+        className={`absolute inset-0 rounded-lg flex items-center justify-center overflow-hidden backface-hidden ${CARD_COLORS[colorKey].bg} ${CARD_COLORS[colorKey].border} ${
           winner 
-            ? 'shadow-[0_0_25px_rgba(112,128,144,0.8)] ring-2 ring-game-slate/50'
+            ? 'scale-105 transition-transform'
             : (isPlayer || colorKey === 'ivory' ? `${CARD_COLORS[colorKey].shadow}` : '')
         }`}
         style={{ 
@@ -1636,7 +1853,7 @@ const PlayedCard = ({ type, isPlayer, winner, faceDown = false }: { type: CardTy
 
       {/* Back Side (Face Down) */}
       <div 
-        className={`absolute inset-0 rounded-lg flex items-center justify-center ${isPlayer ? `bg-[#E5E5E5] ${CARD_COLORS.ivory.shadow}` : `bg-[#0A0A0A] ${CARD_COLORS.charcoal.shadow}`}`}
+        className={`absolute inset-0 rounded-lg flex items-center justify-center ${CARD_COLORS[colorKey].bg} ${CARD_COLORS[colorKey].shadow} ${CARD_COLORS[colorKey].border}`}
         style={{ 
           backfaceVisibility: 'hidden',
           transform: 'rotateY(180deg)'
