@@ -64,6 +64,21 @@ function startNextRound(roomId: string) {
   const room = rooms[roomId];
   if (!room) return;
 
+  // Apply score here, at the end of the roundResult phase
+  const playerIds = Object.keys(room.players);
+  const p1 = room.players[playerIds[0]];
+  const p2 = room.players[playerIds[1]];
+  
+  let points = 1;
+  if (room.round >= 7) points = 3;
+  else if (room.round >= 4) points = 2;
+
+  if (room.roundWinner === p1.id) {
+    p1.score += points;
+  } else if (room.roundWinner === p2.id) {
+    p2.score += points;
+  }
+
   if (room.round >= 9) {
     room.gameState = 'gameOver';
   } else {
@@ -98,15 +113,9 @@ function handleReveal(roomId: string) {
     
     const winnerCode = getWinner(p1.choice!, p2.choice!);
     
-    let points = 1;
-    if (room.round >= 6 && room.round <= 8) points = 2;
-    else if (room.round === 9) points = 3;
-
     if (winnerCode === 1) {
-      p1.score += points;
       room.roundWinner = p1.id;
     } else if (winnerCode === 2) {
-      p2.score += points;
       room.roundWinner = p2.id;
     } else {
       room.roundWinner = 'draw';

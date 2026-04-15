@@ -17,6 +17,10 @@
 @layer base {
   body {
     @apply bg-game-bg text-game-cream font-body antialiased;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
     background-image: 
       linear-gradient(to right, rgba(0,0,0,0.1) 1px, transparent 1px),
       linear-gradient(to bottom, rgba(0,0,0,0.1) 1px, transparent 1px),
@@ -38,6 +42,18 @@
   background-color: #e8e4d9;
   background-image: url("https://www.transparenttextures.com/patterns/parchment.png");
   color: #1a1a1a;
+}
+
+.player-color-texture {
+  background-color: #2a4a4a;
+  background-image: url("https://www.transparenttextures.com/patterns/parchment.png");
+  color: #e8e4d9;
+}
+
+.opponent-color-texture {
+  background-color: #8b1a1a;
+  background-image: url("https://www.transparenttextures.com/patterns/parchment.png");
+  color: #e8e4d9;
 }
 
 @keyframes shimmer {

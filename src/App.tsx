@@ -290,8 +290,9 @@ const App = () => {
           if (prev.timeLeft && prev.timeLeft > 0) {
             return { ...prev, timeLeft: prev.timeLeft - 1 };
           } else {
-            // Auto play for player if time runs out
-            const me = prev.players.me;
+            // Auto play for both if time runs out - use deep copy to avoid mutation
+            const nextState = JSON.parse(JSON.stringify(prev));
+            const me = nextState.players.me;
             if (!me.choice) {
               const availableCards = (Object.keys(me.deck) as CardType[]).filter(t => me.deck[t] > 0);
               if (availableCards.length > 0) {
@@ -301,8 +302,7 @@ const App = () => {
               }
             }
             
-            // Bot auto play
-            const bot = prev.players.bot;
+            const bot = nextState.players.bot;
             if (!bot.choice) {
               const availableBotCards = (Object.keys(bot.deck) as CardType[]).filter(t => bot.deck[t] > 0);
               if (availableBotCards.length > 0) {
@@ -312,8 +312,8 @@ const App = () => {
               }
             }
             
-            setTimeout(() => handleOfflineReveal(prev), 0);
-            return prev;
+            setTimeout(() => handleOfflineReveal(nextState), 0);
+            return nextState;
           }
         });
       }, 1000);
@@ -636,18 +636,20 @@ const App = () => {
   };
 
   const handleOfflineReveal = (state: Room) => {
+    if (!state || state.gameState !== 'playing') return;
+
     // Wait for cards to land first (flight animation is ~0.6s)
     setTimeout(() => {
       setRoomState(prev => {
-        if (!prev) return prev;
+        if (!prev || prev.gameState !== 'playing') return prev;
         return { ...prev, gameState: 'revealing' };
       });
       
       // Wait a bit in revealing state to show the "VS" while face-down
       setTimeout(() => {
         setRoomState(prev => {
-          if (!prev) return prev;
-          const newState = { ...prev };
+          if (!prev || prev.gameState !== 'revealing') return prev;
+          const newState = JSON.parse(JSON.stringify(prev));
           const p1 = newState.players.me;
           const p2 = newState.players.bot;
           
@@ -658,15 +660,10 @@ const App = () => {
           };
           
           const winnerCode = getWinner(p1.choice!, p2.choice!);
-          let points = 1;
-          if (newState.round >= 6 && newState.round <= 8) points = 2;
-          else if (newState.round === 9) points = 3;
           
           if (winnerCode === 1) {
-            p1.score += points;
             newState.roundWinner = 'me';
           } else if (winnerCode === 2) {
-            p2.score += points;
             newState.roundWinner = 'bot';
           } else {
             newState.roundWinner = 'draw';
@@ -676,8 +673,24 @@ const App = () => {
           
           setTimeout(() => {
             setRoomState(last => {
-              if (!last) return last;
-              const finalState = { ...last };
+              if (!last || last.gameState !== 'roundResult') return last;
+              // Deep copy to avoid mutation
+              const finalState = JSON.parse(JSON.stringify(last));
+              
+              const p1Final = finalState.players.me;
+              const p2Final = finalState.players.bot;
+
+              // Apply points AFTER the round ends (at the transition)
+              // Simplified points: 1 per round, 2 for the final round
+              let points = 1;
+              if (finalState.round === 9) points = 2;
+
+              if (finalState.roundWinner === 'me') {
+                p1Final.score += points;
+              } else if (finalState.roundWinner === 'bot') {
+                p2Final.score += points;
+              }
+
               if (finalState.round >= 9) {
                 finalState.gameState = 'gameOver';
               } else {
@@ -874,7 +887,7 @@ const App = () => {
         {renderErrorToast()}
         <div 
           dir="rtl" 
-          className="h-[100dvh] wood-texture text-game-cream flex flex-col items-center justify-center p-4 sm:p-6 font-body overflow-hidden"
+          className="h-[100dvh] wood-texture text-game-cream flex flex-col items-center justify-center p-4 sm:p-6 font-body overflow-hidden select-none"
           style={{
             paddingTop: 'env(safe-area-inset-top)',
             paddingBottom: 'env(safe-area-inset-bottom)',
@@ -922,7 +935,7 @@ const App = () => {
         {renderErrorToast()}
         <div 
           dir="rtl" 
-          className="h-[100dvh] wood-texture text-game-cream flex flex-col items-center justify-center p-4 sm:p-6 font-body overflow-x-hidden overflow-y-auto"
+          className="h-[100dvh] wood-texture text-game-cream flex flex-col items-center justify-center p-4 sm:p-6 font-body overflow-x-hidden overflow-y-auto select-none"
           style={{
             paddingTop: 'env(safe-area-inset-top)',
             paddingBottom: 'env(safe-area-inset-bottom)',
@@ -935,16 +948,18 @@ const App = () => {
             animate={{ y: 0, opacity: 1 }}
             className="max-w-md w-full text-center"
           >
-            <div className="mb-6 flex items-center justify-center gap-3 bg-game-red py-3 px-6 rounded-lg border-4 border-game-dark w-fit max-w-[90%] mx-auto shadow-2xl">
-              <span className="text-game-cream font-display text-xl tracking-wider">المحارب: {playerName}</span>
-              <button 
-                onClick={() => setAppState('nameEntry')}
-                className="p-1.5 bg-game-dark rounded-md text-game-cream hover:bg-game-bg transition-all border-2 border-game-red/30"
-                title="تعديل الاسم"
-              >
-                <Edit2 className="w-4 h-4" />
-              </button>
-            </div>
+            {menuTab === 'main' && (
+              <div className="mb-6 flex items-center justify-center gap-3 bg-game-red py-3 px-6 rounded-lg border-4 border-game-dark w-fit max-w-[90%] mx-auto shadow-2xl">
+                <span className="text-game-cream font-display text-xl tracking-wider">المحارب: {playerName}</span>
+                <button 
+                  onClick={() => setAppState('nameEntry')}
+                  className="p-1.5 bg-game-dark rounded-md text-game-cream hover:bg-game-bg transition-all border-2 border-game-red/30"
+                  title="تعديل الاسم"
+                >
+                  <Edit2 className="w-4 h-4" />
+                </button>
+              </div>
+            )}
 
             <h1 className="text-5xl sm:text-6xl font-display mb-10 text-game-cream drop-shadow-[0_5px_5px_rgba(0,0,0,0.5)] tracking-widest">
               صراع البطاقات
@@ -1349,7 +1364,7 @@ const App = () => {
       {renderErrorToast()}
       <div 
         dir="rtl" 
-        className="h-[100dvh] wood-texture text-game-cream font-body selection:bg-game-red/30 overflow-hidden flex flex-col"
+        className="h-[100dvh] wood-texture text-game-cream font-body selection:bg-game-red/30 overflow-hidden flex flex-col select-none"
       style={{
         paddingTop: 'env(safe-area-inset-top)',
         paddingBottom: 'env(safe-area-inset-bottom)',
@@ -1378,7 +1393,7 @@ const App = () => {
           <div className="flex items-center gap-2 sm:gap-3">
             <div className="flex flex-col items-end">
               <span className="text-[10px] sm:text-xs text-game-cream font-display tracking-widest bg-game-dark/30 px-2 py-0.5 rounded-md border border-game-cream/20">
-                قيمة الفوز: {roomState.round >= 7 ? 3 : roomState.round >= 4 ? 2 : 1}
+                قيمة الفوز: {roomState.round === 9 ? 2 : 1}
               </span>
             </div>
             <span className="bg-game-dark px-3 sm:px-4 py-1 rounded-md text-xs sm:text-sm font-display border-2 border-game-red/50 text-game-cream tracking-widest">
@@ -1388,7 +1403,7 @@ const App = () => {
         </header>
 
         {/* Opponent Area */}
-        <div className="flex-1 flex flex-col justify-center px-4 py-2">
+        <div className="flex-1 flex flex-col justify-center px-4 py-2 bg-[var(--color-game-red)]/10">
           <div className="flex justify-between items-end mb-2">
             <div>
               <h2 className="text-game-cream/40 text-xs sm:text-sm mb-1 flex items-center gap-2 font-display tracking-widest">
@@ -1396,9 +1411,6 @@ const App = () => {
                 {opponentName}
               </h2>
               <div className="text-4xl sm:text-5xl font-display text-game-red drop-shadow-lg">{opponent?.score || 0}</div>
-            </div>
-            <div className="text-[10px] sm:text-xs text-game-cream bg-game-dark/60 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg border-2 border-game-red/30 shadow-inner font-display tracking-wider">
-              البطاقات المتبقية
             </div>
           </div>
           <div className="flex justify-between gap-2 sm:gap-4">
@@ -1434,15 +1446,13 @@ const App = () => {
                       animate={{ opacity: 1 }}
                       className="text-game-cream flex flex-col items-center gap-2 sm:gap-3"
                     >
-                      <div className="text-3xl sm:text-4xl font-display text-game-red">{roomState.timeLeft}</div>
+                      <div className="text-3xl sm:text-4xl font-display text-game-cream">{roomState.timeLeft}</div>
                       {!me.choice ? (
                         <div className="flex flex-col items-center">
-                          <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full border-4 border-game-dark border-t-game-teal animate-spin mb-1"></div>
                           <p className="text-[10px] sm:text-xs font-display tracking-widest italic whitespace-nowrap">اختر بطاقتك...</p>
                         </div>
                       ) : (
                         <div className="flex flex-col items-center">
-                          <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full border-4 border-game-dark border-t-game-red animate-spin mb-1"></div>
                           <p className="text-[10px] sm:text-xs font-display tracking-widest italic whitespace-nowrap">بانتظار الخصم...</p>
                         </div>
                       )}
@@ -1451,7 +1461,10 @@ const App = () => {
 
                   {(roomState.gameState === 'revealing' || roomState.gameState === 'roundResult') && (
                     <div className="flex flex-col items-center gap-1 sm:gap-2">
-                      <div className="text-2xl sm:text-4xl font-display text-game-red italic tracking-tighter">VS</div>
+                      <div className="text-2xl sm:text-4xl font-display italic tracking-tighter">
+                        <span className="text-game-red">V</span>
+                        <span className="text-game-teal">S</span>
+                      </div>
                       {roomState.gameState === 'roundResult' && (
                         <motion.div
                           initial={{ scale: 0, opacity: 0 }}
@@ -1505,14 +1518,11 @@ const App = () => {
         </div>
 
         {/* Player Area */}
-        <div className="flex-1 flex flex-col justify-center px-4 py-2 bg-game-dark/20">
+        <div className="flex-1 flex flex-col justify-center px-4 py-2 bg-[var(--color-game-teal)]/10">
           <div className="flex justify-between items-end mb-2">
             <div>
               <h2 className="text-game-cream/40 text-xs sm:text-sm mb-1 font-display tracking-widest">{me.name}</h2>
               <div className="text-4xl sm:text-5xl font-display text-game-teal drop-shadow-lg">{me.score}</div>
-            </div>
-            <div className="text-[10px] sm:text-xs text-game-cream bg-game-teal/20 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg border-2 border-game-teal/30 shadow-inner font-display tracking-widest">
-              اختر بطاقتك
             </div>
           </div>
           <div className="flex justify-between gap-2 sm:gap-4">
@@ -1531,7 +1541,7 @@ const App = () => {
 
 const CardCount = ({ type, count }: { type: CardType, count: number }) => (
   <div className="flex-1 flex flex-col items-center gap-1 sm:gap-2">
-    <div className={`w-full max-w-[4.5rem] aspect-[3/4] rounded-lg border-4 flex items-center justify-center shadow-2xl transition-all duration-300 overflow-hidden ${count > 0 ? 'paper-texture border-game-dark opacity-100' : 'bg-game-dark border-game-bg opacity-20 grayscale'}`}>
+    <div className={`w-full max-w-[4.5rem] aspect-[3/4] rounded-lg border-4 flex items-center justify-center shadow-2xl transition-all duration-300 overflow-hidden ${count > 0 ? 'opponent-color-texture border-game-dark opacity-100' : 'bg-game-dark border-game-bg opacity-20 grayscale'}`}>
       <img src={CARD_IMAGES[type]} alt={CARD_NAMES[type]} className="w-2/3 h-2/3 object-contain drop-shadow-md" referrerPolicy="no-referrer" />
     </div>
     <div className={`text-[10px] sm:text-xs font-display px-2 py-0.5 rounded-md border-2 transition-colors duration-300 ${count > 0 ? 'bg-game-red border-game-dark text-game-cream' : 'bg-game-dark border-game-bg text-game-cream/20'}`}>
@@ -1550,7 +1560,7 @@ const PlayableCard = ({ type, count, onClick, disabled }: { type: CardType, coun
       disabled={!isAvailable || disabled}
       className={`flex-1 relative flex flex-col items-center gap-1 sm:gap-2 transition-all duration-300 ${(!isAvailable || disabled) ? 'opacity-40 cursor-not-allowed grayscale' : 'cursor-pointer'}`}
     >
-      <div className={`w-full max-w-[5.5rem] aspect-[3/4] rounded-lg flex items-center justify-center shadow-2xl border-4 transition-colors overflow-hidden ${isAvailable && !disabled ? 'paper-texture border-game-dark hover:border-game-red' : 'bg-game-dark border-game-bg'}`}>
+      <div className={`w-full max-w-[5.5rem] aspect-[3/4] rounded-lg flex items-center justify-center shadow-2xl border-4 transition-colors overflow-hidden ${isAvailable && !disabled ? 'player-color-texture border-game-dark hover:border-game-red' : 'bg-game-dark border-game-bg'}`}>
         <img src={CARD_IMAGES[type]} alt={CARD_NAMES[type]} className="w-2/3 h-2/3 object-contain drop-shadow-xl" referrerPolicy="no-referrer" />
       </div>
       <div className={`absolute -top-2 -right-2 w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-[10px] sm:text-xs font-bold border-2 shadow-lg transition-colors ${isAvailable ? 'bg-game-red border-game-dark text-game-cream' : 'bg-game-dark border-game-bg text-game-cream/20'}`}>
@@ -1592,9 +1602,11 @@ const PlayedCard = ({ type, isPlayer, winner, faceDown = false }: { type: CardTy
     {/* Front Side */}
     <div 
       className={`absolute inset-0 rounded-lg flex items-center justify-center shadow-2xl border-4 overflow-hidden backface-hidden ${
+        isPlayer ? 'player-color-texture' : 'opponent-color-texture'
+      } ${
         winner 
-          ? 'paper-texture border-game-red ring-4 ring-game-red/30'
-          : 'paper-texture border-game-dark'
+          ? 'border-green-500 ring-4 ring-green-500/30'
+          : 'border-game-dark'
       }`}
       style={{ 
         backfaceVisibility: 'hidden',
