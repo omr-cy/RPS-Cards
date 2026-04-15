@@ -12,6 +12,18 @@
   --color-game-cream: #e8e4d9;
   --color-game-purple: #4a1a4a;
   --color-game-teal: #2a4a4a;
+  --color-game-offwhite: #F5F5F5;
+  --color-game-charcoal: #121212;
+  --color-game-stone: #454d55;
+  --color-game-slate: #708090;
+}
+
+@utility text-stroke-white {
+  -webkit-text-stroke: 1px rgba(245, 245, 245, 0.4);
+}
+
+@utility text-stroke-black {
+  -webkit-text-stroke: 2px #121212;
 }
 
 @layer base {
@@ -31,6 +43,13 @@
   h1, h2, h3, h4, h5, h6 {
     @apply font-display tracking-wider;
   }
+}
+
+.modern-texture {
+  background-color: #1a1a1a;
+  background-image: 
+    radial-gradient(circle at 2px 2px, rgba(255,255,255,0.05) 1px, transparent 0);
+  background-size: 24px 24px;
 }
 
 .wood-texture {

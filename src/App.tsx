@@ -1,9 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Bot, Globe, Home, Trophy, XCircle, Minus, Copy, Edit2, Bug, X, Wifi, ShieldCheck, Activity } from 'lucide-react';
-import rockSvg from '/rock.svg';
-import paperSvg from '/paper.svg';
-import scissorsSvg from '/scissors.svg';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { SplashScreen } from '@capacitor/splash-screen';
 import { Network } from '@capacitor/network';
@@ -50,10 +47,32 @@ interface Room {
   timeLeft?: number;
 }
 
-const CARD_IMAGES: Record<CardType, string> = {
-  rock: rockSvg,
-  paper: paperSvg,
-  scissors: scissorsSvg
+const CARD_IMAGES = {
+  ivory: {
+    rock: '/classic/rock_black.svg',
+    paper: '/classic/paper_black.svg',
+    scissors: '/classic/scissors_black.svg',
+  },
+  charcoal: {
+    rock: '/classic/rock_white.svg',
+    paper: '/classic/paper_white.svg',
+    scissors: '/classic/scissors_white.svg',
+  }
+};
+
+const CARD_COLORS = {
+  ivory: {
+    bg: 'bg-[#E8E8E8]',
+    border: '',
+    text: 'text-[#121212]',
+    shadow: 'shadow-[0_0_20px_rgba(0,0,0,0.7)]'
+  },
+  charcoal: {
+    bg: 'bg-[#121212]',
+    border: '',
+    text: 'text-[#F5F5F5]',
+    shadow: ''
+  }
 };
 
 const CARD_NAMES: Record<CardType, string> = {
@@ -97,9 +116,11 @@ const App = () => {
   const [ws, setWs] = useState<WebSocket | null>(null);
 
   // Preload Assets
-  useEffect(() => {
+  const preloadAssets = () => {
+    setIsPreloaded(false);
     const assets = [
-      rockSvg, paperSvg, scissorsSvg,
+      '/classic/rock_black.svg', '/classic/paper_black.svg', '/classic/scissors_black.svg',
+      '/classic/rock_white.svg', '/classic/paper_white.svg', '/classic/scissors_white.svg',
       'https://www.transparenttextures.com/patterns/dark-wood.png',
       'https://www.transparenttextures.com/patterns/parchment.png'
     ];
@@ -127,13 +148,14 @@ const App = () => {
 
     // Fallback if loading takes too long
     const timeout = setTimeout(() => {
-      if (!isPreloaded) {
-        setIsPreloaded(true);
-        addLog('Asset preloading timed out, proceeding...', 'info');
-      }
+      setIsPreloaded(true);
     }, 3000);
 
     return () => clearTimeout(timeout);
+  };
+
+  useEffect(() => {
+    preloadAssets();
   }, []);
 
   // Refs to avoid stale closures in listeners
@@ -433,6 +455,7 @@ const App = () => {
   };
 
   const joinGame = async () => {
+    preloadAssets();
     if (!isValidIp(ipInput.trim())) {
       setErrorMsg('يرجى إدخال عنوان IP صحيح');
       return;
@@ -451,6 +474,7 @@ const App = () => {
   };
 
   const createOnlineRoom = () => {
+    preloadAssets();
     if (Capacitor.isNativePlatform()) {
       const serverUrl = window.location.hostname;
       LocalServer.connectToServer({ ip: serverUrl, port: 3000 })
@@ -566,6 +590,7 @@ const App = () => {
   };
 
   const createBotRoom = () => {
+    preloadAssets();
     const newRoom: Room = {
       id: OFFLINE_BOT_ID,
       isBotRoom: true,
@@ -871,16 +896,6 @@ const App = () => {
     </>
   );
 
-  if (!isPreloaded) {
-    return (
-      <div className="h-[100dvh] wood-texture flex flex-col items-center justify-center">
-        <div className="w-12 h-12 rounded-full border-4 border-game-bg border-t-game-red animate-spin mb-4"></div>
-        <p className="text-game-red font-display text-xl tracking-widest animate-pulse">جاري تجهيز الأسلحة...</p>
-        {renderDebugUI()}
-      </div>
-    );
-  }
-
   if (appState === 'nameEntry') {
     return (
       <>
@@ -896,28 +911,28 @@ const App = () => {
           <motion.div
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            className="max-w-sm w-full bg-game-dark/80 p-8 rounded-lg border-4 border-game-red shadow-2xl backdrop-blur-sm"
+            className="max-w-sm w-full bg-game-dark/40 p-8 rounded-xl border border-white/10 shadow-2xl backdrop-blur-md"
           >
             <div className="mb-8 flex justify-center gap-4">
             </div>
 
-            <h2 className="text-3xl font-display mb-6 text-center text-game-cream tracking-wider">مرحباً بك أيها المحارب!</h2>
-            <p className="text-game-cream/60 text-center mb-8 font-body italic">ما هو الاسم الذي تود أن يعرفك به خصومك؟</p>
+            <h2 className="text-3xl font-display mb-6 text-center text-game-offwhite tracking-wider">مرحباً بك أيها المحارب!</h2>
+            <p className="text-game-offwhite/60 text-center mb-8 font-body italic">ما هو الاسم الذي تود أن يعرفك به خصومك؟</p>
             
-            <div className="space-y-6">
+            <div className="space-y-8">
               <input
                 type="text"
                 placeholder="أدخل اسمك هنا..."
                 value={playerName}
                 onChange={(e) => setPlayerName(e.target.value)}
                 autoFocus
-                className="w-full bg-game-bg border-4 border-game-dark rounded-lg py-3.5 px-6 text-center text-lg font-bold text-game-cream focus:outline-none focus:border-game-red focus:ring-4 focus:ring-game-red/10 transition-all placeholder:text-game-cream/20"
+                className="w-full bg-transparent border-0 border-b-2 border-white/30 rounded-none py-3 px-2 text-center text-xl font-bold text-game-offwhite focus:outline-none focus:border-white transition-all placeholder:text-white/10"
                 onKeyDown={(e) => e.key === 'Enter' && saveName()}
               />
               
               <button
                 onClick={saveName}
-                className="w-full py-4 bg-game-red hover:bg-red-800 text-game-cream rounded-lg font-display text-2xl shadow-xl border-b-4 border-red-950 transition-all active:translate-y-1 active:border-b-0"
+                className="w-full py-4 bg-game-offwhite hover:bg-white text-black rounded-lg font-display text-2xl shadow-lg transition-all active:scale-95"
               >
                 تأكيد الاسم
               </button>
@@ -949,11 +964,11 @@ const App = () => {
             className="max-w-md w-full text-center"
           >
             {menuTab === 'main' && (
-              <div className="mb-6 flex items-center justify-center gap-3 bg-game-red py-3 px-6 rounded-lg border-4 border-game-dark w-fit max-w-[90%] mx-auto shadow-2xl">
-                <span className="text-game-cream font-display text-xl tracking-wider">المحارب: {playerName}</span>
+              <div className="mb-8 flex items-center justify-center gap-3 bg-white/5 py-2 px-5 rounded-full border border-white/10 w-fit mx-auto backdrop-blur-md">
+                <span className="text-game-offwhite font-display text-lg tracking-wider">المحارب: {playerName}</span>
                 <button 
                   onClick={() => setAppState('nameEntry')}
-                  className="p-1.5 bg-game-dark rounded-md text-game-cream hover:bg-game-bg transition-all border-2 border-game-red/30"
+                  className="p-1.5 text-game-offwhite/40 hover:text-game-offwhite transition-all"
                   title="تعديل الاسم"
                 >
                   <Edit2 className="w-4 h-4" />
@@ -961,11 +976,11 @@ const App = () => {
               </div>
             )}
 
-            <h1 className="text-5xl sm:text-6xl font-display mb-10 text-game-cream drop-shadow-[0_5px_5px_rgba(0,0,0,0.5)] tracking-widest">
+            <h1 className="text-5xl sm:text-6xl font-display mb-12 text-game-offwhite tracking-[0.2em] uppercase">
               صراع البطاقات
             </h1>
             
-            <div className="space-y-4">
+            <div className="space-y-5">
               <AnimatePresence mode="wait">
                 {menuTab === 'main' && (
                   <motion.div
@@ -973,23 +988,23 @@ const App = () => {
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: 20 }}
-                    className="flex flex-col gap-4"
+                    className="flex flex-col gap-5"
                   >
                     <button
                       disabled
-                      className="w-[90%] mx-auto py-4 bg-game-dark/80 text-game-cream/20 rounded-lg font-display text-xl shadow-xl border-4 border-game-bg cursor-not-allowed flex items-center justify-center gap-3"
+                      className="w-[90%] mx-auto py-4 bg-white/5 text-white/10 rounded-lg font-display text-xl border border-white/5 cursor-not-allowed flex items-center justify-center gap-3"
                     >
                       <Globe className="w-6 h-6" /> لعب عبر الإنترنت (قريباً)
                     </button>
                     <button
                       onClick={() => setMenuTab('local')}
-                      className="w-[90%] mx-auto py-4 bg-game-red hover:bg-red-800 text-game-cream rounded-lg font-display text-2xl shadow-xl border-b-4 border-red-950 transition-all active:translate-y-1 active:border-b-0 flex items-center justify-center gap-3"
+                      className="w-[90%] mx-auto py-4 bg-game-offwhite hover:bg-white text-black rounded-lg font-display text-2xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-3"
                     >
                       <Home className="w-6 h-6" /> شبكة محلية (IP)
                     </button>
                     <button
                       onClick={createBotRoom}
-                      className="w-[90%] mx-auto py-4 bg-game-teal hover:bg-teal-800 text-game-cream rounded-lg font-display text-2xl shadow-xl border-b-4 border-teal-950 transition-all active:translate-y-1 active:border-b-0 flex items-center justify-center gap-3"
+                      className="w-[90%] mx-auto py-4 bg-game-slate hover:bg-slate-600 text-white rounded-lg font-display text-2xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-3"
                     >
                       <Bot className="w-6 h-6" /> ضد الكمبيوتر
                     </button>
@@ -1002,31 +1017,31 @@ const App = () => {
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: 20 }}
-                    className="flex flex-col gap-3"
+                    className="flex flex-col gap-4"
                   >
-                    <button onClick={() => setMenuTab('main')} className="text-game-cream/60 hover:text-game-cream flex items-center gap-2 mb-2 w-fit transition-colors text-sm sm:text-base font-display tracking-widest">
+                    <button onClick={() => setMenuTab('main')} className="text-game-offwhite/40 hover:text-game-offwhite flex items-center gap-2 mb-4 w-fit transition-colors text-sm font-display tracking-widest">
                       <span>➔</span> رجوع
                     </button>
                     <button
                       onClick={createOnlineRoom}
-                      className="w-[90%] mx-auto py-3 sm:py-4 bg-game-red hover:bg-red-800 text-game-cream rounded-lg font-display text-xl shadow-xl border-b-4 border-red-950 transition-all active:translate-y-1 active:border-b-0"
+                      className="w-[90%] mx-auto py-4 bg-game-offwhite hover:bg-white text-black rounded-lg font-display text-2xl shadow-lg transition-all active:scale-95"
                     >
                       إنشاء غرفة جديدة
                     </button>
                     
-                    <div className="relative flex items-center py-2">
-                      <div className="flex-grow border-t border-game-dark"></div>
-                      <span className="flex-shrink-0 mx-4 text-game-cream/40 text-xs sm:text-sm font-display italic">أو الانضمام لغرفة</span>
-                      <div className="flex-grow border-t border-game-dark"></div>
+                    <div className="relative flex items-center py-4">
+                      <div className="flex-grow border-t border-white/5"></div>
+                      <span className="flex-shrink-0 mx-4 text-white/20 text-xs font-display italic">أو الانضمام لغرفة</span>
+                      <div className="flex-grow border-t border-white/5"></div>
                     </div>
 
-                    <div className="w-[90%] mx-auto flex flex-col gap-3">
+                    <div className="w-[90%] mx-auto flex flex-col gap-4">
                       <input
                         type="text"
                         placeholder="أدخل كود الغرفة..."
                         value={roomIdInput}
                         onChange={(e) => setRoomIdInput(e.target.value)}
-                        className="w-full bg-game-bg border-4 border-game-dark rounded-lg py-3 sm:py-4 px-4 sm:px-6 text-center text-lg sm:text-xl font-mono text-game-cream focus:outline-none focus:border-game-red focus:ring-4 focus:ring-game-red/10 transition-all placeholder:text-slate-700"
+                        className="w-full bg-transparent border-0 border-b-2 border-white/30 rounded-none py-3 px-2 text-center text-xl font-mono text-game-offwhite focus:outline-none focus:border-white transition-all placeholder:text-white/10"
                         maxLength={6}
                       />
                       <AnimatePresence>
@@ -1038,7 +1053,7 @@ const App = () => {
                           >
                             <button
                               onClick={joinOnlineRoom}
-                              className="w-full py-3.5 bg-game-red hover:bg-red-800 text-game-cream rounded-lg font-display text-xl transition-all shadow-xl border-b-4 border-red-950 active:translate-y-1 active:border-b-0"
+                              className="w-full py-4 bg-game-offwhite hover:bg-white text-black rounded-lg font-display text-2xl shadow-lg transition-all active:scale-95"
                             >
                               انضمام
                             </button>
@@ -1059,7 +1074,7 @@ const App = () => {
                   >
                     <button 
                       onClick={() => setMenuTab('main')} 
-                      className="text-game-cream/70 hover:text-game-cream flex items-center gap-2 w-fit transition-colors text-sm font-display tracking-widest group mb-1 ms-2"
+                      className="text-game-offwhite/40 hover:text-game-offwhite flex items-center gap-2 w-fit transition-colors text-sm font-display tracking-widest group mb-2"
                     >
                       <span className="group-hover:-translate-x-1 transition-transform">➔</span> رجوع للقائمة
                     </button>
@@ -1071,10 +1086,10 @@ const App = () => {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            className="absolute inset-0 z-50 bg-game-dark/90 backdrop-blur-sm flex flex-col items-center justify-center rounded-lg border-4 border-game-red"
+                            className="absolute inset-0 z-50 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center rounded-xl border border-white/10"
                           >
-                            <div className="w-12 h-12 rounded-full border-4 border-game-bg border-t-game-red animate-spin mb-4"></div>
-                            <p className="text-game-red font-display text-xl tracking-widest animate-pulse">جاري الاتصال...</p>
+                            <div className="w-10 h-10 rounded-full border-2 border-white/10 border-t-white animate-spin mb-4"></div>
+                            <p className="text-game-offwhite font-display text-lg tracking-widest animate-pulse">جاري الاتصال...</p>
                             <button 
                               onClick={async () => {
                                 if (Capacitor.isNativePlatform()) {
@@ -1082,7 +1097,7 @@ const App = () => {
                                 }
                                 setConnectionStatus('DISCONNECTED');
                               }}
-                              className="mt-4 px-4 py-2 bg-game-red text-game-cream rounded-md text-xs font-display tracking-widest transition-colors border-2 border-game-dark"
+                              className="mt-6 px-5 py-2 bg-game-slate text-white rounded-full text-xs font-display tracking-widest transition-all hover:bg-slate-600"
                             >
                               إلغاء الاتصال
                             </button>
@@ -1091,11 +1106,11 @@ const App = () => {
                       </AnimatePresence>
 
                       {/* Host Section */}
-                    <div className="bg-game-dark/80 border-4 border-game-red p-5 rounded-lg backdrop-blur-sm shadow-2xl">
-                      <div className="flex items-center justify-between mb-4">
+                    <div className="bg-white/5 border border-white/10 p-6 rounded-xl backdrop-blur-md shadow-2xl">
+                      <div className="flex items-center justify-between mb-5">
                         <div className="flex items-center gap-3">
-                          <div className="p-2 bg-game-teal/20 rounded-md border border-game-teal/30">
-                            <Globe className="w-5 h-5 text-game-teal" />
+                          <div className="p-2 bg-white/5 rounded-lg border border-white/10">
+                            <Globe className="w-5 h-5 text-game-offwhite" />
                           </div>
                           <div className="text-right">
                             <h3 className="text-game-cream font-display text-lg tracking-widest">استضافة لعبة</h3>
@@ -1113,7 +1128,7 @@ const App = () => {
                       
                       <button
                         onClick={hostGame}
-                        className="w-full py-3.5 bg-game-teal hover:bg-teal-800 text-game-cream rounded-lg font-display text-xl shadow-xl border-b-4 border-teal-950 transition-all active:translate-y-1 active:border-b-0 flex items-center justify-center gap-2"
+                        className="w-full py-3.5 bg-game-slate hover:bg-slate-600 text-white rounded-lg font-display text-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2"
                       >
                         بدء الاستضافة (Host)
                       </button>
@@ -1124,10 +1139,10 @@ const App = () => {
                     </div>
 
                     {/* Join Section */}
-                    <div className="bg-game-dark/80 border-4 border-game-red p-5 rounded-lg backdrop-blur-sm shadow-2xl">
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className="p-2 bg-game-red/20 rounded-md border border-game-red/30">
-                          <Bot className="w-5 h-5 text-game-red" />
+                    <div className="bg-white/5 border border-white/10 p-6 rounded-xl backdrop-blur-md shadow-2xl">
+                      <div className="flex items-center gap-3 mb-5">
+                        <div className="p-2 bg-white/5 rounded-lg border border-white/10">
+                          <Bot className="w-5 h-5 text-game-offwhite" />
                         </div>
                         <div className="text-right">
                           <h3 className="text-game-cream font-display text-lg tracking-widest">انضمام لصديق</h3>
@@ -1135,14 +1150,14 @@ const App = () => {
                         </div>
                       </div>
 
-                      <div className="flex flex-col gap-3">
+                      <div className="flex flex-col gap-4">
                         <input
                           type="text"
                           inputMode="decimal"
                           placeholder="مثال: 192.168.1.5"
                           value={ipInput}
                           onChange={handleIpChange}
-                          className="w-full bg-game-bg border-4 border-game-dark rounded-lg py-4 px-6 text-center text-lg font-mono text-game-cream focus:outline-none focus:border-game-red focus:ring-4 focus:ring-game-red/10 transition-all placeholder:text-game-cream/20"
+                          className="w-full bg-transparent border-0 border-b-2 border-white/30 rounded-none py-3 px-2 text-center text-xl font-mono text-game-offwhite focus:outline-none focus:border-white transition-all placeholder:text-white/10"
                           dir="ltr"
                         />
                         <AnimatePresence>
@@ -1154,7 +1169,7 @@ const App = () => {
                             >
                               <button
                                 onClick={joinGame}
-                                className="w-full py-3.5 bg-game-red hover:bg-red-800 text-game-cream rounded-lg font-display text-xl transition-all shadow-xl border-b-4 border-red-950 active:translate-y-1 active:border-b-0"
+                                className="w-full py-4 bg-game-offwhite hover:bg-white text-black rounded-lg font-display text-2xl shadow-lg transition-all active:scale-95"
                               >
                                 اتصال
                               </button>
@@ -1219,7 +1234,7 @@ const App = () => {
       <>
         <div 
           dir="rtl" 
-          className="h-[100dvh] wood-texture text-game-cream flex flex-col items-center justify-center p-4 sm:p-6 font-body overflow-hidden"
+          className="h-[100dvh] wood-texture text-game-cream flex flex-col items-center justify-center p-4 sm:p-6 font-body overflow-hidden select-none"
           style={{
             paddingTop: 'env(safe-area-inset-top)',
             paddingBottom: 'env(safe-area-inset-bottom)',
@@ -1230,55 +1245,55 @@ const App = () => {
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-game-dark/80 p-6 sm:p-8 rounded-lg border-4 border-game-red shadow-2xl max-w-sm w-full text-center backdrop-blur-sm"
+            className="bg-white/5 p-8 rounded-xl border border-white/10 shadow-2xl max-w-sm w-full text-center backdrop-blur-md"
           >
-            <div className="w-12 h-12 rounded-full border-4 border-game-bg border-t-game-red animate-spin mx-auto mb-6"></div>
-            <h2 className="text-2xl font-display mb-2 text-game-cream tracking-widest">في انتظار الخصم...</h2>
+            <div className="w-10 h-10 rounded-full border-2 border-white/10 border-t-white animate-spin mx-auto mb-8"></div>
+            <h2 className="text-2xl font-display mb-3 text-game-offwhite tracking-widest">في انتظار الخصم...</h2>
             
-            <div className="flex items-center justify-center gap-2 mb-6">
-              <div className={`w-2 h-2 rounded-full ${connectionStatus === 'CONNECTION_VERIFIED' ? 'bg-game-teal animate-pulse' : 'bg-game-red'}`}></div>
-              <span className="text-[10px] text-game-cream/40 font-display tracking-widest italic">
+            <div className="flex items-center justify-center gap-2 mb-8">
+              <div className={`w-2 h-2 rounded-full ${connectionStatus === 'CONNECTION_VERIFIED' ? 'bg-green-400 animate-pulse' : 'bg-game-slate'}`}></div>
+              <span className="text-[10px] text-game-offwhite/40 font-display tracking-widest italic">
                 {connectionStatus === 'CONNECTION_VERIFIED' ? 'اتصال مؤمن' : 'جاري تأمين الاتصال'}
               </span>
             </div>
             
             {role === 'HOST' ? (
               <>
-                <p className="text-game-cream/60 mb-4 text-xs sm:text-sm px-4 font-body italic">أنت الآن تستضيف اللعبة. اطلب من صديقك إدخال الـ IP الخاص بك للاتصال.</p>
-                <div className="bg-game-bg p-3 rounded-lg border-2 border-game-dark mb-4">
-                  <div className="text-[10px] text-game-cream/40 mb-1 font-display tracking-widest uppercase">عنوان الـ IP الخاص بك</div>
-                  <div className="text-xl sm:text-2xl font-mono font-black text-game-teal select-all">{userIp}</div>
+                <p className="text-game-offwhite/60 mb-6 text-xs px-4 font-body italic">أنت الآن تستضيف اللعبة. اطلب من صديقك إدخال الـ IP الخاص بك للاتصال.</p>
+                <div className="bg-white/5 p-4 rounded-lg border border-white/10 mb-8">
+                  <div className="text-[10px] text-game-offwhite/40 mb-2 font-display tracking-widest uppercase">عنوان الـ IP الخاص بك</div>
+                  <div className="text-2xl font-mono font-black text-game-offwhite select-all">{userIp}</div>
                 </div>
               </>
             ) : (
               <>
-                <p className="text-game-cream/60 mb-4 text-xs sm:text-sm px-4 font-body italic">شارك كود الغرفة مع صديقك للعب عبر الإنترنت</p>
-                <div className="bg-game-bg p-3 rounded-lg border-2 border-game-dark mb-4">
-                  <div className="text-[10px] text-game-cream/40 mb-1 font-display tracking-widest uppercase">كود الغرفة</div>
-                  <div className="text-3xl font-mono font-black tracking-widest text-game-red">{roomId}</div>
+                <p className="text-game-offwhite/60 mb-6 text-xs px-4 font-body italic">شارك كود الغرفة مع صديقك للعب عبر الإنترنت</p>
+                <div className="bg-white/5 p-4 rounded-lg border border-white/10 mb-8">
+                  <div className="text-[10px] text-game-offwhite/40 mb-2 font-display tracking-widest uppercase">كود الغرفة</div>
+                  <div className="text-3xl font-mono font-black tracking-widest text-game-offwhite">{roomId}</div>
                 </div>
               </>
             )}
             
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-3">
               {role === 'HOST' ? (
                 <button
                   onClick={() => navigator.clipboard.writeText(userIp)}
-                  className="w-full py-3 bg-game-teal hover:bg-teal-800 text-game-cream rounded-lg font-display text-xl transition-all border-b-4 border-teal-950 active:translate-y-1 active:border-b-0 flex items-center justify-center gap-2"
+                  className="w-full py-4 bg-game-offwhite hover:bg-white text-black rounded-lg font-display text-xl transition-all active:scale-95 flex items-center justify-center gap-2"
                 >
                   <Copy className="w-4 h-4" /> نسخ عنوان الـ IP
                 </button>
               ) : (
                 <button
                   onClick={copyRoomId}
-                  className="w-full py-3 bg-game-dark hover:bg-game-bg text-game-cream rounded-lg font-display text-xl transition-all border-2 border-game-red/30 flex items-center justify-center gap-2"
+                  className="w-full py-4 bg-game-offwhite hover:bg-white text-black rounded-lg font-display text-xl transition-all active:scale-95 flex items-center justify-center gap-2"
                 >
                   <Copy className="w-4 h-4" /> نسخ كود الغرفة
                 </button>
               )}
               <button
                 onClick={leaveRoom}
-                className="w-full py-3 mt-2 bg-game-red/10 text-game-red hover:bg-game-red/20 rounded-lg font-display text-lg transition-all border-2 border-game-red/30"
+                className="w-full py-3 mt-2 bg-game-slate hover:bg-slate-600 text-white rounded-lg font-display text-lg transition-all active:scale-95"
               >
                 إلغاء والرجوع
               </button>
@@ -1299,7 +1314,7 @@ const App = () => {
         {renderErrorToast()}
         <div 
           dir="rtl" 
-          className="h-[100dvh] wood-texture text-game-cream flex flex-col items-center justify-center p-4 sm:p-6 font-body overflow-x-hidden overflow-y-auto"
+          className="h-[100dvh] wood-texture text-game-cream flex flex-col items-center justify-center p-4 sm:p-6 font-body overflow-x-hidden overflow-y-auto select-none"
           style={{
             paddingTop: 'env(safe-area-inset-top)',
             paddingBottom: 'env(safe-area-inset-bottom)',
@@ -1310,43 +1325,37 @@ const App = () => {
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-game-dark/80 p-6 sm:p-8 rounded-lg border-4 border-game-red shadow-2xl max-w-sm w-full text-center relative overflow-hidden backdrop-blur-sm"
+            className="bg-white/5 p-8 rounded-xl border border-white/10 shadow-2xl max-w-sm w-full text-center relative overflow-hidden backdrop-blur-md"
           >
-            {finalWin && <div className="absolute inset-0 bg-game-teal/10 animate-pulse pointer-events-none"></div>}
-            {finalLoss && <div className="absolute inset-0 bg-game-red/10 animate-pulse pointer-events-none"></div>}
-            
             <div className="relative z-10">
-              <h2 className="text-3xl font-display mb-2 text-game-cream/60 tracking-widest uppercase">النتيجة النهائية</h2>
-              <div className="text-7xl mb-6 mt-4 drop-shadow-2xl">
-                {finalWin ? '🏆' : finalLoss ? '💀' : '🤝'}
-              </div>
-              <div className={`text-4xl font-display mb-8 tracking-widest ${finalWin ? 'text-game-teal' : finalLoss ? 'text-game-red' : 'text-game-cream/60'}`}>
+              <h2 className="text-3xl font-display mb-2 text-game-offwhite/40 tracking-widest uppercase"></h2>
+              <div className={`text-5xl font-display mb-10 mt-10 tracking-widest ${finalWin ? 'text-white' : finalLoss ? 'text-game-slate' : 'text-game-offwhite/60'}`}>
                 {finalWin ? 'لقد انتصرت!' : finalLoss ? 'لقد خسرت!' : 'تعادل!'}
               </div>
               
-              <div className="flex justify-center gap-8 mb-8 bg-game-bg/50 py-5 rounded-lg border-2 border-game-dark">
+              <div className="flex justify-center gap-8 mb-10 bg-white/5 py-6 rounded-xl border border-white/10">
                 <div className="flex flex-col items-center">
-                  <span className="text-game-cream/40 text-[10px] mb-1 uppercase tracking-widest font-display">{me.name}</span>
-                  <span className="text-5xl font-display text-game-teal">{me.score}</span>
+                  <span className="text-game-offwhite/40 text-[10px] mb-2 uppercase tracking-widest font-display">{me.name}</span>
+                  <span className="text-5xl font-display text-game-offwhite">{me.score}</span>
                 </div>
-                <div className="w-1 bg-game-dark my-2"></div>
+                <div className="w-[1px] bg-white/10 my-2"></div>
                 <div className="flex flex-col items-center">
-                  <span className="text-game-cream/40 text-[10px] mb-1 uppercase tracking-widest font-display">{opponentName}</span>
-                  <span className="text-5xl font-display text-game-red">{opponent?.score || 0}</span>
+                  <span className="text-game-offwhite/40 text-[10px] mb-2 uppercase tracking-widest font-display">{opponentName}</span>
+                  <span className="text-5xl font-display text-game-offwhite">{opponent?.score || 0}</span>
                 </div>
               </div>
 
-              <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-4">
                 <button
                   onClick={playAgain}
                   disabled={me.readyForNext}
-                  className={`w-full py-4 rounded-lg font-display text-2xl transition-all shadow-xl border-b-4 ${me.readyForNext ? 'bg-game-dark text-game-cream/20 border-transparent cursor-not-allowed' : 'bg-game-red hover:bg-red-800 text-game-cream border-red-950 active:translate-y-1 active:border-b-0'}`}
+                  className={`w-full py-4 rounded-lg font-display text-2xl transition-all shadow-lg ${me.readyForNext ? 'bg-white/5 text-white/10 cursor-not-allowed' : 'bg-game-offwhite hover:bg-white text-black active:scale-95'}`}
                 >
                   {me.readyForNext ? 'في انتظار الخصم...' : 'العب مرة أخرى'}
                 </button>
                 <button
                   onClick={leaveRoom}
-                  className="w-full py-3 bg-game-dark hover:bg-game-bg text-game-cream rounded-lg font-display text-xl transition-all border-2 border-game-red/30"
+                  className="w-full py-3 bg-game-slate hover:bg-slate-600 text-white rounded-lg font-display text-xl transition-all active:scale-95"
                 >
                   الرجوع للقائمة الرئيسية
                 </button>
@@ -1362,6 +1371,19 @@ const App = () => {
   return (
     <>
       {renderErrorToast()}
+      <AnimatePresence>
+        {!isPreloaded && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] wood-texture flex flex-col items-center justify-center"
+          >
+            <div className="w-12 h-12 rounded-full border-4 border-game-bg border-t-game-slate animate-spin mb-4"></div>
+            <p className="text-game-offwhite font-display text-xl tracking-widest animate-pulse">جاري تحميل الموارد...</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
       <div 
         dir="rtl" 
         className="h-[100dvh] wood-texture text-game-cream font-body selection:bg-game-red/30 overflow-hidden flex flex-col select-none"
@@ -1374,56 +1396,54 @@ const App = () => {
     >
       <div className="max-w-md mx-auto w-full h-full flex flex-col flex-1 relative">
         {/* Header */}
-        <header className="flex justify-between items-center px-4 py-3 border-b-4 border-game-dark bg-game-red shadow-2xl z-20">
-          <div className="flex items-center gap-3">
+        <header className="flex justify-between items-center px-4 py-1.5 bg-[#121212]/60 backdrop-blur-md shadow-xl z-20">
+          <div className="flex items-center gap-2">
             <button 
               onClick={leaveRoom}
-              className="p-2 hover:bg-red-900 rounded-md transition-colors text-game-cream"
+              className="p-1.5 hover:bg-white/10 rounded-md transition-colors text-game-offwhite"
               title="خروج"
             >
-              <XCircle className="w-6 h-6 sm:w-7 sm:h-7" />
+              <XCircle className="w-5 h-5 sm:w-6 sm:h-6" />
             </button>
             <div className="flex flex-col">
-              <h1 className="text-xl sm:text-2xl font-display text-game-cream tracking-wider drop-shadow-md">
+              <h1 className="text-lg sm:text-xl font-display text-game-offwhite tracking-wider drop-shadow-md">
                 صراع البطاقات
               </h1>
-              <span className="text-[10px] sm:text-xs text-game-cream/70 font-display italic">{roomState.isBotRoom ? 'لعب فردي' : 'لعب محلي'}</span>
+              <span className="text-[8px] sm:text-[9px] text-game-offwhite/50 font-display italic leading-none">{roomState.isBotRoom ? 'لعب فردي' : 'لعب محلي'}</span>
             </div>
           </div>
-          <div className="flex items-center gap-2 sm:gap-3">
-            <div className="flex flex-col items-end">
-              <span className="text-[10px] sm:text-xs text-game-cream font-display tracking-widest bg-game-dark/30 px-2 py-0.5 rounded-md border border-game-cream/20">
-                قيمة الفوز: {roomState.round === 9 ? 2 : 1}
-              </span>
-            </div>
-            <span className="bg-game-dark px-3 sm:px-4 py-1 rounded-md text-xs sm:text-sm font-display border-2 border-game-red/50 text-game-cream tracking-widest">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[8px] sm:text-[9px] text-game-offwhite font-display tracking-widest bg-white/5 px-1.5 py-0.5 rounded">
+              قيمة الفوز: {roomState.round === 9 ? 2 : 1}
+            </span>
+            <span className="bg-white/5 px-2 sm:px-3 py-0.5 rounded text-[9px] sm:text-10px font-display text-game-offwhite tracking-widest">
               الجولة: {roomState.round}
             </span>
           </div>
         </header>
 
         {/* Opponent Area */}
-        <div className="flex-1 flex flex-col justify-center px-4 py-2 bg-[var(--color-game-red)]/10">
-          <div className="flex justify-between items-end mb-2">
-            <div>
-              <h2 className="text-game-cream/40 text-xs sm:text-sm mb-1 flex items-center gap-2 font-display tracking-widest">
-                {opponent?.id === 'bot' ? <Bot className="w-5 h-5 sm:w-6 sm:h-6 text-game-teal" /> : null}
+        <div className="flex-[0.5] flex flex-col-reverse justify-center px-10 pt-4 pb-1 bg-[#F5F5F5]/5">
+          <div className="flex justify-start items-start mt-1">
+            <div className="text-right">
+              <h2 className="text-white/80 text-[10px] sm:text-xs mb-0.5 flex items-center gap-2 font-display tracking-widest justify-end">
                 {opponentName}
+                {opponent?.id === 'bot' ? <Bot className="w-4 h-4 sm:w-5 sm:h-5 text-white/50" /> : null}
               </h2>
-              <div className="text-4xl sm:text-5xl font-display text-game-red drop-shadow-lg">{opponent?.score || 0}</div>
+              <div className="text-3xl sm:text-4xl font-display text-white text-stroke-white">{opponent?.score || 0}</div>
             </div>
           </div>
           <div className="flex justify-between gap-2 sm:gap-4">
-             <CardCount type="rock" count={(opponent?.deck.rock || 0) + ((roomState.gameState === 'playing' || roomState.gameState === 'revealing' || (roomState.gameState === 'roundResult' && !isRevealingLocal)) && opponent?.choice === 'rock' ? 1 : 0)} />
-             <CardCount type="paper" count={(opponent?.deck.paper || 0) + ((roomState.gameState === 'playing' || roomState.gameState === 'revealing' || (roomState.gameState === 'roundResult' && !isRevealingLocal)) && opponent?.choice === 'paper' ? 1 : 0)} />
-             <CardCount type="scissors" count={(opponent?.deck.scissors || 0) + ((roomState.gameState === 'playing' || roomState.gameState === 'revealing' || (roomState.gameState === 'roundResult' && !isRevealingLocal)) && opponent?.choice === 'scissors' ? 1 : 0)} />
+             <CardCount type="scissors" count={(opponent?.deck.scissors || 0) + ((roomState.gameState === 'playing' || roomState.gameState === 'revealing' || (roomState.gameState === 'roundResult' && !isRevealingLocal)) && opponent?.choice === 'scissors' ? 1 : 0)} color="charcoal" />
+             <CardCount type="paper" count={(opponent?.deck.paper || 0) + ((roomState.gameState === 'playing' || roomState.gameState === 'revealing' || (roomState.gameState === 'roundResult' && !isRevealingLocal)) && opponent?.choice === 'paper' ? 1 : 0)} color="charcoal" />
+             <CardCount type="rock" count={(opponent?.deck.rock || 0) + ((roomState.gameState === 'playing' || roomState.gameState === 'revealing' || (roomState.gameState === 'roundResult' && !isRevealingLocal)) && opponent?.choice === 'rock' ? 1 : 0)} color="charcoal" />
           </div>
         </div>
 
         {/* Battle Area */}
-        <div className="h-40 sm:h-56 relative flex items-center justify-center bg-game-dark/40 border-y-4 border-game-dark shadow-inner">
+        <div className="h-64 sm:h-80 relative flex items-center justify-center bg-[#F5F5F5]/5 shadow-inner overflow-hidden">
           {(roomState.gameState === 'playing' || roomState.gameState === 'revealing' || roomState.gameState === 'roundResult') && (
-            <div className="flex flex-col items-center w-full px-4 sm:px-6">
+            <div className="flex flex-col items-center w-full px-4 sm:px-6 h-full justify-center">
               <div className="flex items-center gap-3 sm:gap-6 w-full justify-center">
                 
                 {/* Player Card */}
@@ -1446,7 +1466,7 @@ const App = () => {
                       animate={{ opacity: 1 }}
                       className="text-game-cream flex flex-col items-center gap-2 sm:gap-3"
                     >
-                      <div className="text-3xl sm:text-4xl font-display text-game-cream">{roomState.timeLeft}</div>
+                      <div className="text-3xl sm:text-4xl font-display text-game-slate">{roomState.timeLeft}</div>
                       {!me.choice ? (
                         <div className="flex flex-col items-center">
                           <p className="text-[10px] sm:text-xs font-display tracking-widest italic whitespace-nowrap">اختر بطاقتك...</p>
@@ -1461,27 +1481,26 @@ const App = () => {
 
                   {(roomState.gameState === 'revealing' || roomState.gameState === 'roundResult') && (
                     <div className="flex flex-col items-center gap-1 sm:gap-2">
-                      <div className="text-2xl sm:text-4xl font-display italic tracking-tighter">
-                        <span className="text-game-red">V</span>
-                        <span className="text-game-teal">S</span>
+                      <div className="text-3xl sm:text-5xl font-display italic tracking-tighter text-game-slate">
+                        VS
                       </div>
                       {roomState.gameState === 'roundResult' && (
                         <motion.div
                           initial={{ scale: 0, opacity: 0 }}
                           animate={{ scale: 1, opacity: 1 }}
                           transition={{ type: 'spring', bounce: 0.5, delay: 1.4 }}
-                          className={`px-3 sm:px-4 py-1 sm:py-1.5 rounded-md text-[10px] sm:text-xs font-display tracking-widest whitespace-nowrap shadow-lg flex items-center gap-1.5 border-2 ${
-                            roomState.roundWinner === myId ? 'bg-game-teal border-game-dark text-game-cream' :
-                            roomState.roundWinner === opponentId ? 'bg-game-red border-game-dark text-game-cream' :
+                          className={`px-4 sm:px-6 py-1 sm:py-1.5 rounded-md text-[10px] sm:text-xs font-display tracking-widest whitespace-nowrap shadow-lg flex items-center justify-center border-2 ${
+                            roomState.roundWinner === myId ? 'bg-[#F5F5F5] border-[#E5E5E5] text-[#121212]' :
+                            roomState.roundWinner === opponentId ? 'bg-[#121212] border-[#333333] text-[#F5F5F5]' :
                             'bg-game-dark border-game-bg text-game-cream'
                           }`}
                         >
                           {roomState.roundWinner === myId ? (
-                            <><Trophy className="w-3 h-3 sm:w-4 sm:h-4" /> فزت</>
+                            'فزت'
                           ) : roomState.roundWinner === opponentId ? (
-                            <><XCircle className="w-3 h-3 sm:w-4 sm:h-4" /> خسرت</>
+                            'خسرت'
                           ) : (
-                            <><Minus className="w-3 h-3 sm:w-4 sm:h-4" /> تعادل</>
+                            'تعادل'
                           )}
                         </motion.div>
                       )}
@@ -1502,33 +1521,22 @@ const App = () => {
                 )}
               </div>
 
-              {/* Result Text */}
-              {roomState.gameState === 'roundResult' && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 1.8 }}
-                  className="text-game-cream/60 text-xs sm:text-sm font-display tracking-widest italic mt-4 sm:mt-6"
-                >
-                  {roomState.round >= 9 ? 'جاري حساب النتيجة النهائية...' : 'جاري الانتقال للجولة التالية...'}
-                </motion.div>
-              )}
             </div>
           )}
         </div>
 
         {/* Player Area */}
-        <div className="flex-1 flex flex-col justify-center px-4 py-2 bg-[var(--color-game-teal)]/10">
-          <div className="flex justify-between items-end mb-2">
-            <div>
-              <h2 className="text-game-cream/40 text-xs sm:text-sm mb-1 font-display tracking-widest">{me.name}</h2>
-              <div className="text-4xl sm:text-5xl font-display text-game-teal drop-shadow-lg">{me.score}</div>
+        <div className="flex-1 flex flex-col justify-center px-10 py-2 bg-[#F5F5F5]/5">
+          <div className="flex justify-start items-end mb-2">
+            <div className="text-right">
+              <h2 className="text-white/80 text-xs sm:text-sm mb-1 font-display tracking-widest">{me.name}</h2>
+              <div className="text-4xl sm:text-5xl font-display text-white drop-shadow-lg">{me.score}</div>
             </div>
           </div>
-          <div className="flex justify-between gap-2 sm:gap-4">
-             <PlayableCard type="rock" count={me.deck.rock} onClick={() => playCard('rock')} disabled={roomState.gameState !== 'playing' || me.choice !== null} />
-             <PlayableCard type="paper" count={me.deck.paper} onClick={() => playCard('paper')} disabled={roomState.gameState !== 'playing' || me.choice !== null} />
-             <PlayableCard type="scissors" count={me.deck.scissors} onClick={() => playCard('scissors')} disabled={roomState.gameState !== 'playing' || me.choice !== null} />
+          <div className="flex justify-between gap-3 sm:gap-6">
+             <PlayableCard type="rock" count={me.deck.rock} onClick={() => playCard('rock')} disabled={roomState.gameState !== 'playing' || me.choice !== null} color="ivory" />
+             <PlayableCard type="paper" count={me.deck.paper} onClick={() => playCard('paper')} disabled={roomState.gameState !== 'playing' || me.choice !== null} color="ivory" />
+             <PlayableCard type="scissors" count={me.deck.scissors} onClick={() => playCard('scissors')} disabled={roomState.gameState !== 'playing' || me.choice !== null} color="ivory" />
           </div>
         </div>
       </div>
@@ -1539,18 +1547,18 @@ const App = () => {
   );
 }
 
-const CardCount = ({ type, count }: { type: CardType, count: number }) => (
+const CardCount = ({ type, count, color }: { type: CardType, count: number, color: 'ivory' | 'charcoal' }) => (
   <div className="flex-1 flex flex-col items-center gap-1 sm:gap-2">
-    <div className={`w-full max-w-[4.5rem] aspect-[3/4] rounded-lg border-4 flex items-center justify-center shadow-2xl transition-all duration-300 overflow-hidden ${count > 0 ? 'opponent-color-texture border-game-dark opacity-100' : 'bg-game-dark border-game-bg opacity-20 grayscale'}`}>
-      <img src={CARD_IMAGES[type]} alt={CARD_NAMES[type]} className="w-2/3 h-2/3 object-contain drop-shadow-md" referrerPolicy="no-referrer" />
+    <div className={`w-full max-w-[4.5rem] aspect-[3/4] rounded-lg flex items-center justify-center transition-all duration-300 overflow-hidden ${count > 0 ? `${CARD_COLORS[color].bg} ${CARD_COLORS[color].shadow} opacity-100` : 'bg-game-dark opacity-20 grayscale'}`}>
+      <img src={CARD_IMAGES[color][type]} alt={CARD_NAMES[type]} className={`w-2/3 h-2/3 object-contain rotate-180 ${color === 'charcoal' ? 'drop-shadow-md' : ''}`} referrerPolicy="no-referrer" />
     </div>
-    <div className={`text-[10px] sm:text-xs font-display px-2 py-0.5 rounded-md border-2 transition-colors duration-300 ${count > 0 ? 'bg-game-red border-game-dark text-game-cream' : 'bg-game-dark border-game-bg text-game-cream/20'}`}>
+    <div className={`w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center text-[10px] sm:text-xs font-display rounded-md transition-colors duration-300 ${count > 0 ? `${CARD_COLORS[color].bg} ${CARD_COLORS[color].shadow} ${CARD_COLORS[color].text}` : 'bg-game-dark text-game-cream/20'}`}>
       {count}
     </div>
   </div>
 );
 
-const PlayableCard = ({ type, count, onClick, disabled }: { type: CardType, count: number, onClick: () => void, disabled: boolean }) => {
+const PlayableCard = ({ type, count, onClick, disabled, color }: { type: CardType, count: number, onClick: () => void, disabled: boolean, color: 'ivory' | 'charcoal' }) => {
   const isAvailable = count > 0;
   return (
     <motion.button
@@ -1560,88 +1568,88 @@ const PlayableCard = ({ type, count, onClick, disabled }: { type: CardType, coun
       disabled={!isAvailable || disabled}
       className={`flex-1 relative flex flex-col items-center gap-1 sm:gap-2 transition-all duration-300 ${(!isAvailable || disabled) ? 'opacity-40 cursor-not-allowed grayscale' : 'cursor-pointer'}`}
     >
-      <div className={`w-full max-w-[5.5rem] aspect-[3/4] rounded-lg flex items-center justify-center shadow-2xl border-4 transition-colors overflow-hidden ${isAvailable && !disabled ? 'player-color-texture border-game-dark hover:border-game-red' : 'bg-game-dark border-game-bg'}`}>
-        <img src={CARD_IMAGES[type]} alt={CARD_NAMES[type]} className="w-2/3 h-2/3 object-contain drop-shadow-xl" referrerPolicy="no-referrer" />
-      </div>
-      <div className={`absolute -top-2 -right-2 w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-[10px] sm:text-xs font-bold border-2 shadow-lg transition-colors ${isAvailable ? 'bg-game-red border-game-dark text-game-cream' : 'bg-game-dark border-game-bg text-game-cream/20'}`}>
+      <div className={`w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center text-[10px] sm:text-xs font-bold rounded-md shadow-md transition-colors ${isAvailable ? `${CARD_COLORS[color].bg} ${CARD_COLORS[color].shadow} ${CARD_COLORS[color].text}` : 'bg-game-dark text-game-cream/20'}`}>
         {count}
+      </div>
+      <div className={`w-full max-w-[5.5rem] aspect-[3/4] rounded-lg flex items-center justify-center transition-all duration-300 overflow-hidden ${isAvailable && !disabled ? `${CARD_COLORS[color].bg} ${CARD_COLORS[color].shadow}` : 'bg-game-dark'}`}>
+        <img src={CARD_IMAGES[color][type]} alt={CARD_NAMES[type]} className={`w-2/3 h-2/3 object-contain ${color === 'charcoal' ? 'drop-shadow-xl' : ''}`} referrerPolicy="no-referrer" />
       </div>
       <span className="text-[10px] sm:text-xs font-display text-game-cream tracking-wider">{CARD_NAMES[type]}</span>
     </motion.button>
   );
 };
 
-const PlayedCard = ({ type, isPlayer, winner, faceDown = false }: { type: CardType, isPlayer: boolean, winner: boolean, faceDown?: boolean }) => (
-  <motion.div
-    initial={{ 
-      scale: 0.3, 
-      opacity: 0, 
-      x: isPlayer ? 0 : 0, 
-      y: isPlayer ? 500 : -500, 
-      rotate: isPlayer ? -30 : 30,
-      rotateY: 180
-    }}
-    animate={{ 
-      scale: 1, 
-      opacity: 1, 
-      x: 0, 
-      y: 0,
-      rotateY: faceDown ? 180 : 0,
-      rotate: 0
-    }}
-    transition={{ 
-      type: 'spring', 
-      damping: 20, 
-      stiffness: 90,
-      mass: 1.1,
-      rotateY: { duration: 0.6, type: 'tween', ease: 'easeInOut' }
-    }}
-    style={{ transformStyle: 'preserve-3d' }}
-    className="relative w-16 sm:w-24 aspect-[3/4] z-10"
-  >
-    {/* Front Side */}
-    <div 
-      className={`absolute inset-0 rounded-lg flex items-center justify-center shadow-2xl border-4 overflow-hidden backface-hidden ${
-        isPlayer ? 'player-color-texture' : 'opponent-color-texture'
-      } ${
-        winner 
-          ? 'border-green-500 ring-4 ring-green-500/30'
-          : 'border-game-dark'
-      }`}
-      style={{ 
-        backfaceVisibility: 'hidden',
-        visibility: faceDown ? 'hidden' : 'visible'
+const PlayedCard = ({ type, isPlayer, winner, faceDown = false }: { type: CardType, isPlayer: boolean, winner: boolean, faceDown?: boolean }) => {
+  const colorKey = isPlayer ? 'ivory' : 'charcoal';
+  return (
+    <motion.div
+      initial={{ 
+        scale: 0.3, 
+        opacity: 0, 
+        x: isPlayer ? 0 : 0, 
+        y: isPlayer ? 500 : -500, 
+        rotate: isPlayer ? -30 : 30,
+        rotateY: 180
       }}
+      animate={{ 
+        scale: 1, 
+        opacity: 1, 
+        x: 0, 
+        y: 0,
+        rotateY: faceDown ? 180 : 0,
+        rotate: 0
+      }}
+      transition={{ 
+        type: 'spring', 
+        damping: 20, 
+        stiffness: 90,
+        mass: 1.1,
+        rotateY: { duration: 0.6, type: 'tween', ease: 'easeInOut' }
+      }}
+      style={{ transformStyle: 'preserve-3d' }}
+      className="relative w-16 sm:w-24 aspect-[3/4] z-10"
     >
-      {winner && (
-        <motion.div 
-          initial={{ opacity: 0, y: 50 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="absolute inset-0 bg-gradient-to-t from-game-red/20 to-transparent"
-        />
-      )}
-      <span className="relative z-10">
-        <img src={CARD_IMAGES[type]} alt={CARD_NAMES[type]} className="w-10 h-10 sm:w-16 sm:h-16 object-contain drop-shadow-2xl" referrerPolicy="no-referrer" />
-      </span>
-    </div>
+      {/* Front Side */}
+      <div 
+        className={`absolute inset-0 rounded-lg flex items-center justify-center overflow-hidden backface-hidden ${CARD_COLORS[colorKey].bg} ${
+          winner 
+            ? 'shadow-[0_0_25px_rgba(112,128,144,0.8)] ring-2 ring-game-slate/50'
+            : (isPlayer || colorKey === 'ivory' ? `${CARD_COLORS[colorKey].shadow}` : '')
+        }`}
+        style={{ 
+          backfaceVisibility: 'hidden',
+          visibility: faceDown ? 'hidden' : 'visible'
+        }}
+      >
+        {winner && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: [0.2, 0.5, 0.2] }}
+            transition={{ repeat: Infinity, duration: 2 }}
+            className="absolute inset-0 bg-game-slate/10"
+          />
+        )}
+        <span className="relative z-10">
+          <img src={CARD_IMAGES[colorKey][type]} alt={CARD_NAMES[type]} className={`w-10 h-10 sm:w-16 sm:h-16 object-contain drop-shadow-2xl ${!isPlayer ? 'rotate-180' : ''}`} referrerPolicy="no-referrer" />
+        </span>
+      </div>
 
-    {/* Back Side (Face Down) */}
-    <div 
-      className={`absolute inset-0 rounded-lg flex items-center justify-center shadow-2xl border-4 ${isPlayer ? 'bg-game-teal border-teal-700' : 'bg-game-red border-red-800'}`}
-      style={{ 
-        backfaceVisibility: 'hidden',
-        transform: 'rotateY(180deg)'
-      }}
-    >
-      <div className="absolute inset-0 paper-texture opacity-30 mix-blend-overlay"></div>
-      <div className={`relative w-full h-full border-2 rounded-sm flex items-center justify-center ${isPlayer ? 'border-teal-300/30' : 'border-red-300/30'}`}>
-        <div className={`w-8 h-8 sm:w-12 sm:h-12 border-2 rounded-full flex items-center justify-center ${isPlayer ? 'border-teal-300/40' : 'border-red-300/40'}`}>
-          <div className={`w-4 h-4 sm:w-6 sm:h-6 rounded-full ${isPlayer ? 'bg-teal-300/40' : 'bg-red-300/40'}`} />
+      {/* Back Side (Face Down) */}
+      <div 
+        className={`absolute inset-0 rounded-lg flex items-center justify-center ${isPlayer ? `bg-[#E5E5E5] ${CARD_COLORS.ivory.shadow}` : `bg-[#0A0A0A] ${CARD_COLORS.charcoal.shadow}`}`}
+        style={{ 
+          backfaceVisibility: 'hidden',
+          transform: 'rotateY(180deg)'
+        }}
+      >
+        <div className={`relative w-full h-full rounded-sm flex items-center justify-center`}>
+          <div className={`w-8 h-8 sm:w-12 sm:h-12 rounded-full flex items-center justify-center ${isPlayer ? 'bg-black/10' : 'bg-white/10'}`}>
+            <div className={`w-4 h-4 sm:w-6 sm:h-6 rounded-full ${isPlayer ? 'bg-black/10' : 'bg-white/10'}`} />
+          </div>
         </div>
       </div>
-    </div>
-  </motion.div>
-);
+    </motion.div>
+  );
+};
 
 export default App;
