@@ -118,10 +118,7 @@ const App = () => {
     let assetsToLoad: string[] = [];
     
     if (targetView === 'initial') {
-      assetsToLoad.push(
-        'https://www.transparenttextures.com/patterns/dark-wood.png',
-        'https://www.transparenttextures.com/patterns/parchment.png'
-      );
+      // External textures removed for performance
     }
 
     const currentTheme = getTheme(selectedThemeId);
@@ -850,7 +847,7 @@ const App = () => {
           exit={{ opacity: 0, y: -50, scale: 0.9 }}
           className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] w-[90%] max-w-md"
         >
-          <div className="bg-game-red text-game-cream px-4 py-3 rounded-lg shadow-2xl flex items-center justify-between gap-3 border-4 border-game-dark backdrop-blur-md">
+          <div className="bg-game-red text-game-cream px-4 py-3 rounded-lg shadow-2xl flex items-center justify-between gap-3 border-4 border-game-dark">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-game-dark/30 flex items-center justify-center flex-shrink-0 border border-game-cream/20">
                 <XCircle className="w-5 h-5" />
@@ -876,7 +873,7 @@ const App = () => {
         drag
         dragMomentum={false}
         onClick={() => setShowDebug(true)} 
-        className="fixed top-[45%] left-2 p-3 bg-game-dark/80 hover:bg-game-red text-game-cream rounded-md shadow-xl z-[60] transition-colors active:scale-90 flex items-center justify-center border-2 border-game-red/30 backdrop-blur-sm cursor-grab active:cursor-grabbing"
+        className="fixed top-[45%] left-2 p-3 bg-game-dark/90 hover:bg-game-red text-game-cream rounded-md shadow-xl z-[60] transition-colors active:scale-90 flex items-center justify-center border-2 border-game-red/30 cursor-grab active:cursor-grabbing"
         title="سجل الأخطاء (يمكنك سحب الزر)"
       >
         <Bug className="w-5 h-5 pointer-events-none" />
@@ -939,7 +936,7 @@ const App = () => {
           <motion.div
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            className="max-w-sm w-full bg-game-dark/40 p-8 rounded-xl border border-white/10 shadow-2xl backdrop-blur-md"
+            className="max-w-sm w-full bg-game-dark/80 p-8 rounded-xl border border-white/10 shadow-2xl"
           >
             <div className="mb-8 flex justify-center gap-4">
             </div>
@@ -992,7 +989,7 @@ const App = () => {
             className="max-w-md w-full text-center"
           >
             {menuTab === 'main' && (
-              <div className="mb-8 flex items-center justify-center gap-3 bg-white/5 py-2 px-5 rounded-full border border-white/10 w-fit mx-auto backdrop-blur-md">
+              <div className="mb-8 flex items-center justify-center gap-3 bg-white/10 py-2 px-5 rounded-full border border-white/10 w-fit mx-auto">
                 <span className="text-game-offwhite font-display text-lg tracking-wider">المحارب: {playerName}</span>
                 <button 
                   onClick={() => setAppState('nameEntry')}
@@ -1128,7 +1125,7 @@ const App = () => {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
-                            className="absolute inset-0 z-50 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center rounded-xl border border-white/10"
+                            className="absolute inset-0 z-50 bg-black/90 flex flex-col items-center justify-center rounded-xl border border-white/10"
                           >
                             <div className="w-10 h-10 rounded-full border-2 border-white/10 border-t-white animate-spin mb-4"></div>
                             <p className="text-game-offwhite font-display text-lg tracking-widest animate-pulse">جاري الاتصال...</p>
@@ -1148,7 +1145,7 @@ const App = () => {
                       </AnimatePresence>
 
                       {/* Host Section */}
-                    <div className="bg-white/5 border border-white/10 p-6 rounded-xl backdrop-blur-md shadow-2xl">
+                    <div className="bg-game-dark/90 border border-white/10 p-6 rounded-xl shadow-2xl">
                       <div className="flex items-center justify-between mb-5">
                         <div className="flex items-center gap-3">
                           <div className="p-2 bg-white/5 rounded-lg border border-white/10">
@@ -1181,7 +1178,7 @@ const App = () => {
                     </div>
 
                     {/* Join Section */}
-                    <div className="bg-white/5 border border-white/10 p-6 rounded-xl backdrop-blur-md shadow-2xl">
+                    <div className="bg-game-dark/90 border border-white/10 p-6 rounded-xl shadow-2xl">
                       <div className="flex items-center gap-3 mb-5">
                         <div className="p-2 bg-white/5 rounded-lg border border-white/10">
                           <Bot className="w-5 h-5 text-game-offwhite" />
@@ -1315,7 +1312,7 @@ const App = () => {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+                className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/90"
                 onClick={() => setSelectedPack(null)}
               >
                 <motion.div 
@@ -1428,7 +1425,7 @@ const App = () => {
           </div>
 
           <div className="max-w-4xl mx-auto w-full space-y-8 pb-20">
-            <div className="bg-game-dark/40 p-6 rounded-xl border border-white/10 backdrop-blur-sm flex items-center gap-6">
+            <div className="bg-game-dark/80 p-6 rounded-xl border border-white/10 flex items-center gap-6">
               <div className="w-20 h-20 rounded-full bg-game-dark/80 border-2 border-game-offwhite/20 flex items-center justify-center">
                 <User className="w-10 h-10 text-game-offwhite/50" />
               </div>
@@ -1491,7 +1488,7 @@ const App = () => {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+                className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/90"
                 onClick={() => setSelectedPack(null)}
               >
                 <motion.div 
@@ -1632,7 +1629,7 @@ const App = () => {
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-white/5 p-8 rounded-xl border border-white/10 shadow-2xl max-w-sm w-full text-center backdrop-blur-md"
+            className="bg-game-dark/90 p-8 rounded-xl border border-white/10 shadow-2xl max-w-sm w-full text-center"
           >
             <div className="w-10 h-10 rounded-full border-2 border-white/10 border-t-white animate-spin mx-auto mb-8"></div>
             <h2 className="text-2xl font-display mb-3 text-game-offwhite tracking-widest">في انتظار الخصم...</h2>
@@ -1712,7 +1709,7 @@ const App = () => {
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-white/5 p-8 rounded-xl border border-white/10 shadow-2xl max-w-sm w-full text-center relative overflow-hidden backdrop-blur-md"
+            className="bg-game-dark/90 p-8 rounded-xl border border-white/10 shadow-2xl max-w-sm w-full text-center relative overflow-hidden"
           >
             <div className="relative z-10">
               <h2 className="text-3xl font-display mb-2 text-game-offwhite/40 tracking-widest uppercase"></h2>
@@ -1783,7 +1780,7 @@ const App = () => {
     >
       <div className="max-w-md mx-auto w-full h-full flex flex-col flex-1 relative">
         {/* Header */}
-        <header className="flex justify-between items-center px-4 py-1.5 bg-[#121212]/60 backdrop-blur-md shadow-xl z-20">
+        <header className="flex justify-between items-center px-4 py-1.5 bg-[#121212]/90 shadow-xl z-20">
           <div className="flex items-center gap-2">
             <button 
               onClick={leaveRoom}
