@@ -92,6 +92,7 @@ const App = () => {
   const [isPreloaded, setIsPreloaded] = useState(false);
   const [isRevealingLocal, setIsRevealingLocal] = useState(false);
   const [ws, setWs] = useState<WebSocket | null>(null);
+  const [selectedPack, setSelectedPack] = useState<ThemeConfig | null>(null);
 
   // Preload Assets
   const preloadImages = (urls: string[]): Promise<void> => {
@@ -1237,7 +1238,7 @@ const App = () => {
         {renderErrorToast()}
         <div 
           dir="rtl" 
-          className="h-[100dvh] wood-texture text-game-cream flex flex-col p-4 sm:p-6 font-body overflow-x-hidden overflow-y-auto select-none"
+          className="h-[100dvh] wood-texture text-game-cream flex flex-col p-4 sm:p-6 font-body overflow-x-hidden overflow-y-auto select-none relative"
           style={{
             paddingTop: 'env(safe-area-inset-top)',
             paddingBottom: 'env(safe-area-inset-bottom)',
@@ -1259,36 +1260,142 @@ const App = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-4xl mx-auto w-full">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-y-12 gap-x-6 max-w-4xl mx-auto w-full pb-20">
             {THEMES.map(theme => {
               const isOwned = ownedThemes.includes(theme.id);
+              const isSelected = selectedThemeId === theme.id;
+              
               return (
-                <div key={theme.id} className="bg-game-dark/40 p-4 rounded-xl border border-white/10 flex items-center justify-between backdrop-blur-sm">
-                  <div className="flex items-center gap-4">
-                    <div className={`w-16 h-20 rounded-lg flex items-center justify-center ${theme.frontColor}`}>
-                      <img src={getCardImagePath(theme, 'rock')} alt="theme preview" className="w-10 h-10 object-contain" />
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-display text-game-offwhite">{theme.name}</h3>
-                      {!isOwned && <p className="text-game-offwhite/60 font-display">{theme.price} 🪙</p>}
+                <motion.div 
+                  key={theme.id}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setSelectedPack(theme)}
+                  className="relative flex flex-col items-center group cursor-pointer"
+                >
+                  {/* Card Stack Visual */}
+                  <div className="relative w-24 sm:w-32 aspect-[3/4] mb-4 group-hover:scale-110 transition-transform duration-300">
+                    {/* Glow Effect */}
+                    <div className={`absolute inset-0 rounded-xl blur-xl opacity-0 group-hover:opacity-40 transition-opacity duration-300 ${theme.frontColor}`} />
+                    
+                    {/* Back Card */}
+                    <div className={`absolute inset-0 rounded-xl shadow-2xl transform -rotate-12 translate-x-[-15%] translate-y-[8%] opacity-40 ${theme.frontColor} border border-white/20 transition-transform duration-300 group-hover:-rotate-15 group-hover:-translate-x-[20%]`} />
+                    {/* Middle Card */}
+                    <div className={`absolute inset-0 rounded-xl shadow-2xl transform rotate-6 translate-x-[8%] translate-y-[4%] opacity-70 ${theme.frontColor} border border-white/20 transition-transform duration-300 group-hover:rotate-12 group-hover:translate-x-[12%]`} />
+                    {/* Front Card */}
+                    <div className={`absolute inset-0 rounded-xl shadow-2xl flex flex-col items-center justify-center p-2 ${theme.frontColor} border-2 border-white/30 z-10 overflow-hidden`}>
+                      <img src={getCardImagePath(theme, 'rock')} alt="rock" className="w-full h-full object-contain" />
+                      {isOwned && (
+                        <div className="absolute top-2 right-2 bg-game-teal text-white p-1 rounded-full shadow-lg z-20">
+                          <ShieldCheck className="w-4 h-4" />
+                        </div>
+                      )}
                     </div>
                   </div>
-                  {isOwned ? (
-                    <button disabled className="px-6 py-2 bg-game-teal/20 text-game-teal rounded-lg font-display border border-game-teal/30">
-                      مملوك
-                    </button>
-                  ) : (
-                    <button 
-                      onClick={() => buyTheme(theme)}
-                      className="px-6 py-2 bg-game-offwhite hover:bg-white text-black rounded-lg font-display shadow-lg transition-all active:scale-95"
-                    >
-                      شراء
-                    </button>
-                  )}
-                </div>
+                  
+                  <div className="text-center">
+                    <h3 className="text-lg font-display text-game-offwhite leading-tight">{theme.name}</h3>
+                    {!isOwned ? (
+                      <p className="text-yellow-500 font-display text-sm">{theme.price} 🪙</p>
+                    ) : (
+                      <p className={`text-xs font-display ${isSelected ? 'text-game-teal' : 'text-game-offwhite/40'}`}>
+                        {isSelected ? 'مفعل حالياً' : 'مملوك'}
+                      </p>
+                    )}
+                  </div>
+                </motion.div>
               );
             })}
           </div>
+
+          {/* Pack Preview Modal */}
+          <AnimatePresence>
+            {selectedPack && (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+                onClick={() => setSelectedPack(null)}
+              >
+                <motion.div 
+                  initial={{ scale: 0.8, y: 20 }}
+                  animate={{ scale: 1, y: 0 }}
+                  exit={{ scale: 0.8, y: 20 }}
+                  className="bg-game-dark/90 w-full max-w-2xl rounded-3xl p-6 sm:p-10 border border-white/10 shadow-2xl relative overflow-hidden"
+                  onClick={e => e.stopPropagation()}
+                >
+                  {/* Background Glow */}
+                  <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 rounded-full blur-[100px] opacity-20 ${selectedPack.frontColor}`} />
+                  
+                  <div className="relative z-10 flex flex-col items-center">
+                    <h2 className="text-3xl sm:text-4xl font-display text-game-offwhite mb-2">{selectedPack.name}</h2>
+                    <p className="text-game-offwhite/60 font-display mb-12">مجموعة البطاقات الكاملة</p>
+                    
+                    {/* Floating Cards Display */}
+                    <div className="flex justify-center items-center gap-4 sm:gap-8 mb-16 w-full">
+                      {['scissors', 'paper', 'rock'].map((type, idx) => (
+                        <motion.div
+                          key={type}
+                          initial={{ y: 0, rotate: 0 }}
+                          animate={{ 
+                            y: [0, -20, 0],
+                            rotate: [idx % 2 === 0 ? -3 : 3, idx % 2 === 0 ? 3 : -3, idx % 2 === 0 ? -3 : 3]
+                          }}
+                          transition={{ 
+                            duration: 4 + idx, 
+                            repeat: Infinity, 
+                            ease: "easeInOut",
+                            delay: idx * 0.3
+                          }}
+                          className={`w-24 sm:w-36 aspect-[3/4] rounded-2xl shadow-2xl flex items-center justify-center p-3 ${selectedPack.frontColor} border-2 border-white/20 relative`}
+                        >
+                          {/* Card Inner Glow */}
+                          <div className="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent opacity-50" />
+                          <img src={getCardImagePath(selectedPack, type as CardType)} alt={type} className="w-full h-full object-contain relative z-10" />
+                        </motion.div>
+                      ))}
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row gap-4 w-full max-w-md">
+                      {ownedThemes.includes(selectedPack.id) ? (
+                        <button 
+                          onClick={() => {
+                            selectTheme(selectedPack.id);
+                            setSelectedPack(null);
+                          }}
+                          disabled={selectedThemeId === selectedPack.id}
+                          className={`flex-1 py-4 rounded-xl font-display text-2xl transition-all shadow-lg ${
+                            selectedThemeId === selectedPack.id 
+                            ? 'bg-game-teal/20 text-game-teal cursor-default border border-game-teal/30' 
+                            : 'bg-game-teal hover:bg-teal-600 text-white active:scale-95'
+                          }`}
+                        >
+                          {selectedThemeId === selectedPack.id ? 'مفعل حالياً' : 'تفعيل الثيم'}
+                        </button>
+                      ) : (
+                        <button 
+                          onClick={() => {
+                            buyTheme(selectedPack);
+                            // Don't close modal, let them see it's bought
+                          }}
+                          className="flex-1 py-4 bg-game-offwhite hover:bg-white text-black rounded-xl font-display text-2xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-3"
+                        >
+                          شراء المجموعة <span className="text-yellow-600">{selectedPack.price} 🪙</span>
+                        </button>
+                      )}
+                      <button 
+                        onClick={() => setSelectedPack(null)}
+                        className="flex-1 py-4 bg-game-slate/20 hover:bg-game-slate/40 text-game-offwhite rounded-xl font-display text-2xl transition-all active:scale-95 border border-white/10"
+                      >
+                        إغلاق
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
         {renderDebugUI()}
       </>
@@ -1320,7 +1427,7 @@ const App = () => {
             <div className="w-10" /> {/* Spacer */}
           </div>
 
-          <div className="max-w-4xl mx-auto w-full space-y-8">
+          <div className="max-w-4xl mx-auto w-full space-y-8 pb-20">
             <div className="bg-game-dark/40 p-6 rounded-xl border border-white/10 backdrop-blur-sm flex items-center gap-6">
               <div className="w-20 h-20 rounded-full bg-game-dark/80 border-2 border-game-offwhite/20 flex items-center justify-center">
                 <User className="w-10 h-10 text-game-offwhite/50" />
@@ -1332,32 +1439,138 @@ const App = () => {
             </div>
 
             <div>
-              <h2 className="text-2xl font-display text-game-offwhite mb-4 border-b border-white/10 pb-2">مكتبة الثيمات</h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                {THEMES.filter(t => ownedThemes.includes(t.id)).map(theme => (
-                  <button
-                    key={theme.id}
-                    onClick={() => selectTheme(theme.id)}
-                    className={`relative p-4 rounded-xl border flex flex-col items-center gap-3 transition-all ${
-                      selectedThemeId === theme.id 
-                        ? 'bg-game-dark/80 border-game-teal shadow-[0_0_15px_rgba(45,212,191,0.3)]' 
-                        : 'bg-game-dark/40 border-white/10 hover:bg-game-dark/60'
-                    }`}
-                  >
-                    {selectedThemeId === theme.id && (
-                      <div className="absolute top-2 right-2 w-4 h-4 bg-game-teal rounded-full flex items-center justify-center">
-                        <ShieldCheck className="w-3 h-3 text-game-dark" />
+              <h2 className="text-2xl font-display text-game-offwhite mb-6 border-b border-white/10 pb-2">مكتبة الثيمات</h2>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-y-12 gap-x-6">
+                {THEMES.filter(t => ownedThemes.includes(t.id)).map(theme => {
+                  const isSelected = selectedThemeId === theme.id;
+                  return (
+                    <motion.div 
+                      key={theme.id}
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => setSelectedPack(theme)}
+                      className="relative flex flex-col items-center group cursor-pointer"
+                    >
+                      {/* Card Stack Visual */}
+                      <div className="relative w-20 sm:w-24 aspect-[3/4] mb-4 group-hover:scale-110 transition-transform duration-300">
+                        {/* Glow Effect */}
+                        <div className={`absolute inset-0 rounded-xl blur-xl opacity-0 group-hover:opacity-40 transition-opacity duration-300 ${theme.frontColor}`} />
+                        
+                        {/* Back Card */}
+                        <div className={`absolute inset-0 rounded-xl shadow-2xl transform -rotate-12 translate-x-[-15%] translate-y-[8%] opacity-40 ${theme.frontColor} border border-white/20 transition-transform duration-300 group-hover:-rotate-15 group-hover:-translate-x-[20%]`} />
+                        {/* Middle Card */}
+                        <div className={`absolute inset-0 rounded-xl shadow-2xl transform rotate-6 translate-x-[8%] translate-y-[4%] opacity-70 ${theme.frontColor} border border-white/20 transition-transform duration-300 group-hover:rotate-12 group-hover:translate-x-[12%]`} />
+                        {/* Front Card */}
+                        <div className={`absolute inset-0 rounded-xl shadow-2xl flex flex-col items-center justify-center p-2 ${theme.frontColor} border-2 border-white/30 z-10 overflow-hidden`}>
+                          <img src={getCardImagePath(theme, 'rock')} alt="rock" className="w-full h-full object-contain" />
+                          {isSelected && (
+                            <div className="absolute top-2 right-2 bg-game-teal text-white p-1 rounded-full shadow-lg z-20">
+                              <ShieldCheck className="w-3 h-3" />
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    )}
-                    <div className={`w-16 h-24 rounded-lg flex items-center justify-center ${theme.frontColor}`}>
-                      <img src={getCardImagePath(theme, 'rock')} alt="theme preview" className="w-10 h-10 object-contain" />
-                    </div>
-                    <span className="font-display text-game-offwhite text-sm text-center">{theme.name}</span>
-                  </button>
-                ))}
+                      
+                      <div className="text-center">
+                        <h3 className="text-sm font-display text-game-offwhite leading-tight">{theme.name}</h3>
+                        <p className={`text-[10px] font-display mt-1 ${isSelected ? 'text-game-teal' : 'text-game-offwhite/40'}`}>
+                          {isSelected ? 'مفعل حالياً' : 'مملوك'}
+                        </p>
+                      </div>
+                    </motion.div>
+                  );
+                })}
               </div>
             </div>
           </div>
+
+          {/* Pack Preview Modal */}
+          <AnimatePresence>
+            {selectedPack && (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+                onClick={() => setSelectedPack(null)}
+              >
+                <motion.div 
+                  initial={{ scale: 0.8, y: 20 }}
+                  animate={{ scale: 1, y: 0 }}
+                  exit={{ scale: 0.8, y: 20 }}
+                  className="bg-game-dark/90 w-full max-w-2xl rounded-3xl p-6 sm:p-10 border border-white/10 shadow-2xl relative overflow-hidden"
+                  onClick={e => e.stopPropagation()}
+                >
+                  {/* Background Glow */}
+                  <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 rounded-full blur-[100px] opacity-20 ${selectedPack.frontColor}`} />
+                  
+                  <div className="relative z-10 flex flex-col items-center">
+                    <h2 className="text-3xl sm:text-4xl font-display text-game-offwhite mb-2">{selectedPack.name}</h2>
+                    <p className="text-game-offwhite/60 font-display mb-12">مجموعة البطاقات الكاملة</p>
+                    
+                    {/* Floating Cards Display */}
+                    <div className="flex justify-center items-center gap-4 sm:gap-8 mb-16 w-full">
+                      {['scissors', 'paper', 'rock'].map((type, idx) => (
+                        <motion.div
+                          key={type}
+                          initial={{ y: 0, rotate: 0 }}
+                          animate={{ 
+                            y: [0, -20, 0],
+                            rotate: [idx % 2 === 0 ? -3 : 3, idx % 2 === 0 ? 3 : -3, idx % 2 === 0 ? -3 : 3]
+                          }}
+                          transition={{ 
+                            duration: 4 + idx, 
+                            repeat: Infinity, 
+                            ease: "easeInOut",
+                            delay: idx * 0.3
+                          }}
+                          className={`w-24 sm:w-36 aspect-[3/4] rounded-2xl shadow-2xl flex items-center justify-center p-3 ${selectedPack.frontColor} border-2 border-white/20 relative`}
+                        >
+                          {/* Card Inner Glow */}
+                          <div className="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent opacity-50" />
+                          <img src={getCardImagePath(selectedPack, type as CardType)} alt={type} className="w-full h-full object-contain relative z-10" />
+                        </motion.div>
+                      ))}
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row gap-4 w-full max-w-md">
+                      {ownedThemes.includes(selectedPack.id) ? (
+                        <button 
+                          onClick={() => {
+                            selectTheme(selectedPack.id);
+                            setSelectedPack(null);
+                          }}
+                          disabled={selectedThemeId === selectedPack.id}
+                          className={`flex-1 py-4 rounded-xl font-display text-2xl transition-all shadow-lg ${
+                            selectedThemeId === selectedPack.id 
+                            ? 'bg-game-teal/20 text-game-teal cursor-default border border-game-teal/30' 
+                            : 'bg-game-teal hover:bg-teal-600 text-white active:scale-95'
+                          }`}
+                        >
+                          {selectedThemeId === selectedPack.id ? 'مفعل حالياً' : 'تفعيل الثيم'}
+                        </button>
+                      ) : (
+                        <button 
+                          onClick={() => {
+                            buyTheme(selectedPack);
+                          }}
+                          className="flex-1 py-4 bg-game-offwhite hover:bg-white text-black rounded-xl font-display text-2xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-3"
+                        >
+                          شراء المجموعة <span className="text-yellow-600">{selectedPack.price} 🪙</span>
+                        </button>
+                      )}
+                      <button 
+                        onClick={() => setSelectedPack(null)}
+                        className="flex-1 py-4 bg-game-slate/20 hover:bg-game-slate/40 text-game-offwhite rounded-xl font-display text-2xl transition-all active:scale-95 border border-white/10"
+                      >
+                        إغلاق
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
         {renderDebugUI()}
       </>
