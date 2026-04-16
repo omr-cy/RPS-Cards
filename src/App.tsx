@@ -128,11 +128,15 @@ const CardPack = memo(({ theme, isOwned, isSelected, onClick }: {
     <div className="relative w-24 sm:w-32 aspect-[3/4] mb-4">
       <div className={`absolute inset-0 rounded-xl shadow-2xl transform -rotate-12 translate-x-[-15%] translate-y-[8%] opacity-40 ${theme.frontColor} border border-white/20`} />
       <div className={`absolute inset-0 rounded-xl shadow-2xl transform rotate-6 translate-x-[8%] translate-y-[4%] opacity-70 ${theme.frontColor} border border-white/20`} />
-      <div className={`absolute inset-0 rounded-xl shadow-2xl flex flex-col items-center justify-center p-2 ${theme.frontColor} border-2 border-white/30 z-10 overflow-hidden`}>
+      <div className={`absolute inset-0 rounded-xl shadow-2xl flex flex-col items-center justify-center p-2 ${theme.frontColor} border-2 ${isSelected ? 'border-indigo-400 ring-4 ring-indigo-500/30' : 'border-white/30'} z-10 overflow-hidden transition-all duration-300`}>
         <img src={getCardImagePath(theme, 'rock')} alt="rock" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
         {isOwned && (
-          <div className="absolute top-2 right-2 bg-game-teal text-white p-1 rounded-full shadow-lg z-20">
-            <ShieldCheck className="w-4 h-4" />
+          <div className={`absolute top-2 right-2 p-1 rounded-full shadow-lg z-20 transition-all duration-300 ${
+            isSelected 
+              ? 'bg-indigo-500 text-white ring-2 ring-white/50 scale-110' 
+              : 'bg-slate-900/60 text-white/30 border border-white/10'
+          }`}>
+            <ShieldCheck className={`w-4 h-4 ${isSelected ? 'fill-white/20' : ''}`} />
           </div>
         )}
       </div>
