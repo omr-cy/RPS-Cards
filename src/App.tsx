@@ -336,10 +336,10 @@ const App = () => {
   const [appState, setAppState] = useState<'nameEntry' | 'menu' | 'inRoom' | 'store' | 'profile'>('nameEntry');
   const [menuTab, setMenuTab] = useState<'main' | 'online' | 'local'>('main');
   const [playerName, setPlayerName] = useState(() => localStorage.getItem('cardClashPlayerName') || '');
-  const [selectedThemeId, setSelectedThemeId] = useState(() => localStorage.getItem('cardClashTheme') || 'classic-white');
+  const [selectedThemeId, setSelectedThemeId] = useState(() => localStorage.getItem('cardClashTheme') || 'bone');
   const [ownedThemes, setOwnedThemes] = useState<string[]>(() => {
     const saved = localStorage.getItem('cardClashOwnedThemes');
-    return saved ? JSON.parse(saved) : ['classic-white', 'classic-black'];
+    return saved ? JSON.parse(saved) : ['bone', 'robot'];
   });
   const [coins, setCoins] = useState(() => parseInt(localStorage.getItem('cardClashCoins') || '1000'));
   const [ipInput, setIpInput] = useState('');
@@ -1549,7 +1549,7 @@ const App = () => {
   const me = roomState.players[myId];
   const opponentId = Object.keys(roomState.players).find(id => id !== myId);
   const opponent = opponentId ? roomState.players[opponentId] : null;
-  const opponentTheme = roomState.isBotRoom ? getTheme('robot') : getTheme('classic-black');
+  const opponentTheme = roomState.isBotRoom ? getTheme('robot') : getTheme('bone');
 
   if (!opponent && !roomState.isBotRoom && roomState.gameState !== 'waiting') return (
     <div className="h-[100dvh] wood-texture">
@@ -1881,7 +1881,7 @@ const App = () => {
 const CardCount = memo(({ type, count, theme }: { type: CardType, count: number, theme: ThemeConfig }) => (
   <div className="flex-1 flex flex-col items-center gap-1 sm:gap-2 gpu-accelerated">
     <div className={`w-full max-w-[4.5rem] aspect-[3/4] rounded-lg flex items-center justify-center transition-transform duration-300 gpu-accelerated overflow-hidden ${count > 0 ? `${theme.frontColor} opacity-100` : 'bg-game-dark opacity-20 grayscale'}`}>
-      <img src={getCardImagePath(theme, type)} alt={CARD_NAMES[type]} className={`w-2/3 h-2/3 object-contain ${theme.id === 'classic-black' ? 'drop-shadow-md' : ''}`} referrerPolicy="no-referrer" />
+      <img src={getCardImagePath(theme, type)} alt={CARD_NAMES[type]} className="w-2/3 h-2/3 object-contain" referrerPolicy="no-referrer" />
     </div>
     <div className={`w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center text-[10px] sm:text-xs font-display rounded-md transition-colors duration-300 ${count > 0 ? `${theme.counterBgColor} ${theme.counterTextColor}` : 'bg-game-dark text-game-cream/20'}`}>
       {count}
@@ -1903,7 +1903,7 @@ const PlayableCard = memo(({ type, count, onClick, disabled, theme }: { type: Ca
         {count}
       </div>
       <div className={`w-full max-w-[5.5rem] aspect-[3/4] rounded-lg flex items-center justify-center transition-all duration-300 overflow-hidden ${isAvailable && !disabled ? `${theme.frontColor}` : 'bg-game-dark'}`}>
-        <img src={getCardImagePath(theme, type)} alt={CARD_NAMES[type]} className={`w-2/3 h-2/3 object-contain ${theme.id === 'classic-black' ? 'drop-shadow-xl' : ''}`} referrerPolicy="no-referrer" />
+        <img src={getCardImagePath(theme, type)} alt={CARD_NAMES[type]} className="w-2/3 h-2/3 object-contain" referrerPolicy="no-referrer" />
       </div>
       <span className="text-[10px] sm:text-xs font-display text-game-cream tracking-wider">{CARD_NAMES[type]}</span>
     </motion.button>
