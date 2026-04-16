@@ -120,23 +120,21 @@ const CardPack = memo(({ theme, isOwned, isSelected, onClick }: {
   isSelected: boolean, 
   onClick: () => void 
 }) => (
-  <motion.div 
-    whileTap={{ scale: 0.95 }}
+  <div 
     onClick={onClick}
-    className="relative flex flex-col items-center cursor-pointer"
+    className="relative flex flex-col items-center cursor-pointer active:scale-95 transition-transform duration-200 gpu-accelerated"
   >
     <div className="relative w-24 sm:w-32 aspect-[3/4] mb-4">
-      <div className={`absolute inset-0 rounded-xl shadow-2xl transform -rotate-12 translate-x-[-15%] translate-y-[8%] opacity-40 ${theme.frontColor} border border-white/20`} />
-      <div className={`absolute inset-0 rounded-xl shadow-2xl transform rotate-6 translate-x-[8%] translate-y-[4%] opacity-70 ${theme.frontColor} border border-white/20`} />
-      <div className={`absolute inset-0 rounded-xl shadow-2xl flex flex-col items-center justify-center p-2 ${theme.frontColor} border-2 ${isSelected ? 'border-indigo-400 ring-4 ring-indigo-500/30' : 'border-white/30'} z-10 overflow-hidden transition-all duration-300`}>
+      <div className={`absolute inset-0 rounded-xl shadow-sm transform -rotate-3 translate-x-[-4%] translate-y-[2%] opacity-20 ${theme.frontColor} border border-white/5`} />
+      <div className={`absolute inset-0 rounded-xl shadow-md flex flex-col items-center justify-center p-2 ${theme.frontColor} border-2 ${isSelected ? 'border-indigo-400 ring-2 ring-indigo-500/20' : 'border-white/20'} z-10 overflow-hidden transition-[transform,border-color] duration-300 gpu-accelerated`}>
         <img src={getCardImagePath(theme, 'rock')} alt="rock" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
         {isOwned && (
-          <div className={`absolute top-2 right-2 p-1 rounded-full shadow-lg z-20 transition-all duration-300 ${
+          <div className={`absolute top-2 right-2 p-1 rounded-full shadow-sm z-20 transition-[transform,background-color] duration-300 ${
             isSelected 
-              ? 'bg-indigo-500 text-white ring-2 ring-white/50 scale-110' 
-              : 'bg-slate-900/60 text-white/30 border border-white/10'
+              ? 'bg-indigo-500 text-white ring-1 ring-white/30 scale-105' 
+              : 'bg-slate-900/40 text-white/20 border border-white/5'
           }`}>
-            <ShieldCheck className={`w-4 h-4 ${isSelected ? 'fill-white/20' : ''}`} />
+            <ShieldCheck className={`w-3.5 h-3.5 ${isSelected ? 'fill-white/10' : ''}`} />
           </div>
         )}
       </div>
@@ -151,7 +149,7 @@ const CardPack = memo(({ theme, isOwned, isSelected, onClick }: {
         </p>
       )}
     </div>
-  </motion.div>
+  </div>
 ));
 
 const PackPreviewModal = memo(({ selectedPack, ownedThemes, selectedThemeId, onBuy, onSelect, onClose }: {
@@ -176,7 +174,7 @@ const PackPreviewModal = memo(({ selectedPack, ownedThemes, selectedThemeId, onB
       className="bg-game-dark/90 w-full max-w-2xl rounded-3xl p-6 sm:p-10 border border-white/10 shadow-2xl relative overflow-hidden"
       onClick={e => e.stopPropagation()}
     >
-      <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 rounded-full blur-[100px] opacity-20 ${selectedPack.frontColor}`} />
+      <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 rounded-full opacity-10 ${selectedPack.frontColor}`} />
       <div className="relative z-10 flex flex-col items-center">
         <h2 className="text-3xl sm:text-4xl font-display text-game-offwhite mb-2">{selectedPack.name}</h2>
         <p className="text-game-offwhite/60 font-display mb-12">مجموعة البطاقات الكاملة</p>
@@ -227,7 +225,7 @@ const StoreView = memo(({ coins, ownedThemes, selectedThemeId, onBack, onBuy, on
 }) => (
   <div 
     dir="rtl" 
-    className="h-[100dvh] wood-texture text-game-cream flex flex-col p-4 sm:p-6 font-body overflow-x-hidden overflow-y-auto select-none relative"
+    className="h-[100dvh] wood-texture text-game-cream flex flex-col p-4 sm:p-6 font-body overflow-x-hidden overflow-y-auto select-none relative gpu-accelerated"
     style={{
       paddingTop: 'env(safe-area-inset-top)',
       paddingBottom: 'env(safe-area-inset-bottom)',
@@ -285,7 +283,7 @@ const ProfileView = memo(({ playerName, coins, ownedThemes, selectedThemeId, onB
 }) => (
   <div 
     dir="rtl" 
-    className="h-[100dvh] wood-texture text-game-cream flex flex-col p-4 sm:p-6 font-body overflow-x-hidden overflow-y-auto select-none"
+    className="h-[100dvh] wood-texture text-game-cream flex flex-col p-4 sm:p-6 font-body overflow-x-hidden overflow-y-auto select-none gpu-accelerated"
     style={{
       paddingTop: 'env(safe-area-inset-top)',
       paddingBottom: 'env(safe-area-inset-bottom)',
@@ -391,7 +389,7 @@ const App = () => {
         img.onload = checkAllLoaded;
         img.onerror = checkAllLoaded;
       });
-      setTimeout(resolve, 3000); // Fallback timeout
+      setTimeout(resolve, 800); // Reduced fallback timeout
     });
   };
 
@@ -1580,6 +1578,7 @@ const App = () => {
   const me = roomState.players[myId];
   const opponentId = Object.keys(roomState.players).find(id => id !== myId);
   const opponent = opponentId ? roomState.players[opponentId] : null;
+  const opponentTheme = roomState.isBotRoom ? getTheme('robot') : getTheme('classic-black');
 
   if (!opponent && !roomState.isBotRoom && roomState.gameState !== 'waiting') return (
     <div className="h-[100dvh] wood-texture">
@@ -1793,9 +1792,9 @@ const App = () => {
             </div>
           </div>
           <div className="flex justify-between gap-2 sm:gap-4">
-             <CardCount type="rock" count={(opponent?.deck.rock || 0) + ((roomState.gameState === 'playing' || roomState.gameState === 'revealing' || (roomState.gameState === 'roundResult' && !isRevealingLocal)) && opponent?.choice === 'rock' ? 1 : 0)} theme={getTheme('classic-black')} />
-             <CardCount type="paper" count={(opponent?.deck.paper || 0) + ((roomState.gameState === 'playing' || roomState.gameState === 'revealing' || (roomState.gameState === 'roundResult' && !isRevealingLocal)) && opponent?.choice === 'paper' ? 1 : 0)} theme={getTheme('classic-black')} />
-             <CardCount type="scissors" count={(opponent?.deck.scissors || 0) + ((roomState.gameState === 'playing' || roomState.gameState === 'revealing' || (roomState.gameState === 'roundResult' && !isRevealingLocal)) && opponent?.choice === 'scissors' ? 1 : 0)} theme={getTheme('classic-black')} />
+             <CardCount type="rock" count={(opponent?.deck.rock || 0) + ((roomState.gameState === 'playing' || roomState.gameState === 'revealing' || (roomState.gameState === 'roundResult' && !isRevealingLocal)) && opponent?.choice === 'rock' ? 1 : 0)} theme={opponentTheme} />
+             <CardCount type="paper" count={(opponent?.deck.paper || 0) + ((roomState.gameState === 'playing' || roomState.gameState === 'revealing' || (roomState.gameState === 'roundResult' && !isRevealingLocal)) && opponent?.choice === 'paper' ? 1 : 0)} theme={opponentTheme} />
+             <CardCount type="scissors" count={(opponent?.deck.scissors || 0) + ((roomState.gameState === 'playing' || roomState.gameState === 'revealing' || (roomState.gameState === 'roundResult' && !isRevealingLocal)) && opponent?.choice === 'scissors' ? 1 : 0)} theme={opponentTheme} />
           </div>
         </div>
 
@@ -1851,7 +1850,7 @@ const App = () => {
                           transition={{ type: 'spring', bounce: 0.5, delay: 1.4 }}
                           className={`px-4 sm:px-6 py-1 sm:py-1.5 rounded-md text-[10px] sm:text-xs font-display tracking-widest whitespace-nowrap shadow-lg flex items-center justify-center border-2 ${
                             roomState.roundWinner === myId ? `${currentTheme.frontColor} border-white/20 text-white` :
-                            roomState.roundWinner === opponentId ? 'bg-[#121212] border-[#333333] text-[#F5F5F5]' :
+                            roomState.roundWinner === opponentId ? `${opponentTheme.frontColor} border-white/20 text-white` :
                             'bg-game-dark border-game-bg text-game-cream'
                           }`}
                         >
@@ -1875,7 +1874,7 @@ const App = () => {
                     isPlayer={false} 
                     winner={roomState.gameState === 'roundResult' && roomState.roundWinner === opponentId} 
                     faceDown={roomState.gameState === 'playing' || roomState.gameState === 'revealing' || (roomState.gameState === 'roundResult' && !isRevealingLocal)} 
-                    theme={getTheme('classic-black')}
+                    theme={opponentTheme}
                   />
                 ) : (
                   <div className="w-16 sm:w-24 aspect-[3/4]" />
@@ -1911,7 +1910,7 @@ const App = () => {
 const CardCount = memo(({ type, count, theme }: { type: CardType, count: number, theme: ThemeConfig }) => (
   <div className="flex-1 flex flex-col items-center gap-1 sm:gap-2 gpu-accelerated">
     <div className={`w-full max-w-[4.5rem] aspect-[3/4] rounded-lg flex items-center justify-center transition-transform duration-300 gpu-accelerated overflow-hidden ${count > 0 ? `${theme.frontColor} opacity-100` : 'bg-game-dark opacity-20 grayscale'}`}>
-      <img src={getCardImagePath(theme, type)} alt={CARD_NAMES[type]} className={`w-2/3 h-2/3 object-contain rotate-180 ${theme.id === 'classic-black' ? 'drop-shadow-md' : ''}`} referrerPolicy="no-referrer" />
+      <img src={getCardImagePath(theme, type)} alt={CARD_NAMES[type]} className={`w-2/3 h-2/3 object-contain ${theme.id === 'classic-black' ? 'drop-shadow-md' : ''}`} referrerPolicy="no-referrer" />
     </div>
     <div className={`w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center text-[10px] sm:text-xs font-display rounded-md transition-colors duration-300 ${count > 0 ? `${theme.counterBgColor} ${theme.counterTextColor}` : 'bg-game-dark text-game-cream/20'}`}>
       {count}
@@ -1992,7 +1991,7 @@ const PlayedCard = memo(({ type, isPlayer, winner, faceDown = false, theme }: { 
         }}
       >
         <span className="relative z-10">
-          <img src={getCardImagePath(theme, type)} alt={CARD_NAMES[type]} className={`w-10 h-10 sm:w-16 sm:h-16 object-contain drop-shadow-2xl ${!isPlayer ? 'rotate-180' : ''}`} referrerPolicy="no-referrer" />
+          <img src={getCardImagePath(theme, type)} alt={CARD_NAMES[type]} className="w-10 h-10 sm:w-16 sm:h-16 object-contain drop-shadow-2xl" referrerPolicy="no-referrer" />
         </span>
       </div>
 

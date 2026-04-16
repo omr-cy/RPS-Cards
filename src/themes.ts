@@ -10,70 +10,61 @@ export interface ThemeConfig {
   backIcon: string;
   counterBgColor: string;
   counterTextColor: string;
+  extension?: 'svg' | 'png' | 'jpg';
   isDefault?: boolean;
 }
 
 export const THEMES: ThemeConfig[] = [
   {
-    id: 'classic-white',
-    name: 'كلاسيكي (أبيض)',
-    path: '/classic/black',
-    price: 0,
-    isDefault: true,
-    frontColor: 'bg-[#E8E8E8]',
-    backColor: 'bg-[#E5E5E5]',
-    backIcon: 'default',
-    counterBgColor: 'bg-[#E8E8E8]',
-    counterTextColor: 'text-[#121212]'
-  },
-  {
-    id: 'classic-black',
-    name: 'كلاسيكي (أسود)',
-    path: '/classic/white',
+    id: 'normal',
+    name: 'عادي',
+    path: '/normal',
     price: 0,
     isDefault: true,
     frontColor: 'bg-[#121212]',
     backColor: 'bg-[#0A0A0A]',
     backIcon: 'default',
     counterBgColor: 'bg-[#121212]',
-    counterTextColor: 'text-[#F5F5F5]'
+    counterTextColor: 'text-[#F5F5F5]',
+    extension: 'png'
   },
+  // {
+  //   id: 'gold-edition',
+  //   name: 'النسخة الذهبية',
+  //   path: '/classic/black',
+  //   price: 0,
+  //   frontColor: 'bg-gradient-to-br from-[#FFD700] to-[#B8860B]',
+  //   backColor: 'bg-gradient-to-br from-[#B8860B] to-[#8B6508]',
+  //   backIcon: 'default',
+  //   counterBgColor: 'bg-[#FFD700]',
+  //   counterTextColor: 'text-[#121212]'
+  // },
   {
-    id: 'gold-edition',
-    name: 'النسخة الذهبية',
-    path: '/classic/black',
-    price: 0,
-    frontColor: 'bg-gradient-to-br from-[#FFD700] to-[#B8860B]',
-    backColor: 'bg-gradient-to-br from-[#B8860B] to-[#8B6508]',
-    backIcon: 'default',
-    counterBgColor: 'bg-[#FFD700]',
-    counterTextColor: 'text-[#121212]'
-  },
-  {
-    id: 'ruby-edition',
-    name: 'النسخة الياقوتية',
-    path: '/classic/white',
+    id: 'bone',
+    name: 'عظمي',
+    path: '/bones',
     price: 0,
     frontColor: 'bg-gradient-to-br from-[#8B0000] to-[#4A0000]',
     backColor: 'bg-gradient-to-br from-[#4A0000] to-[#2A0000]',
     backIcon: 'default',
     counterBgColor: 'bg-[#8B0000]',
-    counterTextColor: 'text-[#F5F5F5]'
+    counterTextColor: 'text-[#F5F5F5]',
+    extension: 'png'
   },
   {
-    id: 'robots-ai',
-    name: 'ذكاء إصطناعي',
-    path: '/robots_ai',
+    id: 'robot',
+    name: 'روبوتي',
+    path: '/robots',
     price: 0,
-    frontColor: 'bg-[#00125F]',
-    backColor: 'bg-[#00125F]',
+    frontColor: 'bg-[#0E65A4]',
+    backColor: 'bg-[#0E65A4]',
     backIcon: 'default',
-    counterBgColor: 'bg-[#00125F]',
+    counterBgColor: 'bg-[#0E65A4]',
     counterTextColor: 'text-[#F5F5F5]'
   },
   {
     id: 'toyes',
-    name: 'العاب أطفال',
+    name: 'العاب',
     path: '/toyes',
     price: 0,
     frontColor: 'bg-[#BC4A00]',
@@ -89,5 +80,6 @@ export const getTheme = (id: string): ThemeConfig => {
 };
 
 export const getCardImagePath = (theme: ThemeConfig, type: CardType): string => {
-  return `${theme.path}/${type}.svg`;
+  const ext = theme.extension || 'svg';
+  return `${theme.path}/${type}.${ext}`;
 };
