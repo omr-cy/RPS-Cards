@@ -31,6 +31,15 @@
   -webkit-text-stroke: 2px #121212;
 }
 
+.inline-preload {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+  z-index: -999;
+}
+
 @layer base {
   body {
     @apply bg-game-bg text-game-cream font-body antialiased;

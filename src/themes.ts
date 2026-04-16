@@ -1,3 +1,6 @@
+import { assetPreloader } from './lib/preloader';
+import { AssetMap } from './assetMap';
+
 export type CardType = 'rock' | 'paper' | 'scissors';
 
 export interface ThemeConfig {
@@ -21,33 +24,22 @@ export const THEMES: ThemeConfig[] = [
     path: '/normal',
     price: 0,
     isDefault: true,
-    frontColor: 'bg-[#121212]',
-    backColor: 'bg-[#0A0A0A]',
+    frontColor: 'bg-[#6F5C57]',
+    backColor: 'bg-[#6F5C57]',
     backIcon: 'default',
-    counterBgColor: 'bg-[#121212]',
+    counterBgColor: 'bg-[#6F5C57]',
     counterTextColor: 'text-[#F5F5F5]',
     extension: 'png'
   },
-  // {
-  //   id: 'gold-edition',
-  //   name: 'النسخة الذهبية',
-  //   path: '/classic/black',
-  //   price: 0,
-  //   frontColor: 'bg-gradient-to-br from-[#FFD700] to-[#B8860B]',
-  //   backColor: 'bg-gradient-to-br from-[#B8860B] to-[#8B6508]',
-  //   backIcon: 'default',
-  //   counterBgColor: 'bg-[#FFD700]',
-  //   counterTextColor: 'text-[#121212]'
-  // },
   {
     id: 'bone',
     name: 'عظمي',
     path: '/bones',
     price: 0,
-    frontColor: 'bg-gradient-to-br from-[#8B0000] to-[#4A0000]',
-    backColor: 'bg-gradient-to-br from-[#4A0000] to-[#2A0000]',
+    frontColor: 'bg-[#121212]',
+    backColor: 'bg-[#121212]',
     backIcon: 'default',
-    counterBgColor: 'bg-[#8B0000]',
+    counterBgColor: 'bg-[#121212]',
     counterTextColor: 'text-[#F5F5F5]',
     extension: 'png'
   },
@@ -81,5 +73,11 @@ export const getTheme = (id: string): ThemeConfig => {
 
 export const getCardImagePath = (theme: ThemeConfig, type: CardType): string => {
   const ext = theme.extension || 'svg';
-  return `${theme.path}/${type}.${ext}`;
+  const rawUrl = `${theme.path}/${type}.${ext}`;
+  return AssetMap[rawUrl] || assetPreloader.getCachedUrl(rawUrl);
+};
+
+export const getThemeBackIcon = (theme: ThemeConfig): string => {
+  if (theme.backIcon === 'default') return 'default';
+  return AssetMap[theme.backIcon] || assetPreloader.getCachedUrl(theme.backIcon);
 };

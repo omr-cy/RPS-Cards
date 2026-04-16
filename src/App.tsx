@@ -20,7 +20,8 @@ export interface LocalServerPlugin {
 
 export const LocalServer = registerPlugin<LocalServerPlugin>('LocalServer');
 
-import { THEMES, getTheme, getCardImagePath, ThemeConfig, CardType } from './themes';
+import { assetPreloader } from './lib/preloader';
+import { THEMES, getTheme, getCardImagePath, getThemeBackIcon, ThemeConfig, CardType } from './themes';
 
 interface Deck {
   rock: number;
@@ -64,42 +65,29 @@ interface LogEntry {
   type: 'info' | 'error' | 'success';
 }
 
-const useSmoothFloating = (amplitude: number = 10, speed: number = 0.002, rotationAmplitude: number = 3) => {
-  const ref = useRef<HTMLDivElement>(null);
-  
-  useEffect(() => {
-    let animationFrameId: number;
-    const startTime = performance.now();
-    
-    const animate = (time: number) => {
-      if (ref.current) {
-        const elapsed = time - startTime;
-        const y = Math.sin(elapsed * speed) * amplitude;
-        const rotate = Math.cos(elapsed * speed * 0.8) * rotationAmplitude;
-        
-        ref.current.style.transform = `translateY(${y}px) rotate(${rotate}deg)`;
-      }
-      animationFrameId = requestAnimationFrame(animate);
-    };
-    
-    animationFrameId = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(animationFrameId);
-  }, [amplitude, speed, rotationAmplitude]);
-  
-  return ref;
-};
-
 const FloatingCard = memo(({ theme, type, idx }: { theme: ThemeConfig, type: CardType, idx: number }) => {
-  const floatRef = useSmoothFloating(15, 0.0015 + (idx * 0.0002), 4);
-  
   return (
-    <div
-      ref={floatRef}
-      className={`w-24 sm:w-36 aspect-[3/4] rounded-2xl shadow-2xl flex items-center justify-center p-3 ${theme.frontColor} border-2 border-white/20 relative will-change-transform`}
+    <motion.div
+      animate={{ 
+        y: [0, -12, 0],
+        rotate: idx % 2 === 0 ? [-2, 2, -2] : [2, -2, 2]
+      }}
+      transition={{
+        duration: 4,
+        repeat: Infinity,
+        ease: "easeInOut",
+        delay: idx * 0.3
+      }}
+      className={`w-20 sm:w-36 aspect-[3/4] rounded-2xl shadow-xl flex items-center justify-center p-2 sm:p-3 ${theme.frontColor} border-2 border-white/20 relative gpu-accelerated`}
     >
-      <div className="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent opacity-50" />
-      <img src={getCardImagePath(theme, type)} alt={type} className="w-full h-full object-contain relative z-10" referrerPolicy="no-referrer" />
-    </div>
+      <div className="absolute inset-0 bg-gradient-to-tr from-white/20 to-transparent opacity-30" />
+      <img 
+        src={getCardImagePath(theme, type)} 
+        alt={type} 
+        className="w-full h-full object-contain relative z-10 drop-shadow-lg" 
+        referrerPolicy="no-referrer" 
+      />
+    </motion.div>
   );
 });
 
@@ -178,7 +166,7 @@ const PackPreviewModal = memo(({ selectedPack, ownedThemes, selectedThemeId, onB
       <div className="relative z-10 flex flex-col items-center">
         <h2 className="text-3xl sm:text-4xl font-display text-game-offwhite mb-2">{selectedPack.name}</h2>
         <p className="text-game-offwhite/60 font-display mb-12">مجموعة البطاقات الكاملة</p>
-        <div className="flex justify-center items-center gap-4 sm:gap-8 mb-16 w-full">
+        <div className="flex justify-center items-center gap-2 sm:gap-8 mb-16 w-full px-2">
           {['scissors', 'paper', 'rock'].map((type, idx) => (
             <FloatingCard key={type} theme={selectedPack} type={type as CardType} idx={idx} />
           ))}
@@ -375,52 +363,33 @@ const App = () => {
   const [selectedPack, setSelectedPack] = useState<ThemeConfig | null>(null);
 
   // Preload Assets
-  const preloadImages = (urls: string[]): Promise<void> => {
-    return new Promise((resolve) => {
-      if (urls.length === 0) return resolve();
-      let loadedCount = 0;
-      const checkAllLoaded = () => {
-        loadedCount++;
-        if (loadedCount >= urls.length) resolve();
-      };
-      urls.forEach(src => {
-        const img = new Image();
-        img.src = src;
-        img.onload = checkAllLoaded;
-        img.onerror = checkAllLoaded;
-      });
-      setTimeout(resolve, 800); // Reduced fallback timeout
-    });
-  };
-
   const withPreload = async (action: () => void, targetView?: 'game' | 'store' | 'profile' | 'initial') => {
-    setIsPreloaded(false);
-    let assetsToLoad: string[] = [];
-    
     if (targetView === 'initial') {
-      // External textures removed for performance
-    }
-
-    const currentTheme = getTheme(selectedThemeId);
-    if (!targetView || targetView === 'game' || targetView === 'initial') {
-      assetsToLoad.push(
-        getCardImagePath(currentTheme, 'rock'),
-        getCardImagePath(currentTheme, 'paper'),
-        getCardImagePath(currentTheme, 'scissors')
-      );
-      if (currentTheme.backIcon && currentTheme.backIcon !== 'default') {
-        assetsToLoad.push(currentTheme.backIcon);
-      }
-    }
-
-    if (targetView === 'store' || targetView === 'profile' || targetView === 'initial') {
-      THEMES.forEach(t => {
-        assetsToLoad.push(getCardImagePath(t, 'rock'));
+      setIsPreloaded(false);
+      let assetsToLoad: string[] = [];
+      
+      // Collect all themes
+      THEMES.forEach(theme => {
+        assetsToLoad.push(
+          getCardImagePath(theme, 'rock'),
+          getCardImagePath(theme, 'paper'),
+          getCardImagePath(theme, 'scissors')
+        );
+        if (theme.backIcon && theme.backIcon !== 'default' && theme.backIcon.startsWith('/')) {
+          assetsToLoad.push(theme.backIcon);
+        }
       });
+      
+      const uniqueUrls = Array.from(new Set(assetsToLoad)).filter(url => !url.startsWith('data:'));
+      if (uniqueUrls.length > 0) {
+        await Promise.all(uniqueUrls.map(url => assetPreloader.preloadImage(url)));
+      }
+
+      setIsPreloaded(true);
+      action();
+      return;
     }
 
-    await preloadImages(assetsToLoad);
-    setIsPreloaded(true);
     action();
   };
 
@@ -2009,7 +1978,7 @@ const PlayedCard = memo(({ type, isPlayer, winner, faceDown = false, theme }: { 
               <div className={`w-4 h-4 sm:w-6 sm:h-6 rounded-full ${isPlayer ? 'bg-black/10' : 'bg-white/10'}`} />
             </div>
           ) : (
-            <img src={theme.backIcon} alt="card back" className="w-1/2 h-1/2 object-contain opacity-50" />
+            <img src={getThemeBackIcon(theme)} alt="card back" className="w-1/2 h-1/2 object-contain opacity-50" />
           )}
         </div>
       </div>
