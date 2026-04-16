@@ -75,7 +75,11 @@ jobs:
       - name: Load rclone config
         run: |
           mkdir -p ~/.config/rclone
-          echo "${{ secrets.RCLONE_CONFIG }}" > ~/.config/rclone/rclone.conf
+          cat <<EOF > ~/.config/rclone/rclone.conf
+          ${{ secrets.RCLONE_CONFIG }}
+          EOF
+          # Fix common error where 'n' is saved as service_account_file
+          sed -i '/service_account_file = n/d' ~/.config/rclone/rclone.conf
 
       - name: Upload APK to Google Drive
         run: |
