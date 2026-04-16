@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, memo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Bot, Globe, Home, Trophy, XCircle, Minus, Copy, Edit2, Bug, X, Wifi, ShieldCheck, Activity, ShoppingCart, User } from 'lucide-react';
 import { StatusBar, Style } from '@capacitor/status-bar';
@@ -63,6 +63,284 @@ interface LogEntry {
   msg: string;
   type: 'info' | 'error' | 'success';
 }
+
+const useSmoothFloating = (amplitude: number = 10, speed: number = 0.002, rotationAmplitude: number = 3) => {
+  const ref = useRef<HTMLDivElement>(null);
+  
+  useEffect(() => {
+    let animationFrameId: number;
+    const startTime = performance.now();
+    
+    const animate = (time: number) => {
+      if (ref.current) {
+        const elapsed = time - startTime;
+        const y = Math.sin(elapsed * speed) * amplitude;
+        const rotate = Math.cos(elapsed * speed * 0.8) * rotationAmplitude;
+        
+        ref.current.style.transform = `translateY(${y}px) rotate(${rotate}deg)`;
+      }
+      animationFrameId = requestAnimationFrame(animate);
+    };
+    
+    animationFrameId = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [amplitude, speed, rotationAmplitude]);
+  
+  return ref;
+};
+
+const FloatingCard = memo(({ theme, type, idx }: { theme: ThemeConfig, type: CardType, idx: number }) => {
+  const floatRef = useSmoothFloating(15, 0.0015 + (idx * 0.0002), 4);
+  
+  return (
+    <div
+      ref={floatRef}
+      className={`w-24 sm:w-36 aspect-[3/4] rounded-2xl shadow-2xl flex items-center justify-center p-3 ${theme.frontColor} border-2 border-white/20 relative will-change-transform`}
+    >
+      <div className="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent opacity-50" />
+      <img src={getCardImagePath(theme, type)} alt={type} className="w-full h-full object-contain relative z-10" referrerPolicy="no-referrer" />
+    </div>
+  );
+});
+
+const GameTimer = memo(({ timeLeft }: { timeLeft?: number }) => {
+  if (timeLeft === undefined) return null;
+  return (
+    <div className="flex flex-col items-center">
+      <div className={`text-4xl font-mono font-bold ${timeLeft <= 5 ? 'text-game-red animate-pulse' : 'text-game-offwhite'}`}>
+        {timeLeft}
+      </div>
+    </div>
+  );
+});
+
+const CardPack = memo(({ theme, isOwned, isSelected, onClick }: { 
+  theme: ThemeConfig, 
+  isOwned: boolean, 
+  isSelected: boolean, 
+  onClick: () => void 
+}) => (
+  <motion.div 
+    whileTap={{ scale: 0.95 }}
+    onClick={onClick}
+    className="relative flex flex-col items-center cursor-pointer"
+  >
+    <div className="relative w-24 sm:w-32 aspect-[3/4] mb-4">
+      <div className={`absolute inset-0 rounded-xl shadow-2xl transform -rotate-12 translate-x-[-15%] translate-y-[8%] opacity-40 ${theme.frontColor} border border-white/20`} />
+      <div className={`absolute inset-0 rounded-xl shadow-2xl transform rotate-6 translate-x-[8%] translate-y-[4%] opacity-70 ${theme.frontColor} border border-white/20`} />
+      <div className={`absolute inset-0 rounded-xl shadow-2xl flex flex-col items-center justify-center p-2 ${theme.frontColor} border-2 border-white/30 z-10 overflow-hidden`}>
+        <img src={getCardImagePath(theme, 'rock')} alt="rock" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+        {isOwned && (
+          <div className="absolute top-2 right-2 bg-game-teal text-white p-1 rounded-full shadow-lg z-20">
+            <ShieldCheck className="w-4 h-4" />
+          </div>
+        )}
+      </div>
+    </div>
+    <div className="text-center">
+      <h3 className="text-lg font-display text-game-offwhite leading-tight">{theme.name}</h3>
+      {!isOwned ? (
+        <p className="text-yellow-500 font-display text-sm">{theme.price} 🪙</p>
+      ) : (
+        <p className={`text-xs font-display ${isSelected ? 'text-game-teal' : 'text-game-offwhite/40'}`}>
+          {isSelected ? 'مفعل حالياً' : 'مملوك'}
+        </p>
+      )}
+    </div>
+  </motion.div>
+));
+
+const PackPreviewModal = memo(({ selectedPack, ownedThemes, selectedThemeId, onBuy, onSelect, onClose }: {
+  selectedPack: ThemeConfig,
+  ownedThemes: string[],
+  selectedThemeId: string,
+  onBuy: (theme: ThemeConfig) => void,
+  onSelect: (id: string) => void,
+  onClose: () => void
+}) => (
+  <motion.div 
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+    exit={{ opacity: 0 }}
+    className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/90"
+    onClick={onClose}
+  >
+    <motion.div 
+      initial={{ scale: 0.8, y: 20 }}
+      animate={{ scale: 1, y: 0 }}
+      exit={{ scale: 0.8, y: 20 }}
+      className="bg-game-dark/90 w-full max-w-2xl rounded-3xl p-6 sm:p-10 border border-white/10 shadow-2xl relative overflow-hidden"
+      onClick={e => e.stopPropagation()}
+    >
+      <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 rounded-full blur-[100px] opacity-20 ${selectedPack.frontColor}`} />
+      <div className="relative z-10 flex flex-col items-center">
+        <h2 className="text-3xl sm:text-4xl font-display text-game-offwhite mb-2">{selectedPack.name}</h2>
+        <p className="text-game-offwhite/60 font-display mb-12">مجموعة البطاقات الكاملة</p>
+        <div className="flex justify-center items-center gap-4 sm:gap-8 mb-16 w-full">
+          {['scissors', 'paper', 'rock'].map((type, idx) => (
+            <FloatingCard key={type} theme={selectedPack} type={type as CardType} idx={idx} />
+          ))}
+        </div>
+        <div className="flex flex-col sm:flex-row gap-4 w-full max-w-md">
+          {ownedThemes.includes(selectedPack.id) ? (
+            <button 
+              onClick={() => onSelect(selectedPack.id)}
+              disabled={selectedThemeId === selectedPack.id}
+              className={`flex-1 py-4 rounded-xl font-display text-2xl transition-all shadow-lg ${
+                selectedThemeId === selectedPack.id 
+                ? 'bg-game-teal/20 text-game-teal cursor-default border border-game-teal/30' 
+                : 'bg-game-teal hover:bg-slate-600 text-white active:scale-95'
+              }`}
+            >
+              {selectedThemeId === selectedPack.id ? 'مفعل حالياً' : 'تفعيل الثيم'}
+            </button>
+          ) : (
+            <button 
+              onClick={() => onBuy(selectedPack)}
+              className="flex-1 py-4 bg-game-offwhite hover:bg-white text-black rounded-xl font-display text-2xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-3"
+            >
+              شراء المجموعة <span className="text-yellow-600">{selectedPack.price} 🪙</span>
+            </button>
+          )}
+          <button onClick={onClose} className="flex-1 py-4 bg-game-slate/20 hover:bg-game-slate/40 text-game-offwhite rounded-xl font-display text-2xl transition-all active:scale-95 border border-white/10">
+            إغلاق
+          </button>
+        </div>
+      </div>
+    </motion.div>
+  </motion.div>
+));
+
+const StoreView = memo(({ coins, ownedThemes, selectedThemeId, onBack, onBuy, onSelect, selectedPack, setSelectedPack }: {
+  coins: number,
+  ownedThemes: string[],
+  selectedThemeId: string,
+  onBack: () => void,
+  onBuy: (theme: ThemeConfig) => void,
+  onSelect: (id: string) => void,
+  selectedPack: ThemeConfig | null,
+  setSelectedPack: (theme: ThemeConfig | null) => void
+}) => (
+  <div 
+    dir="rtl" 
+    className="h-[100dvh] wood-texture text-game-cream flex flex-col p-4 sm:p-6 font-body overflow-x-hidden overflow-y-auto select-none relative"
+    style={{
+      paddingTop: 'env(safe-area-inset-top)',
+      paddingBottom: 'env(safe-area-inset-bottom)',
+      paddingLeft: 'env(safe-area-inset-left)',
+      paddingRight: 'env(safe-area-inset-right)'
+    }}
+  >
+    <div className="flex justify-between items-center mb-8">
+      <button onClick={onBack} className="p-2 bg-game-dark/50 rounded-full text-game-cream hover:bg-game-dark border border-white/10 transition-all">
+        <X className="w-6 h-6" />
+      </button>
+      <h1 className="text-3xl font-display text-game-offwhite tracking-wider">متجر الثيمات</h1>
+      <div className="flex items-center gap-2 bg-game-dark/50 px-4 py-2 rounded-full border border-white/10">
+        <span className="text-game-offwhite font-display text-xl">{coins}</span>
+        <span className="text-yellow-500">🪙</span>
+      </div>
+    </div>
+
+    <div className="grid grid-cols-2 sm:grid-cols-3 gap-y-12 gap-x-6 max-w-4xl mx-auto w-full pb-20">
+      {THEMES.map(theme => (
+        <CardPack 
+          key={theme.id}
+          theme={theme}
+          isOwned={ownedThemes.includes(theme.id)}
+          isSelected={selectedThemeId === theme.id}
+          onClick={() => setSelectedPack(theme)}
+        />
+      ))}
+    </div>
+
+    <AnimatePresence>
+      {selectedPack && (
+        <PackPreviewModal 
+          selectedPack={selectedPack}
+          ownedThemes={ownedThemes}
+          selectedThemeId={selectedThemeId}
+          onBuy={onBuy}
+          onSelect={onSelect}
+          onClose={() => setSelectedPack(null)}
+        />
+      )}
+    </AnimatePresence>
+  </div>
+));
+
+const ProfileView = memo(({ playerName, coins, ownedThemes, selectedThemeId, onBack, onSelect, selectedPack, setSelectedPack }: {
+  playerName: string,
+  coins: number,
+  ownedThemes: string[],
+  selectedThemeId: string,
+  onBack: () => void,
+  onSelect: (id: string) => void,
+  selectedPack: ThemeConfig | null,
+  setSelectedPack: (theme: ThemeConfig | null) => void
+}) => (
+  <div 
+    dir="rtl" 
+    className="h-[100dvh] wood-texture text-game-cream flex flex-col p-4 sm:p-6 font-body overflow-x-hidden overflow-y-auto select-none"
+    style={{
+      paddingTop: 'env(safe-area-inset-top)',
+      paddingBottom: 'env(safe-area-inset-bottom)',
+      paddingLeft: 'env(safe-area-inset-left)',
+      paddingRight: 'env(safe-area-inset-right)'
+    }}
+  >
+    <div className="flex justify-between items-center mb-8">
+      <button onClick={onBack} className="p-2 bg-game-dark/50 rounded-full text-game-cream hover:bg-game-dark border border-white/10 transition-all">
+        <X className="w-6 h-6" />
+      </button>
+      <h1 className="text-3xl font-display text-game-offwhite tracking-wider">الملف الشخصي</h1>
+      <div className="w-10" />
+    </div>
+
+    <div className="max-w-4xl mx-auto w-full space-y-8 pb-20">
+      <div className="bg-game-dark/80 p-6 rounded-xl border border-white/10 flex items-center gap-6">
+        <div className="w-20 h-20 rounded-full bg-game-dark/80 border-2 border-game-offwhite/20 flex items-center justify-center">
+          <User className="w-10 h-10 text-game-offwhite/50" />
+        </div>
+        <div className="flex-1">
+          <h2 className="text-2xl font-display text-game-offwhite">{playerName}</h2>
+          <div className="flex items-center gap-2 mt-1">
+            <span className="text-yellow-500 font-display">{coins}</span>
+            <span className="text-xs text-game-offwhite/40 font-body">عملة ذهبية</span>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h2 className="text-2xl font-display text-game-offwhite mb-6 border-b border-white/10 pb-2">مكتبة الثيمات</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-y-12 gap-x-6">
+          {THEMES.filter(t => ownedThemes.includes(t.id)).map(theme => (
+            <CardPack 
+              key={theme.id}
+              theme={theme}
+              isOwned={true}
+              isSelected={selectedThemeId === theme.id}
+              onClick={() => setSelectedPack(theme)}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+
+    <AnimatePresence>
+      {selectedPack && (
+        <PackPreviewModal 
+          selectedPack={selectedPack}
+          ownedThemes={ownedThemes}
+          selectedThemeId={selectedThemeId}
+          onBuy={() => {}} // Already owned
+          onSelect={onSelect}
+          onClose={() => setSelectedPack(null)}
+        />
+      )}
+    </AnimatePresence>
+  </div>
+));
 
 const App = () => {
   const [appState, setAppState] = useState<'nameEntry' | 'menu' | 'inRoom' | 'store' | 'profile'>('nameEntry');
@@ -1086,9 +1364,10 @@ const App = () => {
                       <AnimatePresence>
                         {roomIdInput.trim().length > 0 && (
                           <motion.div
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: 'auto' }}
-                            exit={{ opacity: 0, height: 0 }}
+                            initial={{ opacity: 0, scaleY: 0 }}
+                            animate={{ opacity: 1, scaleY: 1 }}
+                            exit={{ opacity: 0, scaleY: 0 }}
+                            style={{ transformOrigin: 'top' }}
                           >
                             <button
                               onClick={joinOnlineRoom}
@@ -1202,9 +1481,10 @@ const App = () => {
                         <AnimatePresence>
                           {isValidIp(ipInput.trim()) && (
                             <motion.div
-                              initial={{ opacity: 0, height: 0 }}
-                              animate={{ opacity: 1, height: 'auto' }}
-                              exit={{ opacity: 0, height: 0 }}
+                              initial={{ opacity: 0, scaleY: 0 }}
+                              animate={{ opacity: 1, scaleY: 1 }}
+                              exit={{ opacity: 0, scaleY: 0 }}
+                              style={{ transformOrigin: 'top' }}
                             >
                               <button
                                 onClick={joinGame}
@@ -1231,346 +1511,37 @@ const App = () => {
 
   if (appState === 'store') {
     return (
-      <>
-        {renderErrorToast()}
-        <div 
-          dir="rtl" 
-          className="h-[100dvh] wood-texture text-game-cream flex flex-col p-4 sm:p-6 font-body overflow-x-hidden overflow-y-auto select-none relative"
-          style={{
-            paddingTop: 'env(safe-area-inset-top)',
-            paddingBottom: 'env(safe-area-inset-bottom)',
-            paddingLeft: 'env(safe-area-inset-left)',
-            paddingRight: 'env(safe-area-inset-right)'
-          }}
-        >
-          <div className="flex justify-between items-center mb-8">
-            <button 
-              onClick={() => setAppState('menu')}
-              className="p-2 bg-game-dark/50 rounded-full text-game-cream hover:bg-game-dark border border-white/10 transition-all"
-            >
-              <X className="w-6 h-6" />
-            </button>
-            <h1 className="text-3xl font-display text-game-offwhite tracking-wider">متجر الثيمات</h1>
-            <div className="flex items-center gap-2 bg-game-dark/50 px-4 py-2 rounded-full border border-white/10">
-              <span className="text-game-offwhite font-display text-xl">{coins}</span>
-              <span className="text-yellow-500">🪙</span>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-y-12 gap-x-6 max-w-4xl mx-auto w-full pb-20">
-            {THEMES.map(theme => {
-              const isOwned = ownedThemes.includes(theme.id);
-              const isSelected = selectedThemeId === theme.id;
-              
-              return (
-                <motion.div 
-                  key={theme.id}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setSelectedPack(theme)}
-                  className="relative flex flex-col items-center group cursor-pointer"
-                >
-                  {/* Card Stack Visual */}
-                  <div className="relative w-24 sm:w-32 aspect-[3/4] mb-4 group-hover:scale-110 transition-transform duration-300">
-                    {/* Glow Effect */}
-                    <div className={`absolute inset-0 rounded-xl blur-xl opacity-0 group-hover:opacity-40 transition-opacity duration-300 ${theme.frontColor}`} />
-                    
-                    {/* Back Card */}
-                    <div className={`absolute inset-0 rounded-xl shadow-2xl transform -rotate-12 translate-x-[-15%] translate-y-[8%] opacity-40 ${theme.frontColor} border border-white/20 transition-transform duration-300 group-hover:-rotate-15 group-hover:-translate-x-[20%]`} />
-                    {/* Middle Card */}
-                    <div className={`absolute inset-0 rounded-xl shadow-2xl transform rotate-6 translate-x-[8%] translate-y-[4%] opacity-70 ${theme.frontColor} border border-white/20 transition-transform duration-300 group-hover:rotate-12 group-hover:translate-x-[12%]`} />
-                    {/* Front Card */}
-                    <div className={`absolute inset-0 rounded-xl shadow-2xl flex flex-col items-center justify-center p-2 ${theme.frontColor} border-2 border-white/30 z-10 overflow-hidden`}>
-                      <img src={getCardImagePath(theme, 'rock')} alt="rock" className="w-full h-full object-contain" />
-                      {isOwned && (
-                        <div className="absolute top-2 right-2 bg-game-teal text-white p-1 rounded-full shadow-lg z-20">
-                          <ShieldCheck className="w-4 h-4" />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div className="text-center">
-                    <h3 className="text-lg font-display text-game-offwhite leading-tight">{theme.name}</h3>
-                    {!isOwned ? (
-                      <p className="text-yellow-500 font-display text-sm">{theme.price} 🪙</p>
-                    ) : (
-                      <p className={`text-xs font-display ${isSelected ? 'text-game-teal' : 'text-game-offwhite/40'}`}>
-                        {isSelected ? 'مفعل حالياً' : 'مملوك'}
-                      </p>
-                    )}
-                  </div>
-                </motion.div>
-              );
-            })}
-          </div>
-
-          {/* Pack Preview Modal */}
-          <AnimatePresence>
-            {selectedPack && (
-              <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/90"
-                onClick={() => setSelectedPack(null)}
-              >
-                <motion.div 
-                  initial={{ scale: 0.8, y: 20 }}
-                  animate={{ scale: 1, y: 0 }}
-                  exit={{ scale: 0.8, y: 20 }}
-                  className="bg-game-dark/90 w-full max-w-2xl rounded-3xl p-6 sm:p-10 border border-white/10 shadow-2xl relative overflow-hidden"
-                  onClick={e => e.stopPropagation()}
-                >
-                  {/* Background Glow */}
-                  <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 rounded-full blur-[100px] opacity-20 ${selectedPack.frontColor}`} />
-                  
-                  <div className="relative z-10 flex flex-col items-center">
-                    <h2 className="text-3xl sm:text-4xl font-display text-game-offwhite mb-2">{selectedPack.name}</h2>
-                    <p className="text-game-offwhite/60 font-display mb-12">مجموعة البطاقات الكاملة</p>
-                    
-                    {/* Floating Cards Display */}
-                    <div className="flex justify-center items-center gap-4 sm:gap-8 mb-16 w-full">
-                      {['scissors', 'paper', 'rock'].map((type, idx) => (
-                        <motion.div
-                          key={type}
-                          initial={{ y: 0, rotate: 0 }}
-                          animate={{ 
-                            y: [0, -20, 0],
-                            rotate: [idx % 2 === 0 ? -3 : 3, idx % 2 === 0 ? 3 : -3, idx % 2 === 0 ? -3 : 3]
-                          }}
-                          transition={{ 
-                            duration: 4 + idx, 
-                            repeat: Infinity, 
-                            ease: "easeInOut",
-                            delay: idx * 0.3
-                          }}
-                          className={`w-24 sm:w-36 aspect-[3/4] rounded-2xl shadow-2xl flex items-center justify-center p-3 ${selectedPack.frontColor} border-2 border-white/20 relative`}
-                        >
-                          {/* Card Inner Glow */}
-                          <div className="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent opacity-50" />
-                          <img src={getCardImagePath(selectedPack, type as CardType)} alt={type} className="w-full h-full object-contain relative z-10" />
-                        </motion.div>
-                      ))}
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row gap-4 w-full max-w-md">
-                      {ownedThemes.includes(selectedPack.id) ? (
-                        <button 
-                          onClick={() => {
-                            selectTheme(selectedPack.id);
-                            setSelectedPack(null);
-                          }}
-                          disabled={selectedThemeId === selectedPack.id}
-                          className={`flex-1 py-4 rounded-xl font-display text-2xl transition-all shadow-lg ${
-                            selectedThemeId === selectedPack.id 
-                            ? 'bg-game-teal/20 text-game-teal cursor-default border border-game-teal/30' 
-                            : 'bg-game-teal hover:bg-teal-600 text-white active:scale-95'
-                          }`}
-                        >
-                          {selectedThemeId === selectedPack.id ? 'مفعل حالياً' : 'تفعيل الثيم'}
-                        </button>
-                      ) : (
-                        <button 
-                          onClick={() => {
-                            buyTheme(selectedPack);
-                            // Don't close modal, let them see it's bought
-                          }}
-                          className="flex-1 py-4 bg-game-offwhite hover:bg-white text-black rounded-xl font-display text-2xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-3"
-                        >
-                          شراء المجموعة <span className="text-yellow-600">{selectedPack.price} 🪙</span>
-                        </button>
-                      )}
-                      <button 
-                        onClick={() => setSelectedPack(null)}
-                        className="flex-1 py-4 bg-game-slate/20 hover:bg-game-slate/40 text-game-offwhite rounded-xl font-display text-2xl transition-all active:scale-95 border border-white/10"
-                      >
-                        إغلاق
-                      </button>
-                    </div>
-                  </div>
-                </motion.div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-        {renderDebugUI()}
-      </>
+      <StoreView 
+        coins={coins}
+        ownedThemes={ownedThemes}
+        selectedThemeId={selectedThemeId}
+        onBack={() => setAppState('menu')}
+        onBuy={buyTheme}
+        onSelect={(id) => {
+          selectTheme(id);
+          setSelectedPack(null);
+        }}
+        selectedPack={selectedPack}
+        setSelectedPack={setSelectedPack}
+      />
     );
   }
 
   if (appState === 'profile') {
     return (
-      <>
-        {renderErrorToast()}
-        <div 
-          dir="rtl" 
-          className="h-[100dvh] wood-texture text-game-cream flex flex-col p-4 sm:p-6 font-body overflow-x-hidden overflow-y-auto select-none"
-          style={{
-            paddingTop: 'env(safe-area-inset-top)',
-            paddingBottom: 'env(safe-area-inset-bottom)',
-            paddingLeft: 'env(safe-area-inset-left)',
-            paddingRight: 'env(safe-area-inset-right)'
-          }}
-        >
-          <div className="flex justify-between items-center mb-8">
-            <button 
-              onClick={() => setAppState('menu')}
-              className="p-2 bg-game-dark/50 rounded-full text-game-cream hover:bg-game-dark border border-white/10 transition-all"
-            >
-              <X className="w-6 h-6" />
-            </button>
-            <h1 className="text-3xl font-display text-game-offwhite tracking-wider">حسابي</h1>
-            <div className="w-10" /> {/* Spacer */}
-          </div>
-
-          <div className="max-w-4xl mx-auto w-full space-y-8 pb-20">
-            <div className="bg-game-dark/80 p-6 rounded-xl border border-white/10 flex items-center gap-6">
-              <div className="w-20 h-20 rounded-full bg-game-dark/80 border-2 border-game-offwhite/20 flex items-center justify-center">
-                <User className="w-10 h-10 text-game-offwhite/50" />
-              </div>
-              <div>
-                <h2 className="text-3xl font-display text-game-offwhite">{playerName}</h2>
-                <p className="text-game-offwhite/60 font-display mt-1">الرصيد: {coins} 🪙</p>
-              </div>
-            </div>
-
-            <div>
-              <h2 className="text-2xl font-display text-game-offwhite mb-6 border-b border-white/10 pb-2">مكتبة الثيمات</h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-y-12 gap-x-6">
-                {THEMES.filter(t => ownedThemes.includes(t.id)).map(theme => {
-                  const isSelected = selectedThemeId === theme.id;
-                  return (
-                    <motion.div 
-                      key={theme.id}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => setSelectedPack(theme)}
-                      className="relative flex flex-col items-center group cursor-pointer"
-                    >
-                      {/* Card Stack Visual */}
-                      <div className="relative w-20 sm:w-24 aspect-[3/4] mb-4 group-hover:scale-110 transition-transform duration-300">
-                        {/* Glow Effect */}
-                        <div className={`absolute inset-0 rounded-xl blur-xl opacity-0 group-hover:opacity-40 transition-opacity duration-300 ${theme.frontColor}`} />
-                        
-                        {/* Back Card */}
-                        <div className={`absolute inset-0 rounded-xl shadow-2xl transform -rotate-12 translate-x-[-15%] translate-y-[8%] opacity-40 ${theme.frontColor} border border-white/20 transition-transform duration-300 group-hover:-rotate-15 group-hover:-translate-x-[20%]`} />
-                        {/* Middle Card */}
-                        <div className={`absolute inset-0 rounded-xl shadow-2xl transform rotate-6 translate-x-[8%] translate-y-[4%] opacity-70 ${theme.frontColor} border border-white/20 transition-transform duration-300 group-hover:rotate-12 group-hover:translate-x-[12%]`} />
-                        {/* Front Card */}
-                        <div className={`absolute inset-0 rounded-xl shadow-2xl flex flex-col items-center justify-center p-2 ${theme.frontColor} border-2 border-white/30 z-10 overflow-hidden`}>
-                          <img src={getCardImagePath(theme, 'rock')} alt="rock" className="w-full h-full object-contain" />
-                          {isSelected && (
-                            <div className="absolute top-2 right-2 bg-game-teal text-white p-1 rounded-full shadow-lg z-20">
-                              <ShieldCheck className="w-3 h-3" />
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      
-                      <div className="text-center">
-                        <h3 className="text-sm font-display text-game-offwhite leading-tight">{theme.name}</h3>
-                        <p className={`text-[10px] font-display mt-1 ${isSelected ? 'text-game-teal' : 'text-game-offwhite/40'}`}>
-                          {isSelected ? 'مفعل حالياً' : 'مملوك'}
-                        </p>
-                      </div>
-                    </motion.div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-
-          {/* Pack Preview Modal */}
-          <AnimatePresence>
-            {selectedPack && (
-              <motion.div 
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/90"
-                onClick={() => setSelectedPack(null)}
-              >
-                <motion.div 
-                  initial={{ scale: 0.8, y: 20 }}
-                  animate={{ scale: 1, y: 0 }}
-                  exit={{ scale: 0.8, y: 20 }}
-                  className="bg-game-dark/90 w-full max-w-2xl rounded-3xl p-6 sm:p-10 border border-white/10 shadow-2xl relative overflow-hidden"
-                  onClick={e => e.stopPropagation()}
-                >
-                  {/* Background Glow */}
-                  <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 rounded-full blur-[100px] opacity-20 ${selectedPack.frontColor}`} />
-                  
-                  <div className="relative z-10 flex flex-col items-center">
-                    <h2 className="text-3xl sm:text-4xl font-display text-game-offwhite mb-2">{selectedPack.name}</h2>
-                    <p className="text-game-offwhite/60 font-display mb-12">مجموعة البطاقات الكاملة</p>
-                    
-                    {/* Floating Cards Display */}
-                    <div className="flex justify-center items-center gap-4 sm:gap-8 mb-16 w-full">
-                      {['scissors', 'paper', 'rock'].map((type, idx) => (
-                        <motion.div
-                          key={type}
-                          initial={{ y: 0, rotate: 0 }}
-                          animate={{ 
-                            y: [0, -20, 0],
-                            rotate: [idx % 2 === 0 ? -3 : 3, idx % 2 === 0 ? 3 : -3, idx % 2 === 0 ? -3 : 3]
-                          }}
-                          transition={{ 
-                            duration: 4 + idx, 
-                            repeat: Infinity, 
-                            ease: "easeInOut",
-                            delay: idx * 0.3
-                          }}
-                          className={`w-24 sm:w-36 aspect-[3/4] rounded-2xl shadow-2xl flex items-center justify-center p-3 ${selectedPack.frontColor} border-2 border-white/20 relative`}
-                        >
-                          {/* Card Inner Glow */}
-                          <div className="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent opacity-50" />
-                          <img src={getCardImagePath(selectedPack, type as CardType)} alt={type} className="w-full h-full object-contain relative z-10" />
-                        </motion.div>
-                      ))}
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row gap-4 w-full max-w-md">
-                      {ownedThemes.includes(selectedPack.id) ? (
-                        <button 
-                          onClick={() => {
-                            selectTheme(selectedPack.id);
-                            setSelectedPack(null);
-                          }}
-                          disabled={selectedThemeId === selectedPack.id}
-                          className={`flex-1 py-4 rounded-xl font-display text-2xl transition-all shadow-lg ${
-                            selectedThemeId === selectedPack.id 
-                            ? 'bg-game-teal/20 text-game-teal cursor-default border border-game-teal/30' 
-                            : 'bg-game-teal hover:bg-teal-600 text-white active:scale-95'
-                          }`}
-                        >
-                          {selectedThemeId === selectedPack.id ? 'مفعل حالياً' : 'تفعيل الثيم'}
-                        </button>
-                      ) : (
-                        <button 
-                          onClick={() => {
-                            buyTheme(selectedPack);
-                          }}
-                          className="flex-1 py-4 bg-game-offwhite hover:bg-white text-black rounded-xl font-display text-2xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-3"
-                        >
-                          شراء المجموعة <span className="text-yellow-600">{selectedPack.price} 🪙</span>
-                        </button>
-                      )}
-                      <button 
-                        onClick={() => setSelectedPack(null)}
-                        className="flex-1 py-4 bg-game-slate/20 hover:bg-game-slate/40 text-game-offwhite rounded-xl font-display text-2xl transition-all active:scale-95 border border-white/10"
-                      >
-                        إغلاق
-                      </button>
-                    </div>
-                  </div>
-                </motion.div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-        {renderDebugUI()}
-      </>
+      <ProfileView 
+        playerName={playerName}
+        coins={coins}
+        ownedThemes={ownedThemes}
+        selectedThemeId={selectedThemeId}
+        onBack={() => setAppState('menu')}
+        onSelect={(id) => {
+          selectTheme(id);
+          setSelectedPack(null);
+        }}
+        selectedPack={selectedPack}
+        setSelectedPack={setSelectedPack}
+      />
     );
   }
 
@@ -1818,9 +1789,9 @@ const App = () => {
             </div>
           </div>
           <div className="flex justify-between gap-2 sm:gap-4">
-             <CardCount type="scissors" count={(opponent?.deck.scissors || 0) + ((roomState.gameState === 'playing' || roomState.gameState === 'revealing' || (roomState.gameState === 'roundResult' && !isRevealingLocal)) && opponent?.choice === 'scissors' ? 1 : 0)} theme={getTheme('classic-black')} />
-             <CardCount type="paper" count={(opponent?.deck.paper || 0) + ((roomState.gameState === 'playing' || roomState.gameState === 'revealing' || (roomState.gameState === 'roundResult' && !isRevealingLocal)) && opponent?.choice === 'paper' ? 1 : 0)} theme={getTheme('classic-black')} />
              <CardCount type="rock" count={(opponent?.deck.rock || 0) + ((roomState.gameState === 'playing' || roomState.gameState === 'revealing' || (roomState.gameState === 'roundResult' && !isRevealingLocal)) && opponent?.choice === 'rock' ? 1 : 0)} theme={getTheme('classic-black')} />
+             <CardCount type="paper" count={(opponent?.deck.paper || 0) + ((roomState.gameState === 'playing' || roomState.gameState === 'revealing' || (roomState.gameState === 'roundResult' && !isRevealingLocal)) && opponent?.choice === 'paper' ? 1 : 0)} theme={getTheme('classic-black')} />
+             <CardCount type="scissors" count={(opponent?.deck.scissors || 0) + ((roomState.gameState === 'playing' || roomState.gameState === 'revealing' || (roomState.gameState === 'roundResult' && !isRevealingLocal)) && opponent?.choice === 'scissors' ? 1 : 0)} theme={getTheme('classic-black')} />
           </div>
         </div>
 
@@ -1851,7 +1822,7 @@ const App = () => {
                       animate={{ opacity: 1 }}
                       className="text-game-cream flex flex-col items-center gap-2 sm:gap-3"
                     >
-                      <div className="text-3xl sm:text-4xl font-display text-game-slate">{roomState.timeLeft}</div>
+                      <GameTimer timeLeft={roomState.timeLeft} />
                       {!me.choice ? (
                         <div className="flex flex-col items-center">
                           <p className="text-[10px] sm:text-xs font-display tracking-widest italic whitespace-nowrap">اختر بطاقتك...</p>
@@ -1875,7 +1846,7 @@ const App = () => {
                           animate={{ scale: 1, opacity: 1 }}
                           transition={{ type: 'spring', bounce: 0.5, delay: 1.4 }}
                           className={`px-4 sm:px-6 py-1 sm:py-1.5 rounded-md text-[10px] sm:text-xs font-display tracking-widest whitespace-nowrap shadow-lg flex items-center justify-center border-2 ${
-                            roomState.roundWinner === myId ? 'bg-[#F5F5F5] border-[#E5E5E5] text-[#121212]' :
+                            roomState.roundWinner === myId ? `${currentTheme.frontColor} border-white/20 text-white` :
                             roomState.roundWinner === opponentId ? 'bg-[#121212] border-[#333333] text-[#F5F5F5]' :
                             'bg-game-dark border-game-bg text-game-cream'
                           }`}
@@ -1933,18 +1904,18 @@ const App = () => {
   );
 }
 
-const CardCount = ({ type, count, theme }: { type: CardType, count: number, theme: ThemeConfig }) => (
-  <div className="flex-1 flex flex-col items-center gap-1 sm:gap-2">
-    <div className={`w-full max-w-[4.5rem] aspect-[3/4] rounded-lg flex items-center justify-center transition-all duration-300 overflow-hidden ${count > 0 ? `${theme.frontColor} opacity-100` : 'bg-game-dark opacity-20 grayscale'}`}>
+const CardCount = memo(({ type, count, theme }: { type: CardType, count: number, theme: ThemeConfig }) => (
+  <div className="flex-1 flex flex-col items-center gap-1 sm:gap-2 gpu-accelerated">
+    <div className={`w-full max-w-[4.5rem] aspect-[3/4] rounded-lg flex items-center justify-center transition-transform duration-300 gpu-accelerated overflow-hidden ${count > 0 ? `${theme.frontColor} opacity-100` : 'bg-game-dark opacity-20 grayscale'}`}>
       <img src={getCardImagePath(theme, type)} alt={CARD_NAMES[type]} className={`w-2/3 h-2/3 object-contain rotate-180 ${theme.id === 'classic-black' ? 'drop-shadow-md' : ''}`} referrerPolicy="no-referrer" />
     </div>
     <div className={`w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center text-[10px] sm:text-xs font-display rounded-md transition-colors duration-300 ${count > 0 ? `${theme.counterBgColor} ${theme.counterTextColor}` : 'bg-game-dark text-game-cream/20'}`}>
       {count}
     </div>
   </div>
-);
+));
 
-const PlayableCard = ({ type, count, onClick, disabled, theme }: { type: CardType, count: number, onClick: () => void, disabled: boolean, theme: ThemeConfig }) => {
+const PlayableCard = memo(({ type, count, onClick, disabled, theme }: { type: CardType, count: number, onClick: () => void, disabled: boolean, theme: ThemeConfig }) => {
   const isAvailable = count > 0;
   return (
     <motion.button
@@ -1952,7 +1923,7 @@ const PlayableCard = ({ type, count, onClick, disabled, theme }: { type: CardTyp
       whileTap={isAvailable && !disabled ? { scale: 0.95 } : {}}
       onClick={onClick}
       disabled={!isAvailable || disabled}
-      className={`flex-1 relative flex flex-col items-center gap-1 sm:gap-2 transition-all duration-300 ${(!isAvailable || disabled) ? 'opacity-40 cursor-not-allowed grayscale' : 'cursor-pointer'}`}
+      className={`flex-1 relative flex flex-col items-center gap-1 sm:gap-2 transition-transform duration-300 gpu-accelerated ${(!isAvailable || disabled) ? 'opacity-40 cursor-not-allowed grayscale' : 'cursor-pointer'}`}
     >
       <div className={`w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center text-[10px] sm:text-xs font-bold rounded-md shadow-md transition-colors ${isAvailable ? `${theme.counterBgColor} ${theme.counterTextColor}` : 'bg-game-dark text-game-cream/20'}`}>
         {count}
@@ -1963,9 +1934,9 @@ const PlayableCard = ({ type, count, onClick, disabled, theme }: { type: CardTyp
       <span className="text-[10px] sm:text-xs font-display text-game-cream tracking-wider">{CARD_NAMES[type]}</span>
     </motion.button>
   );
-};
+});
 
-const PlayedCard = ({ type, isPlayer, winner, faceDown = false, theme }: { type: CardType, isPlayer: boolean, winner: boolean, faceDown?: boolean, theme: ThemeConfig }) => {
+const PlayedCard = memo(({ type, isPlayer, winner, faceDown = false, theme }: { type: CardType, isPlayer: boolean, winner: boolean, faceDown?: boolean, theme: ThemeConfig }) => {
   return (
     <motion.div
       initial={{ 
@@ -2007,12 +1978,7 @@ const PlayedCard = ({ type, isPlayer, winner, faceDown = false, theme }: { type:
         }}
       >
         {winner && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: [0.2, 0.5, 0.2] }}
-            transition={{ repeat: Infinity, duration: 2 }}
-            className="absolute inset-0 bg-game-slate/10"
-          />
+          <div className="absolute inset-0 bg-white/20 animate-glow-pulse shadow-[0_0_30px_rgba(255,255,255,0.5)]" />
         )}
         <span className="relative z-10">
           <img src={getCardImagePath(theme, type)} alt={CARD_NAMES[type]} className={`w-10 h-10 sm:w-16 sm:h-16 object-contain drop-shadow-2xl ${!isPlayer ? 'rotate-180' : ''}`} referrerPolicy="no-referrer" />
@@ -2039,6 +2005,6 @@ const PlayedCard = ({ type, isPlayer, winner, faceDown = false, theme }: { type:
       </div>
     </motion.div>
   );
-};
+});
 
 export default App;

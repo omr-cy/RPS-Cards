@@ -11,11 +11,16 @@
   --color-game-red: #8b1a1a;
   --color-game-cream: #e8e4d9;
   --color-game-purple: #4a1a4a;
-  --color-game-teal: #2a4a4a;
+  --color-game-teal: #708090;
   --color-game-offwhite: #F5F5F5;
   --color-game-charcoal: #121212;
   --color-game-stone: #454d55;
   --color-game-slate: #708090;
+}
+
+@utility gpu-accelerated {
+  will-change: transform;
+  transform: translateZ(0);
 }
 
 @utility text-stroke-white {
@@ -63,6 +68,15 @@
   background-size: 24px 24px;
 }
 
+@keyframes glow-pulse {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 0.5; }
+}
+
+.animate-glow-pulse {
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+
 .wood-texture {
   background-color: #1a1a1a;
   background-image: 
@@ -79,7 +93,7 @@
 }
 
 .player-color-texture {
-  background-color: #2a4a4a;
+  background-color: #708090;
   background-image: radial-gradient(rgba(255,255,255,0.05) 0.5px, transparent 0.5px);
   background-size: 10px 10px;
   color: #e8e4d9;
