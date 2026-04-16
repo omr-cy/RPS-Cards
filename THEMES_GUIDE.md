@@ -11,43 +11,27 @@
 ## خطوات إضافة ثيم جديد:
 
 ### الخطوة الأولى: تجهيز الصور (Assets)
-1. قم بتجهيز أيقونات (حجر، ورقة، مقص) للثيم الجديد. يفضل أن تكون بصيغة `.svg` أو `.png` بخلفية شفافة.
-2. ضع هذه الصور في مجلد `public/`. 
-   *مثال:* قم بإنشاء مجلد `public/neon/` وضع فيه الصور: `rock.svg`, `paper.svg`, `scissors.svg`.
+1. قم بتجهيز أيقونات (حجر، ورقة، مقص) للثيم الجديد. يجب أن تكون بصيغة `.svg` (أو `.png` إذا حددت ذلك).
+2. يجب تسمية الصور بهذه الأسماء بالضبط: `rock.svg`, `paper.svg`, `scissors.svg`.
+3. ضع هذه الصور في مجلد داخل `public/`. 
+   *مثال:* قم بإنشاء مجلد `public/neon/` وضع فيه الصور الثلاثة.
 
 ### الخطوة الثانية: إضافة الثيم في الكود
 افتح ملف `src/themes.ts`، وانزل إلى مصفوفة `THEMES`، وقم بإضافة كائن (Object) جديد يمثل الثيم الخاص بك.
 
-إليك القالب (Template) الذي ستستخدمه:
+إليك القالب (Template) المبسط الذي ستستخدمه:
 
 ```typescript
   {
     id: 'unique-theme-id',       // معرف فريد للثيم (باللغة الإنجليزية وبدون مسافات)
     name: 'اسم الثيم',           // الاسم الذي سيظهر للاعب في المتجر
+    path: '/your-folder',        // مسار مجلد الصور (مثال: '/neon')
     price: 1000,                 // سعر الثيم بالعملات (ضع 0 إذا كان مجانياً)
-    isDefault: false,            // (اختياري) اجعلها true إذا أردت أن يمتلكه اللاعب منذ البداية
-    
-    // مسارات الصور (تبدأ بـ / لأنها في مجلد public)
-    images: {
-      rock: '/your-folder/rock.svg',
-      paper: '/your-folder/paper.svg',
-      scissors: '/your-folder/scissors.svg',
-    },
-    
-    // ألوان وتصميم واجهة البطاقة الأمامية (استخدم كلاسات Tailwind CSS)
-    colors: {
-      bg: 'bg-[#HexCode]',       // لون خلفية البطاقة (يمكن استخدام تدرج لوني bg-gradient-to-br)
-      text: 'text-[#HexCode]',   // لون النص (رقم الكروت المتبقية)
-      border: 'border-2 border-[#HexCode]', // (اختياري) إطار البطاقة، اتركه فارغاً '' إذا لم ترد إطاراً
-      shadow: 'shadow-lg',       // (اختياري) ظل البطاقة، اتركه فارغاً '' إذا لم ترد ظلاً
-    },
-    
-    // ألوان وتصميم ظهر البطاقة
-    backColors: {
-      bg: 'bg-[#HexCode]',       // لون خلفية ظهر البطاقة
-      iconOuter: 'bg-white/10',  // لون الدائرة الخارجية للشعار في ظهر البطاقة
-      iconInner: 'bg-white/20'   // لون الدائرة الداخلية للشعار في ظهر البطاقة
-    }
+    frontColor: 'bg-[#HexCode]', // لون خلفية واجهة البطاقة (يمكن استخدام تدرج لوني)
+    backColor: 'bg-[#HexCode]',  // لون خلفية ظهر البطاقة
+    backIcon: 'default',         // أيقونة ظهر البطاقة ('default' أو مسار لصورة مثل '/neon/back.png')
+    counterBgColor: 'bg-[#HexCode]', // لون خلفية عداد البطاقات المتبقية
+    counterTextColor: 'text-[#HexCode]' // لون نص عداد البطاقات المتبقية
   }
 ```
 
@@ -55,35 +39,24 @@
 
 ## مثال عملي: إضافة ثيم "النيون" (Neon Theme)
 
-لنفترض أننا نريد إضافة ثيم بألوان النيون الساطعة:
+لنفترض أننا نريد إضافة ثيم بألوان النيون الساطعة، وقمنا بوضع الصور في مجلد `public/neon`:
 
 ```typescript
   {
     id: 'neon-cyberpunk',
     name: 'نيون سايبربانك',
+    path: '/neon',
     price: 1200,
-    images: {
-      rock: '/neon/rock.png',
-      paper: '/neon/paper.png',
-      scissors: '/neon/scissors.png',
-    },
-    colors: {
-      bg: 'bg-slate-900', // خلفية داكنة
-      text: 'text-cyan-400', // نص سماوي ساطع
-      border: 'border-2 border-cyan-500', // إطار سماوي
-      shadow: 'shadow-[0_0_15px_rgba(6,182,212,0.5)]' // توهج سماوي
-    },
-    backColors: {
-      bg: 'bg-slate-950',
-      iconOuter: 'bg-cyan-500/20',
-      iconInner: 'bg-cyan-400/40'
-    }
+    frontColor: 'bg-slate-900 border-2 border-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.5)]', 
+    backColor: 'bg-slate-950 border-2 border-cyan-500',
+    backIcon: '/neon/back-logo.png', // صورة مخصصة لظهر البطاقة
+    counterBgColor: 'bg-cyan-500',
+    counterTextColor: 'text-slate-900'
   }
 ```
 
 ---
 
 ## ملاحظات هامة للمطور (Developer Tips):
-1. **Tailwind CSS:** النظام يعتمد بالكامل على كلاسات Tailwind. يمكنك استخدام الألوان الجاهزة (مثل `bg-red-500`) أو الألوان المخصصة (مثل `bg-[#FF0000]`).
-2. **التدرجات اللونية (Gradients):** يمكنك جعل البطاقات فخمة جداً باستخدام التدرجات، مثال: `bg-gradient-to-br from-purple-600 to-blue-600`.
-3. **التحديث التلقائي:** بمجرد حفظ الملف `src/themes.ts`، سيظهر الثيم تلقائياً في صفحة "المتجر" داخل اللعبة، وسيكون قابلاً للشراء واللعب به فوراً دون الحاجة لتعديل أي ملفات أخرى! 🚀
+1. **Tailwind CSS:** النظام يعتمد بالكامل على كلاسات Tailwind. في `frontColor` و `backColor` يمكنك وضع أي كلاسات تريدها (ألوان، حدود `border`، ظلال `shadow`، وتدرجات `bg-gradient-to-br`).
+2. **التحديث التلقائي:** بمجرد حفظ الملف `src/themes.ts`، سيظهر الثيم تلقائياً في صفحة "المتجر" داخل اللعبة، وسيكون قابلاً للشراء واللعب به فوراً دون الحاجة لتعديل أي ملفات أخرى! 🚀

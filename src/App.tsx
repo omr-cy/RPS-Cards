@@ -20,15 +20,13 @@ export interface LocalServerPlugin {
 
 export const LocalServer = registerPlugin<LocalServerPlugin>('LocalServer');
 
-type CardType = 'rock' | 'paper' | 'scissors';
+import { THEMES, getTheme, getCardImagePath, ThemeConfig, CardType } from './themes';
 
 interface Deck {
   rock: number;
   paper: number;
   scissors: number;
 }
-
-import { THEMES, getTheme, ThemeConfig, CardType } from './themes';
 
 interface Player {
   id: string;
@@ -96,46 +94,60 @@ const App = () => {
   const [ws, setWs] = useState<WebSocket | null>(null);
 
   // Preload Assets
-  const preloadAssets = () => {
-    setIsPreloaded(false);
-    const assets = [
-      '/classic/rock_black.svg', '/classic/paper_black.svg', '/classic/scissors_black.svg',
-      '/classic/rock_white.svg', '/classic/paper_white.svg', '/classic/scissors_white.svg',
-      'https://www.transparenttextures.com/patterns/dark-wood.png',
-      'https://www.transparenttextures.com/patterns/parchment.png'
-    ];
-
-    let loadedCount = 0;
-    const totalAssets = assets.length;
-
-    const checkAllLoaded = () => {
-      loadedCount++;
-      if (loadedCount >= totalAssets) {
-        setIsPreloaded(true);
-        addLog('All assets preloaded successfully', 'success');
-      }
-    };
-
-    assets.forEach(src => {
-      const img = new Image();
-      img.src = src;
-      img.onload = checkAllLoaded;
-      img.onerror = () => {
-        addLog(`Failed to preload asset: ${src}`, 'error');
-        checkAllLoaded();
+  const preloadImages = (urls: string[]): Promise<void> => {
+    return new Promise((resolve) => {
+      if (urls.length === 0) return resolve();
+      let loadedCount = 0;
+      const checkAllLoaded = () => {
+        loadedCount++;
+        if (loadedCount >= urls.length) resolve();
       };
+      urls.forEach(src => {
+        const img = new Image();
+        img.src = src;
+        img.onload = checkAllLoaded;
+        img.onerror = checkAllLoaded;
+      });
+      setTimeout(resolve, 3000); // Fallback timeout
     });
+  };
 
-    // Fallback if loading takes too long
-    const timeout = setTimeout(() => {
-      setIsPreloaded(true);
-    }, 3000);
+  const withPreload = async (action: () => void, targetView?: 'game' | 'store' | 'profile' | 'initial') => {
+    setIsPreloaded(false);
+    let assetsToLoad: string[] = [];
+    
+    if (targetView === 'initial') {
+      assetsToLoad.push(
+        'https://www.transparenttextures.com/patterns/dark-wood.png',
+        'https://www.transparenttextures.com/patterns/parchment.png'
+      );
+    }
 
-    return () => clearTimeout(timeout);
+    const currentTheme = getTheme(selectedThemeId);
+    if (!targetView || targetView === 'game' || targetView === 'initial') {
+      assetsToLoad.push(
+        getCardImagePath(currentTheme, 'rock'),
+        getCardImagePath(currentTheme, 'paper'),
+        getCardImagePath(currentTheme, 'scissors')
+      );
+      if (currentTheme.backIcon && currentTheme.backIcon !== 'default') {
+        assetsToLoad.push(currentTheme.backIcon);
+      }
+    }
+
+    if (targetView === 'store' || targetView === 'profile' || targetView === 'initial') {
+      THEMES.forEach(t => {
+        assetsToLoad.push(getCardImagePath(t, 'rock'));
+      });
+    }
+
+    await preloadImages(assetsToLoad);
+    setIsPreloaded(true);
+    action();
   };
 
   useEffect(() => {
-    preloadAssets();
+    withPreload(() => {}, 'initial');
   }, []);
 
   // Refs to avoid stale closures in listeners
@@ -228,20 +240,24 @@ const App = () => {
   const handleNativeMessage = (data: any) => {
     if (data.type === 'ROOM_READY') {
       addLog('Room is ready, joining...', 'success');
-      setAppState('inRoom');
-      if (Capacitor.isNativePlatform()) {
-        LocalServer.getStatus().then(status => {
-          if (status.role === 'HOST') {
-            sendNativeAction({ type: 'host_join', playerName: playerNameRef.current });
-          } else if (status.role === 'CLIENT') {
-            sendNativeAction({ type: 'join_game', playerName: playerNameRef.current });
-          }
-        }).catch(e => addLog(`Failed to get status: ${e}`, 'error'));
-      }
+      withPreload(() => {
+        setAppState('inRoom');
+        if (Capacitor.isNativePlatform()) {
+          LocalServer.getStatus().then(status => {
+            if (status.role === 'HOST') {
+              sendNativeAction({ type: 'host_join', playerName: playerNameRef.current });
+            } else if (status.role === 'CLIENT') {
+              sendNativeAction({ type: 'join_game', playerName: playerNameRef.current });
+            }
+          }).catch(e => addLog(`Failed to get status: ${e}`, 'error'));
+        }
+      }, 'game');
     } else if (data.type === 'room_state') {
-      setRoomState(data.state);
-      setRoomId(data.state.id);
-      setAppState('inRoom');
+      withPreload(() => {
+        setRoomState(data.state);
+        setRoomId(data.state.id);
+        setAppState('inRoom');
+      }, 'game');
     } else if (data.type === 'room_created') {
       setRoomId(data.roomId);
     } else if (data.type === 'error_msg') {
@@ -435,7 +451,6 @@ const App = () => {
   };
 
   const joinGame = async () => {
-    preloadAssets();
     if (!isValidIp(ipInput.trim())) {
       setErrorMsg('يرجى إدخال عنوان IP صحيح');
       return;
@@ -444,149 +459,155 @@ const App = () => {
       setErrorMsg('ميزة الانضمام متاحة فقط في تطبيق الأندرويد');
       return;
     }
-    try {
-      await LocalServer.connectToServer({ ip: ipInput.trim(), port: LAN_PORT });
-      // Native will send ROOM_READY after handshake is verified
-    } catch (e) {
-      addLog(`Join failed: ${e}`, 'error');
-      setErrorMsg('فشل الاتصال بالسيرفر');
-    }
+    withPreload(async () => {
+      try {
+        await LocalServer.connectToServer({ ip: ipInput.trim(), port: LAN_PORT });
+        // Native will send ROOM_READY after handshake is verified
+      } catch (e) {
+        addLog(`Join failed: ${e}`, 'error');
+        setErrorMsg('فشل الاتصال بالسيرفر');
+      }
+    }, 'game');
   };
 
   const createOnlineRoom = () => {
-    preloadAssets();
-    if (Capacitor.isNativePlatform()) {
-      const serverUrl = window.location.hostname;
-      LocalServer.connectToServer({ ip: serverUrl, port: 3000 })
-        .then(() => {
-          const checkVerified = setInterval(() => {
-            if (Capacitor.isNativePlatform()) {
-              LocalServer.getStatus().then(status => {
-                if (status.status === 'VERIFIED') {
-                  clearInterval(checkVerified);
-                  sendNativeAction({ type: 'create_room', playerName: playerName.trim() });
-                }
-              }).catch(() => clearInterval(checkVerified));
+    withPreload(() => {
+      if (Capacitor.isNativePlatform()) {
+        const serverUrl = window.location.hostname;
+        LocalServer.connectToServer({ ip: serverUrl, port: 3000 })
+          .then(() => {
+            const checkVerified = setInterval(() => {
+              if (Capacitor.isNativePlatform()) {
+                LocalServer.getStatus().then(status => {
+                  if (status.status === 'VERIFIED') {
+                    clearInterval(checkVerified);
+                    sendNativeAction({ type: 'create_room', playerName: playerName.trim() });
+                  }
+                }).catch(() => clearInterval(checkVerified));
+              } else {
+                clearInterval(checkVerified);
+              }
+            }, 500);
+          })
+          .catch(e => setErrorMsg('تعذر الاتصال بالخادم'));
+      } else {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}`;
+        const newWs = new WebSocket(wsUrl);
+        
+        newWs.onopen = () => {
+          addLog('Connected to online server', 'success');
+          setWs(newWs);
+          setConnectionStatus('CONNECTION_VERIFIED');
+          newWs.send(JSON.stringify({ type: 'create_room', playerName: playerName.trim() }));
+        };
+        
+        newWs.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.type === 'PING') {
+              newWs.send(JSON.stringify({ type: 'PONG' }));
             } else {
-              clearInterval(checkVerified);
+              handleNativeMessage(data);
             }
-          }, 500);
-        })
-        .catch(e => setErrorMsg('تعذر الاتصال بالخادم'));
-    } else {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}`;
-      const newWs = new WebSocket(wsUrl);
-      
-      newWs.onopen = () => {
-        addLog('Connected to online server', 'success');
-        setWs(newWs);
-        setConnectionStatus('CONNECTION_VERIFIED');
-        newWs.send(JSON.stringify({ type: 'create_room', playerName: playerName.trim() }));
-      };
-      
-      newWs.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.type === 'PING') {
-            newWs.send(JSON.stringify({ type: 'PONG' }));
-          } else {
-            handleNativeMessage(data);
+          } catch (e) {
+            addLog(`Received non-JSON message: ${event.data}`, 'info');
           }
-        } catch (e) {
-          addLog(`Received non-JSON message: ${event.data}`, 'info');
-        }
-      };
-      
-      newWs.onerror = (error) => {
-        addLog(`WebSocket error`, 'error');
-        setErrorMsg('فشل الاتصال بالسيرفر');
-      };
-      
-      newWs.onclose = () => {
-        addLog('Disconnected from online server', 'info');
-        setWs(null);
-        setConnectionStatus('DISCONNECTED');
-      };
-    }
+        };
+        
+        newWs.onerror = (error) => {
+          addLog(`WebSocket error`, 'error');
+          setErrorMsg('فشل الاتصال بالسيرفر');
+        };
+        
+        newWs.onclose = () => {
+          addLog('Disconnected from online server', 'info');
+          setWs(null);
+          setConnectionStatus('DISCONNECTED');
+        };
+      }
+    }, 'game');
   };
 
   const joinOnlineRoom = () => {
     if (!roomIdInput.trim()) return;
-    if (Capacitor.isNativePlatform()) {
-      const serverUrl = window.location.hostname;
-      LocalServer.connectToServer({ ip: serverUrl, port: 3000 })
-        .then(() => {
-          const checkVerified = setInterval(() => {
-            if (Capacitor.isNativePlatform()) {
-              LocalServer.getStatus().then(status => {
-                if (status.status === 'VERIFIED') {
-                  clearInterval(checkVerified);
-                  sendNativeAction({ type: 'join_room', roomId: roomIdInput.trim().toUpperCase(), playerName: playerName.trim() });
-                }
-              }).catch(() => clearInterval(checkVerified));
+    withPreload(() => {
+      if (Capacitor.isNativePlatform()) {
+        const serverUrl = window.location.hostname;
+        LocalServer.connectToServer({ ip: serverUrl, port: 3000 })
+          .then(() => {
+            const checkVerified = setInterval(() => {
+              if (Capacitor.isNativePlatform()) {
+                LocalServer.getStatus().then(status => {
+                  if (status.status === 'VERIFIED') {
+                    clearInterval(checkVerified);
+                    sendNativeAction({ type: 'join_room', roomId: roomIdInput.trim().toUpperCase(), playerName: playerName.trim() });
+                  }
+                }).catch(() => clearInterval(checkVerified));
+              } else {
+                clearInterval(checkVerified);
+              }
+            }, 500);
+          })
+          .catch(e => setErrorMsg('تعذر الاتصال بالخادم'));
+      } else {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}`;
+        const newWs = new WebSocket(wsUrl);
+        
+        newWs.onopen = () => {
+          addLog('Connected to online server', 'success');
+          setWs(newWs);
+          setConnectionStatus('CONNECTION_VERIFIED');
+          newWs.send(JSON.stringify({ type: 'join_room', roomId: roomIdInput.trim().toUpperCase(), playerName: playerName.trim() }));
+        };
+        
+        newWs.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.type === 'PING') {
+              newWs.send(JSON.stringify({ type: 'PONG' }));
             } else {
-              clearInterval(checkVerified);
+              handleNativeMessage(data);
             }
-          }, 500);
-        })
-        .catch(e => setErrorMsg('تعذر الاتصال بالخادم'));
-    } else {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}`;
-      const newWs = new WebSocket(wsUrl);
-      
-      newWs.onopen = () => {
-        addLog('Connected to online server', 'success');
-        setWs(newWs);
-        setConnectionStatus('CONNECTION_VERIFIED');
-        newWs.send(JSON.stringify({ type: 'join_room', roomId: roomIdInput.trim().toUpperCase(), playerName: playerName.trim() }));
-      };
-      
-      newWs.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.type === 'PING') {
-            newWs.send(JSON.stringify({ type: 'PONG' }));
-          } else {
-            handleNativeMessage(data);
+          } catch (e) {
+            addLog(`Received non-JSON message: ${event.data}`, 'info');
           }
-        } catch (e) {
-          addLog(`Received non-JSON message: ${event.data}`, 'info');
-        }
-      };
-      
-      newWs.onerror = (error) => {
-        addLog(`WebSocket error`, 'error');
-        setErrorMsg('فشل الاتصال بالسيرفر');
-      };
-      
-      newWs.onclose = () => {
-        addLog('Disconnected from online server', 'info');
-        setWs(null);
-        setConnectionStatus('DISCONNECTED');
-      };
-    }
+        };
+        
+        newWs.onerror = (error) => {
+          addLog(`WebSocket error`, 'error');
+          setErrorMsg('فشل الاتصال بالسيرفر');
+        };
+        
+        newWs.onclose = () => {
+          addLog('Disconnected from online server', 'info');
+          setWs(null);
+          setConnectionStatus('DISCONNECTED');
+        };
+      }
+    }, 'game');
   };
 
   const createBotRoom = () => {
-    preloadAssets();
-    const newRoom: Room = {
-      id: OFFLINE_BOT_ID,
-      isBotRoom: true,
-      players: {
-        me: { id: 'me', name: playerName.trim() || 'لاعب', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false },
-        bot: { id: 'bot', name: 'الكمبيوتر', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: true }
-      },
-      gameState: 'playing',
-      round: 1,
-      roundWinner: null,
-      timeLeft: 15
-    };
-    setRoomState(newRoom);
-    setRoomId(OFFLINE_BOT_ID);
-    setAppState('inRoom');
-    addLog('Started offline game against bot', 'success');
+    withPreload(() => {
+      const newRoom: Room = {
+        id: OFFLINE_BOT_ID,
+        isBotRoom: true,
+        players: {
+          me: { id: 'me', name: playerName.trim() || 'لاعب', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false },
+          bot: { id: 'bot', name: 'الكمبيوتر', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: true }
+        },
+        gameState: 'playing',
+        round: 1,
+        roundWinner: null,
+        timeLeft: 15
+      };
+      setRoomState(newRoom);
+      setRoomId(OFFLINE_BOT_ID);
+      setAppState('inRoom');
+      addLog('Started offline game against bot', 'success');
+    }, 'game');
   };
 
   const copyRoomId = () => {
@@ -720,23 +741,25 @@ const App = () => {
 
   const playAgain = () => {
     if (!roomId) return;
-    if (roomId === OFFLINE_BOT_ID) {
-      const newState: Room = {
-        id: OFFLINE_BOT_ID,
-        isBotRoom: true,
-        players: {
-          me: { id: 'me', name: playerName.trim() || 'لاعب', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false },
-          bot: { id: 'bot', name: 'الكمبيوتر', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: true }
-        },
-        gameState: 'playing',
-        round: 1,
-        roundWinner: null,
-        timeLeft: 15
-      };
-      setRoomState(newState);
-    } else {
-      sendNativeAction({ type: 'play_again', roomId });
-    }
+    withPreload(() => {
+      if (roomId === OFFLINE_BOT_ID) {
+        const newState: Room = {
+          id: OFFLINE_BOT_ID,
+          isBotRoom: true,
+          players: {
+            me: { id: 'me', name: playerName.trim() || 'لاعب', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false },
+            bot: { id: 'bot', name: 'الكمبيوتر', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: true }
+          },
+          gameState: 'playing',
+          round: 1,
+          roundWinner: null,
+          timeLeft: 15
+        };
+        setRoomState(newState);
+      } else {
+        sendNativeAction({ type: 'play_again', roomId });
+      }
+    }, 'game');
   };
 
   const leaveRoom = async () => {
@@ -782,7 +805,7 @@ const App = () => {
     return null;
   };
 
-  const buyTheme = (theme: Theme) => {
+  const buyTheme = (theme: ThemeConfig) => {
     if (ownedThemes.includes(theme.id)) return;
     if (coins >= theme.price) {
       const newCoins = coins - theme.price;
@@ -1014,13 +1037,13 @@ const App = () => {
                     </button>
                     <div className="flex w-[90%] mx-auto gap-3">
                       <button
-                        onClick={() => setAppState('store')}
+                        onClick={() => withPreload(() => setAppState('store'), 'store')}
                         className="flex-1 py-3 bg-game-dark/50 hover:bg-game-dark text-game-cream rounded-lg font-display text-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 border border-white/10"
                       >
                         <ShoppingCart className="w-5 h-5" /> المتجر
                       </button>
                       <button
-                        onClick={() => setAppState('profile')}
+                        onClick={() => withPreload(() => setAppState('profile'), 'profile')}
                         className="flex-1 py-3 bg-game-dark/50 hover:bg-game-dark text-game-cream rounded-lg font-display text-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 border border-white/10"
                       >
                         <User className="w-5 h-5" /> حسابي
@@ -1242,8 +1265,8 @@ const App = () => {
               return (
                 <div key={theme.id} className="bg-game-dark/40 p-4 rounded-xl border border-white/10 flex items-center justify-between backdrop-blur-sm">
                   <div className="flex items-center gap-4">
-                    <div className={`w-16 h-20 rounded-lg flex items-center justify-center ${theme.colors.bg} ${theme.colors.shadow} ${theme.colors.border}`}>
-                      <img src={theme.images.rock} alt="theme preview" className="w-10 h-10 object-contain" />
+                    <div className={`w-16 h-20 rounded-lg flex items-center justify-center ${theme.frontColor}`}>
+                      <img src={getCardImagePath(theme, 'rock')} alt="theme preview" className="w-10 h-10 object-contain" />
                     </div>
                     <div>
                       <h3 className="text-xl font-display text-game-offwhite">{theme.name}</h3>
@@ -1326,8 +1349,8 @@ const App = () => {
                         <ShieldCheck className="w-3 h-3 text-game-dark" />
                       </div>
                     )}
-                    <div className={`w-16 h-24 rounded-lg flex items-center justify-center ${theme.colors.bg} ${theme.colors.shadow} ${theme.colors.border}`}>
-                      <img src={theme.images.rock} alt="theme preview" className="w-10 h-10 object-contain" />
+                    <div className={`w-16 h-24 rounded-lg flex items-center justify-center ${theme.frontColor}`}>
+                      <img src={getCardImagePath(theme, 'rock')} alt="theme preview" className="w-10 h-10 object-contain" />
                     </div>
                     <span className="font-display text-game-offwhite text-sm text-center">{theme.name}</span>
                   </button>
@@ -1702,10 +1725,10 @@ const App = () => {
 
 const CardCount = ({ type, count, theme }: { type: CardType, count: number, theme: ThemeConfig }) => (
   <div className="flex-1 flex flex-col items-center gap-1 sm:gap-2">
-    <div className={`w-full max-w-[4.5rem] aspect-[3/4] rounded-lg flex items-center justify-center transition-all duration-300 overflow-hidden ${count > 0 ? `${theme.colors.bg} ${theme.colors.shadow} ${theme.colors.border} opacity-100` : 'bg-game-dark opacity-20 grayscale'}`}>
-      <img src={theme.images[type]} alt={CARD_NAMES[type]} className={`w-2/3 h-2/3 object-contain rotate-180 ${theme.id === 'classic-black' ? 'drop-shadow-md' : ''}`} referrerPolicy="no-referrer" />
+    <div className={`w-full max-w-[4.5rem] aspect-[3/4] rounded-lg flex items-center justify-center transition-all duration-300 overflow-hidden ${count > 0 ? `${theme.frontColor} opacity-100` : 'bg-game-dark opacity-20 grayscale'}`}>
+      <img src={getCardImagePath(theme, type)} alt={CARD_NAMES[type]} className={`w-2/3 h-2/3 object-contain rotate-180 ${theme.id === 'classic-black' ? 'drop-shadow-md' : ''}`} referrerPolicy="no-referrer" />
     </div>
-    <div className={`w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center text-[10px] sm:text-xs font-display rounded-md transition-colors duration-300 ${count > 0 ? `${theme.colors.bg} ${theme.colors.shadow} ${theme.colors.text}` : 'bg-game-dark text-game-cream/20'}`}>
+    <div className={`w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center text-[10px] sm:text-xs font-display rounded-md transition-colors duration-300 ${count > 0 ? `${theme.counterBgColor} ${theme.counterTextColor}` : 'bg-game-dark text-game-cream/20'}`}>
       {count}
     </div>
   </div>
@@ -1721,11 +1744,11 @@ const PlayableCard = ({ type, count, onClick, disabled, theme }: { type: CardTyp
       disabled={!isAvailable || disabled}
       className={`flex-1 relative flex flex-col items-center gap-1 sm:gap-2 transition-all duration-300 ${(!isAvailable || disabled) ? 'opacity-40 cursor-not-allowed grayscale' : 'cursor-pointer'}`}
     >
-      <div className={`w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center text-[10px] sm:text-xs font-bold rounded-md shadow-md transition-colors ${isAvailable ? `${theme.colors.bg} ${theme.colors.shadow} ${theme.colors.text}` : 'bg-game-dark text-game-cream/20'}`}>
+      <div className={`w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center text-[10px] sm:text-xs font-bold rounded-md shadow-md transition-colors ${isAvailable ? `${theme.counterBgColor} ${theme.counterTextColor}` : 'bg-game-dark text-game-cream/20'}`}>
         {count}
       </div>
-      <div className={`w-full max-w-[5.5rem] aspect-[3/4] rounded-lg flex items-center justify-center transition-all duration-300 overflow-hidden ${isAvailable && !disabled ? `${theme.colors.bg} ${theme.colors.shadow} ${theme.colors.border}` : 'bg-game-dark'}`}>
-        <img src={theme.images[type]} alt={CARD_NAMES[type]} className={`w-2/3 h-2/3 object-contain ${theme.id === 'classic-black' ? 'drop-shadow-xl' : ''}`} referrerPolicy="no-referrer" />
+      <div className={`w-full max-w-[5.5rem] aspect-[3/4] rounded-lg flex items-center justify-center transition-all duration-300 overflow-hidden ${isAvailable && !disabled ? `${theme.frontColor}` : 'bg-game-dark'}`}>
+        <img src={getCardImagePath(theme, type)} alt={CARD_NAMES[type]} className={`w-2/3 h-2/3 object-contain ${theme.id === 'classic-black' ? 'drop-shadow-xl' : ''}`} referrerPolicy="no-referrer" />
       </div>
       <span className="text-[10px] sm:text-xs font-display text-game-cream tracking-wider">{CARD_NAMES[type]}</span>
     </motion.button>
@@ -1763,10 +1786,10 @@ const PlayedCard = ({ type, isPlayer, winner, faceDown = false, theme }: { type:
     >
       {/* Front Side */}
       <div 
-        className={`absolute inset-0 rounded-lg flex items-center justify-center overflow-hidden backface-hidden ${theme.colors.bg} ${theme.colors.border} ${
+        className={`absolute inset-0 rounded-lg flex items-center justify-center overflow-hidden backface-hidden ${theme.frontColor} ${
           winner 
             ? 'scale-105 transition-transform'
-            : (isPlayer || theme.id === 'classic-white' ? `${theme.colors.shadow}` : '')
+            : ''
         }`}
         style={{ 
           backfaceVisibility: 'hidden',
@@ -1782,22 +1805,26 @@ const PlayedCard = ({ type, isPlayer, winner, faceDown = false, theme }: { type:
           />
         )}
         <span className="relative z-10">
-          <img src={theme.images[type]} alt={CARD_NAMES[type]} className={`w-10 h-10 sm:w-16 sm:h-16 object-contain drop-shadow-2xl ${!isPlayer ? 'rotate-180' : ''}`} referrerPolicy="no-referrer" />
+          <img src={getCardImagePath(theme, type)} alt={CARD_NAMES[type]} className={`w-10 h-10 sm:w-16 sm:h-16 object-contain drop-shadow-2xl ${!isPlayer ? 'rotate-180' : ''}`} referrerPolicy="no-referrer" />
         </span>
       </div>
 
       {/* Back Side (Face Down) */}
       <div 
-        className={`absolute inset-0 rounded-lg flex items-center justify-center ${theme.backColors.bg} ${theme.colors.shadow} ${theme.colors.border}`}
+        className={`absolute inset-0 rounded-lg flex items-center justify-center ${theme.backColor}`}
         style={{ 
           backfaceVisibility: 'hidden',
           transform: 'rotateY(180deg)'
         }}
       >
         <div className={`relative w-full h-full rounded-sm flex items-center justify-center`}>
-          <div className={`w-8 h-8 sm:w-12 sm:h-12 rounded-full flex items-center justify-center ${theme.backColors.iconOuter}`}>
-            <div className={`w-4 h-4 sm:w-6 sm:h-6 rounded-full ${theme.backColors.iconInner}`} />
-          </div>
+          {theme.backIcon === 'default' ? (
+            <div className={`w-8 h-8 sm:w-12 sm:h-12 rounded-full flex items-center justify-center ${isPlayer ? 'bg-black/10' : 'bg-white/10'}`}>
+              <div className={`w-4 h-4 sm:w-6 sm:h-6 rounded-full ${isPlayer ? 'bg-black/10' : 'bg-white/10'}`} />
+            </div>
+          ) : (
+            <img src={theme.backIcon} alt="card back" className="w-1/2 h-1/2 object-contain opacity-50" />
+          )}
         </div>
       </div>
     </motion.div>

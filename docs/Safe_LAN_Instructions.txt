@@ -1,0 +1,55 @@
+You are working on a multiplayer card game with:
+- Bot mode
+- LAN multiplayer (Wi-Fi)
+
+Your task: Modify the UI / design as requested.
+
+IMPORTANT:
+
+You are ALLOWED to freely update UI, layout, styling, and components.
+
+However, you MUST ensure that LAN multiplayer remains fully functional and synchronized.
+
+LAN SAFETY REQUIREMENTS (CRITICAL):
+
+1. All UI interactions must continue triggering the SAME existing actions.
+2. No UI change should block, delay, or alter action dispatch.
+3. No UI state should replace or conflict with game state.
+4. Any visual change must reflect correctly for BOTH players in LAN.
+5. No desync must occur between host and client.
+
+MULTIPLAYER CONSISTENCY:
+
+- Any action triggered by UI must behave IDENTICALLY in:
+• Bot mode
+• LAN multiplayer
+
+- If a feature appears visually:
+→ It must reflect correctly for the opponent in LAN (if applicable)
+
+LAN VERIFICATION (MANDATORY BEFORE FINAL ANSWER):
+
+Simulate this mentally:
+
+1. Player A clicks (or interacts)
+2. Action is dispatched
+3. Action is sent over LAN
+4. Player B receives it
+5. Both players see the SAME result
+
+If ANY step might fail → STOP and explain the risk.
+
+DESYNC CHECK:
+
+- Could this UI change cause mismatch between players?
+- Could timing, animation, or local state affect synchronization?
+- Is anything handled only locally but not through actions?
+
+If YES → fix it or warn before proceeding.
+
+OUTPUT RULES:
+
+- Show the updated UI code
+- Briefly explain why LAN will still work correctly
+- Mention explicitly:
+“LAN safe: YES” or “LAN risk detected: [reason]” 

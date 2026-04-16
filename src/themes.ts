@@ -3,115 +3,91 @@ export type CardType = 'rock' | 'paper' | 'scissors';
 export interface ThemeConfig {
   id: string;
   name: string;
+  path: string;
   price: number;
+  frontColor: string;
+  backColor: string;
+  backIcon: string;
+  counterBgColor: string;
+  counterTextColor: string;
   isDefault?: boolean;
-  images: {
-    rock: string;
-    paper: string;
-    scissors: string;
-  };
-  colors: {
-    bg: string;
-    text: string;
-    border: string;
-    shadow: string;
-  };
-  backColors: {
-    bg: string;
-    iconOuter: string;
-    iconInner: string;
-  };
 }
 
 export const THEMES: ThemeConfig[] = [
   {
     id: 'classic-white',
     name: 'كلاسيكي (أبيض)',
+    path: '/classic/black',
     price: 0,
     isDefault: true,
-    images: {
-      rock: '/classic/rock_black.svg',
-      paper: '/classic/paper_black.svg',
-      scissors: '/classic/scissors_black.svg',
-    },
-    colors: {
-      bg: 'bg-[#E8E8E8]',
-      text: 'text-[#121212]',
-      border: '',
-      shadow: ''
-    },
-    backColors: {
-      bg: 'bg-[#E5E5E5]',
-      iconOuter: 'bg-black/10',
-      iconInner: 'bg-black/10'
-    }
+    frontColor: 'bg-[#E8E8E8]',
+    backColor: 'bg-[#E5E5E5]',
+    backIcon: 'default',
+    counterBgColor: 'bg-[#E8E8E8]',
+    counterTextColor: 'text-[#121212]'
   },
   {
     id: 'classic-black',
     name: 'كلاسيكي (أسود)',
+    path: '/classic/white',
     price: 0,
     isDefault: true,
-    images: {
-      rock: '/classic/rock_white.svg',
-      paper: '/classic/paper_white.svg',
-      scissors: '/classic/scissors_white.svg',
-    },
-    colors: {
-      bg: 'bg-[#121212]',
-      text: 'text-[#F5F5F5]',
-      border: '',
-      shadow: ''
-    },
-    backColors: {
-      bg: 'bg-[#0A0A0A]',
-      iconOuter: 'bg-white/10',
-      iconInner: 'bg-white/10'
-    }
+    frontColor: 'bg-[#121212]',
+    backColor: 'bg-[#0A0A0A]',
+    backIcon: 'default',
+    counterBgColor: 'bg-[#121212]',
+    counterTextColor: 'text-[#F5F5F5]'
   },
   {
     id: 'gold-edition',
     name: 'النسخة الذهبية',
-    price: 500,
-    images: {
-      rock: '/classic/rock_black.svg',
-      paper: '/classic/paper_black.svg',
-      scissors: '/classic/scissors_black.svg',
-    },
-    colors: {
-      bg: 'bg-gradient-to-br from-[#FFD700] to-[#B8860B]',
-      text: 'text-[#121212]',
-      border: '',
-      shadow: ''
-    },
-    backColors: {
-      bg: 'bg-gradient-to-br from-[#B8860B] to-[#8B6508]',
-      iconOuter: 'bg-black/20',
-      iconInner: 'bg-black/20'
-    }
+    path: '/classic/black',
+    price: 0,
+    frontColor: 'bg-gradient-to-br from-[#FFD700] to-[#B8860B]',
+    backColor: 'bg-gradient-to-br from-[#B8860B] to-[#8B6508]',
+    backIcon: 'default',
+    counterBgColor: 'bg-[#FFD700]',
+    counterTextColor: 'text-[#121212]'
   },
   {
     id: 'ruby-edition',
     name: 'النسخة الياقوتية',
-    price: 750,
-    images: {
-      rock: '/classic/rock_white.svg',
-      paper: '/classic/paper_white.svg',
-      scissors: '/classic/scissors_white.svg',
-    },
-    colors: {
-      bg: 'bg-gradient-to-br from-[#8B0000] to-[#4A0000]',
-      text: 'text-[#F5F5F5]',
-      border: '',
-      shadow: ''
-    },
-    backColors: {
-      bg: 'bg-gradient-to-br from-[#4A0000] to-[#2A0000]',
-      iconOuter: 'bg-white/20',
-      iconInner: 'bg-white/20'
-    }
+    path: '/classic/white',
+    price: 0,
+    frontColor: 'bg-gradient-to-br from-[#8B0000] to-[#4A0000]',
+    backColor: 'bg-gradient-to-br from-[#4A0000] to-[#2A0000]',
+    backIcon: 'default',
+    counterBgColor: 'bg-[#8B0000]',
+    counterTextColor: 'text-[#F5F5F5]'
+  },
+  {
+    id: 'robots-ai',
+    name: 'ذكاء إصطناعي',
+    path: '/robots_ai',
+    price: 0,
+    frontColor: 'bg-[#00125F]',
+    backColor: 'bg-[#00125F]',
+    backIcon: 'default',
+    counterBgColor: 'bg-[#00125F]',
+    counterTextColor: 'text-[#F5F5F5]'
+  },
+  {
+    id: 'toyes',
+    name: 'العاب أطفال',
+    path: '/toyes',
+    price: 0,
+    frontColor: 'bg-[#BC4A00]',
+    backColor: 'bg-[#BC4A00]',
+    backIcon: 'default',
+    counterBgColor: 'bg-[#BC4A00]',
+    counterTextColor: 'text-[#F5F5F5]'
   }
 ];
 
 export const getTheme = (id: string): ThemeConfig => {
   return THEMES.find(t => t.id === id) || THEMES[0];
+};
+
+export const getCardImagePath = (theme: ThemeConfig, type: CardType): string => {
+  return `${theme.path}/${type}.svg`;
 };
