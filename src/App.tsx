@@ -1970,10 +1970,20 @@ const PlayedCard = memo(({ type, isPlayer, winner, faceDown = false, theme }: { 
       className="relative w-16 sm:w-24 aspect-[3/4] z-10"
     >
       {/* Front Side */}
+      {winner && !faceDown && (
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5, delay: 0.4 }}
+          className="absolute -inset-4 z-0"
+        >
+          <div className={`absolute inset-0 ${theme.frontColor} blur-2xl opacity-40 animate-glow-pulse`} />
+        </motion.div>
+      )}
       <div 
         className={`absolute inset-0 rounded-lg flex items-center justify-center overflow-hidden backface-hidden ${theme.frontColor} ${
           winner 
-            ? 'scale-105 transition-transform'
+            ? 'scale-110 transition-transform ring-2 ring-white/40 shadow-[0_0_30px_rgba(255,255,255,0.2)]'
             : ''
         }`}
         style={{ 
@@ -1981,9 +1991,6 @@ const PlayedCard = memo(({ type, isPlayer, winner, faceDown = false, theme }: { 
           visibility: faceDown ? 'hidden' : 'visible'
         }}
       >
-        {winner && (
-          <div className="absolute inset-0 bg-white/20 animate-glow-pulse shadow-[0_0_30px_rgba(255,255,255,0.5)]" />
-        )}
         <span className="relative z-10">
           <img src={getCardImagePath(theme, type)} alt={CARD_NAMES[type]} className={`w-10 h-10 sm:w-16 sm:h-16 object-contain drop-shadow-2xl ${!isPlayer ? 'rotate-180' : ''}`} referrerPolicy="no-referrer" />
         </span>
