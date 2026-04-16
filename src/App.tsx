@@ -368,22 +368,24 @@ const App = () => {
       setIsPreloaded(false);
       let assetsToLoad: string[] = [];
       
-      // Collect all themes
+      // Collect all themes from the current THEMES array
+      // This makes it dynamic: adding a theme to the array automatically preloads it
       THEMES.forEach(theme => {
         assetsToLoad.push(
-          getCardImagePath(theme, 'rock'),
-          getCardImagePath(theme, 'paper'),
-          getCardImagePath(theme, 'scissors')
+          `${theme.path}/rock.${theme.extension || 'svg'}`,
+          `${theme.path}/paper.${theme.extension || 'svg'}`,
+          `${theme.path}/scissors.${theme.extension || 'svg'}`
         );
         if (theme.backIcon && theme.backIcon !== 'default' && theme.backIcon.startsWith('/')) {
           assetsToLoad.push(theme.backIcon);
         }
       });
       
-      const uniqueUrls = Array.from(new Set(assetsToLoad)).filter(url => !url.startsWith('data:'));
-      if (uniqueUrls.length > 0) {
-        await Promise.all(uniqueUrls.map(url => assetPreloader.preloadImage(url)));
-      }
+      const uniqueUrls = Array.from(new Set(assetsToLoad));
+      assetPreloader.setTotal(uniqueUrls.length);
+      
+      // Execute all Base64 conversions in parallel
+      await Promise.all(uniqueUrls.map(url => assetPreloader.preloadImage(url)));
 
       setIsPreloaded(true);
       action();

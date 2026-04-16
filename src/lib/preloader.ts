@@ -1,8 +1,9 @@
 /**
  * AssetPreloader Utility
  * 
- * Fetches images, converts them to Blob ObjectURLs, and serves them instantly.
- * This guarantees ZERO network delay when React mounts the images.
+ * Fetches images and converts them to Base64 Data URIs at runtime.
+ * This ensures "In-Memory" instant access similar to hardcoded strings,
+ * but allows for dynamic discovery of new themes.
  */
 
 class AssetPreloader {
@@ -19,16 +20,23 @@ class AssetPreloader {
     try {
       const response = await fetch(url);
       const blob = await response.blob();
-      const objectUrl = URL.createObjectURL(blob);
       
-      this.cache.set(url, objectUrl);
+      // Convert Blob to Base64 String (Data URI)
+      const dataUri = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+      
+      this.cache.set(url, dataUri);
       this.loadedCount++;
       this.updateProgress();
       
-      return objectUrl;
+      return dataUri;
     } catch (e) {
-      console.warn(`Failed to preload blob for: ${url}`, e);
-      return url; // Fallback to raw URL
+      console.warn(`Failed to dynamically encode asset: ${url}`, e);
+      return url; // Fallback to raw URL if encoding fails
     }
   }
 
@@ -44,6 +52,7 @@ class AssetPreloader {
 
   public setTotal(total: number) {
     this.totalToLoad = total;
+    this.loadedCount = 0;
   }
 
   public setOnProgress(cb: (progress: number) => void) {

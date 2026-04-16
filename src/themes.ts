@@ -1,5 +1,4 @@
 import { assetPreloader } from './lib/preloader';
-import { AssetMap } from './assetMap';
 
 export type CardType = 'rock' | 'paper' | 'scissors';
 
@@ -74,10 +73,10 @@ export const getTheme = (id: string): ThemeConfig => {
 export const getCardImagePath = (theme: ThemeConfig, type: CardType): string => {
   const ext = theme.extension || 'svg';
   const rawUrl = `${theme.path}/${type}.${ext}`;
-  return AssetMap[rawUrl] || assetPreloader.getCachedUrl(rawUrl);
+  return assetPreloader.getCachedUrl(rawUrl);
 };
 
 export const getThemeBackIcon = (theme: ThemeConfig): string => {
   if (theme.backIcon === 'default') return 'default';
-  return AssetMap[theme.backIcon] || assetPreloader.getCachedUrl(theme.backIcon);
+  return assetPreloader.getCachedUrl(theme.backIcon);
 };
