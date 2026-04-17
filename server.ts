@@ -228,8 +228,8 @@ async function startServer() {
 
         if (message.type === 'create_bot_room') {
           const roomId = 'BOT_' + Math.random().toString(36).substring(2, 8).toUpperCase();
-          const me: Player = { id: socketId, name: message.playerName || 'لاعب', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false, ws };
-          const bot: Player = { id: 'bot', name: 'الكمبيوتر', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: true, ws: ws }; // Bot uses same ws but it's fine
+          const me: Player = { id: socketId, name: message.playerName || 'لاعب', themeId: message.themeId || 'normal', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false, ws };
+          const bot: Player = { id: 'bot', name: 'الكمبيوتر', themeId: 'robot', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: true, ws: ws }; // Bot uses same ws but it's fine
           
           rooms[roomId] = {
             id: roomId,
@@ -249,7 +249,7 @@ async function startServer() {
           rooms[roomId] = {
             id: roomId,
             players: {
-              [socketId]: { id: socketId, name: message.playerName || 'لاعب', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false, ws }
+              [socketId]: { id: socketId, name: message.playerName || 'لاعب', themeId: message.themeId || 'normal', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false, ws }
             },
             gameState: 'waiting',
             round: 1,
@@ -259,8 +259,31 @@ async function startServer() {
           broadcastToRoom(roomId, { type: 'room_state', state: rooms[roomId] });
         }
 
+        if (message.type === 'host_join') {
+          const roomId = Object.keys(rooms).find(rid => rooms[rid].players[socketId]);
+          if (roomId) {
+            const room = rooms[roomId];
+            room.players[socketId].name = message.playerName || room.players[socketId].name;
+            room.players[socketId].themeId = message.themeId || 'normal';
+            broadcastToRoom(roomId, { type: 'room_state', state: room });
+          }
+        }
+
+        if (message.type === 'join_game') {
+          const rid = Object.keys(rooms).find(r => rooms[r].gameState === 'waiting');
+          if (!rid) {
+            ws.send(JSON.stringify({ type: 'error_msg', msg: 'لا يوجد غرفة بانتظار لاعبين' }));
+            return;
+          }
+          const room = rooms[rid];
+          room.players[socketId] = { id: socketId, name: message.playerName || 'لاعب', themeId: message.themeId || 'normal', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false, ws };
+          room.gameState = 'playing';
+          startRoundTimer(rid);
+          broadcastToRoom(rid, { type: 'room_state', state: room });
+        }
+
         if (message.type === 'join_room') {
-          const { roomId, playerName } = message;
+          const { roomId, playerName, themeId } = message;
           const room = rooms[roomId];
           if (!room) {
             ws.send(JSON.stringify({ type: 'error_msg', msg: 'الغرفة غير موجودة' }));
@@ -271,7 +294,7 @@ async function startServer() {
             return;
           }
 
-          room.players[socketId] = { id: socketId, name: playerName || 'لاعب', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false, ws };
+          room.players[socketId] = { id: socketId, name: playerName || 'لاعب', themeId: themeId || 'normal', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false, ws };
           room.gameState = 'playing';
           startRoundTimer(roomId);
           broadcastToRoom(roomId, { type: 'room_state', state: room });

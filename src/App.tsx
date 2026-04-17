@@ -32,6 +32,7 @@ interface Deck {
 interface Player {
   id: string;
   name: string;
+  themeId: string;
   deck: Deck;
   score: number;
   choice: CardType | null;
@@ -415,12 +416,14 @@ const App = () => {
   const roomIdRef = useRef<string | null>(null);
   const roomStateRef = useRef<Room | null>(null);
   const playerNameRef = useRef<string>('');
+  const selectedThemeIdRef = useRef<string>('normal');
 
   useEffect(() => {
     roomIdRef.current = roomId;
     roomStateRef.current = roomState;
     playerNameRef.current = playerName;
-  }, [roomId, roomState, playerName]);
+    selectedThemeIdRef.current = selectedThemeId;
+  }, [roomId, roomState, playerName, selectedThemeId]);
 
   useEffect(() => {
     if (roomState?.gameState === 'gameOver' && roomId === OFFLINE_BOT_ID) {
@@ -549,9 +552,9 @@ const App = () => {
       if (Capacitor.isNativePlatform()) {
         LocalServer.getStatus().then(status => {
           if (status.role === 'HOST') {
-            sendNativeAction({ type: 'host_join', playerName: playerNameRef.current });
+            sendNativeAction({ type: 'host_join', playerName: playerNameRef.current, themeId: selectedThemeIdRef.current });
           } else if (status.role === 'CLIENT') {
-            sendNativeAction({ type: 'join_game', playerName: playerNameRef.current });
+            sendNativeAction({ type: 'join_game', playerName: playerNameRef.current, themeId: selectedThemeIdRef.current });
           }
         }).catch(e => addLog(`Failed to get status: ${e}`, 'error'));
       }
@@ -599,6 +602,17 @@ const App = () => {
     };
     initCapacitor();
   }, [isPreloaded]);
+
+  useEffect(() => {
+    if (appState === 'inRoom' && role === 'CLIENT' && connectionStatus === 'DISCONNECTED') {
+      addLog('Leaving room because connection disconnected from host', 'info');
+      setRoomId(null);
+      setRoomState(null);
+      setAppState('menu');
+      setMenuTab('local');
+      setRole('NONE');
+    }
+  }, [appState, role, connectionStatus]);
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -1556,7 +1570,7 @@ const App = () => {
   const me = roomState.players[myId];
   const opponentId = Object.keys(roomState.players).find(id => id !== myId);
   const opponent = opponentId ? roomState.players[opponentId] : null;
-  const opponentTheme = roomState.isBotRoom ? getTheme('robot') : getTheme('normal');
+  const opponentTheme = roomState.isBotRoom ? getTheme('robot') : (opponent?.themeId ? getTheme(opponent.themeId) : getTheme('normal'));
 
   if (!opponent && !roomState.isBotRoom && roomState.gameState !== 'waiting') return (
     <div className="h-[100dvh] wood-texture">

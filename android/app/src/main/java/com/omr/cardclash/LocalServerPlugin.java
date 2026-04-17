@@ -240,6 +240,29 @@ public class LocalServerPlugin extends Plugin {
             if (connectedClients.isEmpty()) {
                 connectionStatus = "CONNECTING"; // Back to waiting
             }
+            
+            if (roomState != null) {
+                try {
+                    String socketId = conn.getRemoteSocketAddress().toString();
+                    JSONObject players = roomState.getJSONObject("players");
+                    if (players.has(socketId)) {
+                        players.remove(socketId);
+                        roomState.put("gameState", "waiting");
+                        
+                        JSONObject error = new JSONObject();
+                        error.put("type", "error_msg");
+                        error.put("msg", "الخصم غادر الغرفة");
+                        server.broadcast(error.toString());
+                        
+                        JSObject data = new JSObject();
+                        data.put("message", error.toString());
+                        notifyListeners("onMessageReceived", data);
+                        
+                        broadcastRoomState();
+                    }
+                } catch (Exception e) { e.printStackTrace(); }
+            }
+            
             updateStatusToReact();
         }
 
@@ -277,6 +300,7 @@ public class LocalServerPlugin extends Plugin {
 
             if (type.equals("host_join")) {
                 String playerName = json.optString("playerName", "المضيف");
+                String themeId = json.optString("themeId", "normal");
                 roomState = new JSONObject();
                 roomState.put("id", "LOCAL_HOST");
                 roomState.put("gameState", "waiting");
@@ -287,6 +311,7 @@ public class LocalServerPlugin extends Plugin {
                 JSONObject host = new JSONObject();
                 host.put("id", "host");
                 host.put("name", playerName);
+                host.put("themeId", themeId);
                 host.put("deck", new JSONObject(INITIAL_DECK));
                 host.put("score", 0);
                 host.put("choice", JSONObject.NULL);
@@ -300,6 +325,7 @@ public class LocalServerPlugin extends Plugin {
             if (type.equals("join_game")) {
                 if (roomState == null) return;
                 String playerName = json.optString("playerName", "لاعب");
+                String themeId = json.optString("themeId", "normal");
                 JSONObject players = roomState.getJSONObject("players");
                 
                 if (players.length() >= 2) {
@@ -313,6 +339,7 @@ public class LocalServerPlugin extends Plugin {
                 JSONObject player = new JSONObject();
                 player.put("id", socketId);
                 player.put("name", playerName);
+                player.put("themeId", themeId);
                 player.put("deck", new JSONObject(INITIAL_DECK));
                 player.put("score", 0);
                 player.put("choice", JSONObject.NULL);
@@ -592,6 +619,15 @@ public class LocalServerPlugin extends Plugin {
             connectionStatus = "DISCONNECTED";
             logToReact("Disconnected from server: " + reason, "error");
             updateStatusToReact();
+            
+            try {
+                JSONObject error = new JSONObject();
+                error.put("type", "error_msg");
+                error.put("msg", "الاستضافة أغلقت اللعبة أو لسبب ما انقطع الاتصال");
+                JSObject data = new JSObject();
+                data.put("message", error.toString());
+                notifyListeners("onMessageReceived", data);
+            } catch (Exception e) {}
         }
 
         @Override
