@@ -109,18 +109,19 @@ const CardPack = memo(({ theme, isOwned, isSelected, onClick, onSelect }: {
   onClick: () => void,
   onSelect: () => void
 }) => (
-  <div 
+  <motion.div 
+    whileTap={{ scale: 0.94 }}
     onClick={onClick}
-    className="relative flex flex-col items-center cursor-pointer active:scale-95 transition-transform duration-200 gpu-accelerated"
+    className="relative flex flex-col items-center cursor-pointer gpu-accelerated"
   >
     <div className="relative w-24 sm:w-32 aspect-[3/4] mb-4">
       <div className={`absolute inset-0 rounded-xl shadow-sm transform -rotate-3 translate-x-[-4%] translate-y-[2%] opacity-20 ${theme.frontColor} border border-white/5`} />
-      <div className={`absolute inset-0 rounded-xl shadow-md flex flex-col items-center justify-center p-2 ${theme.frontColor} border-2 ${isSelected ? 'border-game-slate ring-2 ring-game-slate/20' : 'border-white/20'} z-10 overflow-hidden transition-[transform,border-color] duration-300 gpu-accelerated`}>
+      <div className={`absolute inset-0 rounded-xl shadow-md flex flex-col items-center justify-center p-2 ${theme.frontColor} border-2 ${isSelected ? 'border-game-slate ring-2 ring-game-slate/20' : 'border-white/20'} z-10 overflow-hidden gpu-accelerated`}>
         <img src={getCardImagePath(theme, 'rock')} alt="rock" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
         {isOwned && (
           <div 
             onClick={(e) => { e.stopPropagation(); onSelect(); }}
-            className={`absolute top-2 right-2 p-1 rounded-full shadow-sm z-20 transition-[transform,background-color] duration-300 ${
+            className={`absolute top-2 right-2 p-1 rounded-full shadow-sm z-20 transition-all duration-100 ${
             isSelected 
               ? 'bg-game-slate text-white ring-1 ring-white/30 scale-105' 
               : 'bg-slate-900/80 text-white hover:bg-slate-700 hover:scale-110 border border-white/10'
@@ -133,14 +134,18 @@ const CardPack = memo(({ theme, isOwned, isSelected, onClick, onSelect }: {
     <div className="text-center">
       <h3 className="text-lg font-display text-game-offwhite leading-tight">{theme.name}</h3>
       {!isOwned ? (
-        <p className="text-yellow-500 font-display text-sm">{theme.price} 🪙</p>
+        theme.id === 'robot' ? (
+          <p className="text-game-teal font-display text-[10px] sm:text-xs">فز على الروبوت لفتحه</p>
+        ) : (
+          <p className="text-yellow-500 font-display text-sm">{theme.price} 🪙</p>
+        )
       ) : (
         <p className={`text-xs font-display ${isSelected ? 'text-game-teal' : 'text-game-offwhite/40'}`}>
           {isSelected ? 'مفعل حالياً' : 'مملوك'}
         </p>
       )}
     </div>
-  </div>
+  </motion.div>
 ));
 
 const PackPreviewModal = memo(({ selectedPack, ownedThemes, selectedThemeId, onBuy, onSelect, onClose }: {
@@ -170,7 +175,8 @@ const PackPreviewModal = memo(({ selectedPack, ownedThemes, selectedThemeId, onB
         </div>
         <div className="flex flex-col sm:flex-row gap-4 w-full max-w-md">
           {ownedThemes.includes(selectedPack.id) ? (
-            <button 
+            <motion.button 
+              whileTap={{ scale: 0.95 }}
               onClick={() => onSelect(selectedPack.id)}
               disabled={selectedThemeId === selectedPack.id}
               className={`flex-1 py-4 rounded-xl font-display text-2xl transition-all shadow-lg ${
@@ -180,18 +186,27 @@ const PackPreviewModal = memo(({ selectedPack, ownedThemes, selectedThemeId, onB
               }`}
             >
               {selectedThemeId === selectedPack.id ? 'مفعل حالياً' : 'تفعيل الثيم'}
-            </button>
+            </motion.button>
+          ) : selectedPack.id === 'robot' ? (
+            <div className="flex-1 py-4 bg-game-slate/20 text-game-teal rounded-xl font-display text-xl border border-game-teal/30 flex items-center justify-center text-center">
+              فتح عبر الفوز على الروبوت
+            </div>
           ) : (
-            <button 
+            <motion.button 
+              whileTap={{ scale: 0.95 }}
               onClick={() => onBuy(selectedPack)}
               className="flex-1 py-4 bg-game-offwhite hover:bg-white text-black rounded-xl font-display text-2xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-3"
             >
               شراء المجموعة <span className="text-yellow-600">{selectedPack.price} 🪙</span>
-            </button>
+            </motion.button>
           )}
-          <button onClick={onClose} className="flex-1 py-4 bg-game-slate/20 hover:bg-game-slate/40 text-game-offwhite rounded-xl font-display text-2xl transition-all active:scale-95 border border-white/10">
+          <motion.button 
+            whileTap={{ scale: 0.95 }}
+            onClick={onClose} 
+            className="flex-1 py-4 bg-game-slate/20 hover:bg-game-slate/40 text-game-offwhite rounded-xl font-display text-2xl transition-all border border-white/10"
+          >
             إغلاق
-          </button>
+          </motion.button>
         </div>
       </div>
     </div>
@@ -341,10 +356,10 @@ const App = () => {
   const [appState, setAppState] = useState<'nameEntry' | 'menu' | 'inRoom' | 'store' | 'profile'>('nameEntry');
   const [menuTab, setMenuTab] = useState<'main' | 'online' | 'local'>('main');
   const [playerName, setPlayerName] = useState(() => localStorage.getItem('cardClashPlayerName') || '');
-  const [selectedThemeId, setSelectedThemeId] = useState(() => localStorage.getItem('cardClashTheme') || 'bone');
+  const [selectedThemeId, setSelectedThemeId] = useState(() => localStorage.getItem('cardClashTheme') || 'normal');
   const [ownedThemes, setOwnedThemes] = useState<string[]>(() => {
     const saved = localStorage.getItem('cardClashOwnedThemes');
-    return saved ? JSON.parse(saved) : ['bone', 'robot'];
+    return saved ? JSON.parse(saved) : ['normal'];
   });
   const [coins, setCoins] = useState(() => parseInt(localStorage.getItem('cardClashCoins') || '1000'));
   const [ipInput, setIpInput] = useState('');
@@ -408,6 +423,19 @@ const App = () => {
   }, [roomId, roomState, playerName]);
 
   useEffect(() => {
+    if (roomState?.gameState === 'gameOver' && roomId === OFFLINE_BOT_ID) {
+      const me = roomState.players.me;
+      const bot = roomState.players.bot;
+      if (me.score > bot.score && !ownedThemes.includes('robot')) {
+        const newOwned = [...ownedThemes, 'robot'];
+        setOwnedThemes(newOwned);
+        localStorage.setItem('cardClashOwnedThemes', JSON.stringify(newOwned));
+        addLog('تهانينا! لقد فتحت ثيم الروبوت بالفوز على الكمبيوتر!', 'success');
+      }
+    }
+  }, [roomState?.gameState, roomId, ownedThemes]);
+
+  useEffect(() => {
     if (errorMsg) {
       const timer = setTimeout(() => {
         setErrorMsg(null);
@@ -421,6 +449,37 @@ const App = () => {
       setAppState('menu');
     }
   }, []);
+
+  // Bot independent thinking logic
+  useEffect(() => {
+    if (roomState?.id === OFFLINE_BOT_ID && roomState.gameState === 'playing' && !roomState.players.bot.choice) {
+      const thinkingTime = 600 + Math.random() * 1200; // Bot thinks for 0.6s - 1.8s
+      const timer = setTimeout(() => {
+        setRoomState(prev => {
+          if (!prev || prev.id !== OFFLINE_BOT_ID || prev.gameState !== 'playing' || prev.players.bot.choice) return prev;
+          
+          const nextState = JSON.parse(JSON.stringify(prev));
+          const bot = nextState.players.bot;
+          const me = nextState.players.me;
+          
+          const availableBotCards = (Object.keys(bot.deck) as CardType[]).filter(t => bot.deck[t] > 0);
+          if (availableBotCards.length === 0) return prev;
+          
+          const botChoice = availableBotCards[Math.floor(Math.random() * availableBotCards.length)];
+          bot.choice = botChoice;
+          bot.deck[botChoice] -= 1;
+          
+          // If player already chose, reveal immediately
+          if (me.choice) {
+            setTimeout(() => handleOfflineReveal(nextState), 0);
+          }
+          
+          return nextState;
+        });
+      }, thinkingTime);
+      return () => clearTimeout(timer);
+    }
+  }, [roomState?.gameState, roomState?.round, roomState?.id]);
 
   const addLog = (msg: string, type: 'info' | 'error' | 'success' = 'info') => {
     const newLog: LogEntry = { id: Date.now() + Math.random(), time: new Date().toLocaleTimeString(), msg, type };
@@ -715,18 +774,23 @@ const App = () => {
       const serverUrl = window.location.hostname;
       LocalServer.connectToServer({ ip: serverUrl, port: 3000 })
         .then(() => {
-          const checkVerified = setInterval(() => {
-            if (Capacitor.isNativePlatform()) {
-              LocalServer.getStatus().then(status => {
-                if (status.status === 'VERIFIED') {
-                  clearInterval(checkVerified);
-                  sendNativeAction({ type: 'create_room', playerName: playerName.trim() });
-                }
-              }).catch(() => clearInterval(checkVerified));
-            } else {
-              clearInterval(checkVerified);
-            }
-          }, 500);
+          // Check immediately first, then interval
+          const checkStatus = async () => {
+             const status = await LocalServer.getStatus();
+             if (status.status === 'VERIFIED') {
+               sendNativeAction({ type: 'create_room', playerName: playerName.trim() });
+               return true;
+             }
+             return false;
+          };
+          
+          checkStatus().then(done => {
+             if (done) return;
+             const intervalId = setInterval(async () => {
+               if (await checkStatus()) clearInterval(intervalId);
+             }, 100); // Faster polling
+             setTimeout(() => clearInterval(intervalId), 10000); // Safety timeout
+          });
         })
         .catch(e => setErrorMsg('تعذر الاتصال بالخادم'));
     } else {
@@ -773,18 +837,22 @@ const App = () => {
       const serverUrl = window.location.hostname;
       LocalServer.connectToServer({ ip: serverUrl, port: 3000 })
         .then(() => {
-          const checkVerified = setInterval(() => {
-            if (Capacitor.isNativePlatform()) {
-              LocalServer.getStatus().then(status => {
-                if (status.status === 'VERIFIED') {
-                  clearInterval(checkVerified);
-                  sendNativeAction({ type: 'join_room', roomId: roomIdInput.trim().toUpperCase(), playerName: playerName.trim() });
-                }
-              }).catch(() => clearInterval(checkVerified));
-            } else {
-              clearInterval(checkVerified);
-            }
-          }, 500);
+          const checkStatus = async () => {
+             const status = await LocalServer.getStatus();
+             if (status.status === 'VERIFIED') {
+               sendNativeAction({ type: 'join_room', roomId: roomIdInput.trim().toUpperCase(), playerName: playerName.trim() });
+               return true;
+             }
+             return false;
+          };
+          
+          checkStatus().then(done => {
+             if (done) return;
+             const intervalId = setInterval(async () => {
+               if (await checkStatus()) clearInterval(intervalId);
+             }, 100);
+             setTimeout(() => clearInterval(intervalId), 10000);
+          });
         })
         .catch(e => setErrorMsg('تعذر الاتصال بالخادم'));
     } else {
@@ -856,32 +924,24 @@ const App = () => {
     if (!roomState || roomState.gameState !== 'playing' || !roomId) return;
     
     if (roomId === OFFLINE_BOT_ID) {
-      const newState = { ...roomState };
-      const me = newState.players.me;
-      if (me.choice || me.deck[choice] <= 0) return;
-      
-      me.choice = choice;
-      me.deck[choice] -= 1;
-      setRoomState({ ...newState });
-      
-      // Bot choice with delay to simulate waiting
-      setTimeout(() => {
-        setRoomState(prevState => {
-          if (!prevState || prevState.gameState !== 'playing') return prevState;
-          const nextState = JSON.parse(JSON.stringify(prevState)); // Deep copy
-          const bot = nextState.players.bot;
-          if (bot.choice) return prevState;
-          
-          const availableBotCards = (Object.keys(bot.deck) as CardType[]).filter(t => bot.deck[t] > 0);
-          const botChoice = availableBotCards[Math.floor(Math.random() * availableBotCards.length)];
-          bot.choice = botChoice;
-          bot.deck[botChoice] -= 1;
-          
-          handleOfflineReveal(nextState);
-          return nextState;
-        });
-      }, 1000 + Math.random() * 1000);
-      
+      setRoomState(prevState => {
+        if (!prevState || prevState.gameState !== 'playing') return prevState;
+        const nextState = JSON.parse(JSON.stringify(prevState));
+        const me = nextState.players.me;
+        const bot = nextState.players.bot;
+        
+        if (me.choice || me.deck[choice] <= 0) return prevState;
+        
+        me.choice = choice;
+        me.deck[choice] -= 1;
+        
+        // If bot already chose, reveal immediately
+        if (bot.choice) {
+          setTimeout(() => handleOfflineReveal(nextState), 0);
+        }
+        
+        return nextState;
+      });
     } else {
       // Optimistic update for LAN
       const newState = { ...roomState };
@@ -1076,9 +1136,10 @@ const App = () => {
     <AnimatePresence>
       {errorMsg && (
         <motion.div
-          initial={{ opacity: 0, y: -50, scale: 0.9 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: -50, scale: 0.9 }}
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.95 }}
+          transition={{ duration: 0.1, ease: 'easeOut' }}
           className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] w-[90%] max-w-md"
         >
           <div className="bg-game-red text-game-cream px-4 py-3 rounded-lg shadow-2xl flex items-center justify-between gap-3 border-4 border-game-dark">
@@ -1117,9 +1178,10 @@ const App = () => {
       <AnimatePresence>
         {showDebug && (
           <motion.div 
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 50 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.1 }}
             className="fixed inset-0 z-[70] wood-texture flex flex-col p-4 font-mono text-xs"
             dir="ltr"
           >
@@ -1234,31 +1296,35 @@ const App = () => {
                     >
                       <Globe className="w-6 h-6" /> لعب عبر الإنترنت (قريباً)
                     </button>
-                    <button
+                    <motion.button
+                      whileTap={{ scale: 0.94 }}
                       onClick={() => setMenuTab('local')}
-                      className="w-[90%] mx-auto py-4 bg-game-offwhite hover:bg-white text-black rounded-lg font-display text-2xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-3"
+                      className="w-[90%] mx-auto py-4 bg-game-offwhite hover:bg-white text-black rounded-lg font-display text-2xl shadow-lg transition-all flex items-center justify-center gap-3"
                     >
                       <Home className="w-6 h-6" /> شبكة محلية (IP)
-                    </button>
-                    <button
+                    </motion.button>
+                    <motion.button
+                      whileTap={{ scale: 0.94 }}
                       onClick={createBotRoom}
-                      className="w-[90%] mx-auto py-4 bg-game-slate hover:bg-slate-600 text-white rounded-lg font-display text-2xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-3"
+                      className="w-[90%] mx-auto py-4 bg-game-slate hover:bg-slate-600 text-white rounded-lg font-display text-2xl shadow-lg transition-all flex items-center justify-center gap-3"
                     >
                       <Bot className="w-6 h-6" /> ضد الكمبيوتر
-                    </button>
+                    </motion.button>
                     <div className="flex w-[90%] mx-auto gap-3">
-                      <button
+                      <motion.button
+                        whileTap={{ scale: 0.94 }}
                         onClick={() => setAppState('store')}
-                        className="flex-1 py-3 bg-game-dark/50 hover:bg-game-dark text-game-cream rounded-lg font-display text-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 border border-white/10"
+                        className="flex-1 py-3 bg-game-dark/50 hover:bg-game-dark text-game-cream rounded-lg font-display text-xl shadow-lg transition-all flex items-center justify-center gap-2 border border-white/10"
                       >
                         <ShoppingCart className="w-5 h-5" /> المتجر
-                      </button>
-                      <button
+                      </motion.button>
+                      <motion.button
+                        whileTap={{ scale: 0.94 }}
                         onClick={() => setAppState('profile')}
-                        className="flex-1 py-3 bg-game-dark/50 hover:bg-game-dark text-game-cream rounded-lg font-display text-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 border border-white/10"
+                        className="flex-1 py-3 bg-game-dark/50 hover:bg-game-dark text-game-cream rounded-lg font-display text-xl shadow-lg transition-all flex items-center justify-center gap-2 border border-white/10"
                       >
                         <User className="w-5 h-5" /> حسابي
-                      </button>
+                      </motion.button>
                     </div>
                   </div>
                 )}
@@ -1490,7 +1556,7 @@ const App = () => {
   const me = roomState.players[myId];
   const opponentId = Object.keys(roomState.players).find(id => id !== myId);
   const opponent = opponentId ? roomState.players[opponentId] : null;
-  const opponentTheme = roomState.isBotRoom ? getTheme('robot') : getTheme('bone');
+  const opponentTheme = roomState.isBotRoom ? getTheme('robot') : getTheme('normal');
 
   if (!opponent && !roomState.isBotRoom && roomState.gameState !== 'waiting') return (
     <div className="h-[100dvh] wood-texture">
@@ -1781,14 +1847,14 @@ const App = () => {
         </div>
 
         {/* Player Area */}
-        <div className="flex-1 flex flex-col justify-center px-10 py-2 bg-[#F5F5F5]/5">
+        <div className="flex-1 flex flex-col justify-center px-6 py-2 bg-[#F5F5F5]/5">
           <div className="flex justify-start items-end mb-2">
             <div className="text-right">
               <h2 className="text-white/80 text-xs sm:text-sm mb-1 font-display tracking-widest">{me.name}</h2>
               <div className="text-4xl sm:text-5xl font-display text-white drop-shadow-lg">{me.score}</div>
             </div>
           </div>
-          <div className="flex justify-between gap-3 sm:gap-6">
+          <div className="flex justify-between gap-3 sm:gap-6 px-2">
              <PlayableCard type="rock" count={me.deck.rock} onClick={() => playCard('rock')} disabled={roomState.gameState !== 'playing' || me.choice !== null} theme={currentTheme} />
              <PlayableCard type="paper" count={me.deck.paper} onClick={() => playCard('paper')} disabled={roomState.gameState !== 'playing' || me.choice !== null} theme={currentTheme} />
              <PlayableCard type="scissors" count={me.deck.scissors} onClick={() => playCard('scissors')} disabled={roomState.gameState !== 'playing' || me.choice !== null} theme={currentTheme} />
@@ -1802,34 +1868,67 @@ const App = () => {
   );
 }
 
-const CardCount = memo(({ type, count, theme }: { type: CardType, count: number, theme: ThemeConfig }) => (
-  <div className="flex-1 flex flex-col items-center gap-1 sm:gap-2 gpu-accelerated">
-    <div className={`w-full max-w-[4.5rem] aspect-[3/4] rounded-lg flex items-center justify-center transition-transform duration-300 gpu-accelerated overflow-hidden ${count > 0 ? `${theme.frontColor} opacity-100` : 'bg-game-dark opacity-20 grayscale'}`}>
-      <img src={getCardImagePath(theme, type)} alt={CARD_NAMES[type]} className="w-2/3 h-2/3 object-contain" referrerPolicy="no-referrer" />
+const CardCount = memo(({ type, count, theme }: { type: CardType, count: number, theme: ThemeConfig }) => {
+  const isAvailable = count > 0;
+  return (
+    <div className="flex-1 flex flex-col items-center gap-1 sm:gap-2 gpu-accelerated">
+      <motion.div 
+        animate={{ 
+          opacity: isAvailable ? 1 : 0.15,
+          filter: isAvailable ? 'grayscale(0%)' : 'grayscale(100%)',
+          scale: isAvailable ? 1 : 0.94
+        }}
+        transition={{ duration: 0.05, ease: "linear" }}
+        className={`w-full max-w-[4.5rem] aspect-[3/4] rounded-lg flex items-center justify-center gpu-accelerated overflow-hidden ${isAvailable ? `${theme.frontColor}` : 'bg-game-dark'}`}
+      >
+        <img src={getCardImagePath(theme, type)} alt={CARD_NAMES[type]} className="w-2/3 h-2/3 object-contain" referrerPolicy="no-referrer" />
+      </motion.div>
+      <motion.div 
+        animate={{ 
+          opacity: isAvailable ? 1 : 0.25,
+          backgroundColor: isAvailable ? 'rgba(0,0,0,0)' : 'rgba(0,0,0,0.4)'
+        }}
+        transition={{ duration: 0.05 }}
+        className={`w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center text-[10px] sm:text-xs font-display rounded-md ${isAvailable ? `${theme.counterBgColor} ${theme.counterTextColor}` : 'text-game-cream/20'}`}
+      >
+        {count}
+      </motion.div>
     </div>
-    <div className={`w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center text-[10px] sm:text-xs font-display rounded-md transition-colors duration-300 ${count > 0 ? `${theme.counterBgColor} ${theme.counterTextColor}` : 'bg-game-dark text-game-cream/20'}`}>
-      {count}
-    </div>
-  </div>
-));
+  );
+});
 
 const PlayableCard = memo(({ type, count, onClick, disabled, theme }: { type: CardType, count: number, onClick: () => void, disabled: boolean, theme: ThemeConfig }) => {
   const isAvailable = count > 0;
+  const isDull = !isAvailable || disabled;
+  
   return (
     <motion.button
-      whileHover={isAvailable && !disabled ? { y: -4, scale: 1.05 } : {}}
-      whileTap={isAvailable && !disabled ? { scale: 0.95 } : {}}
-      onClick={onClick}
-      disabled={!isAvailable || disabled}
-      className={`flex-1 relative flex flex-col items-center gap-1 sm:gap-2 transition-transform duration-300 gpu-accelerated ${(!isAvailable || disabled) ? 'opacity-40 cursor-not-allowed grayscale' : 'cursor-pointer'}`}
+      whileHover={isAvailable && !disabled ? { y: -6, scale: 1.05, filter: 'brightness(1.15)' } : {}}
+      whileTap={isAvailable && !disabled ? { scale: 0.88, y: 0 } : {}}
+      animate={{ 
+        opacity: isDull ? 0.3 : 1,
+        filter: isDull ? 'grayscale(100%)' : 'grayscale(0%)',
+        scale: isDull ? 0.94 : 1,
+        y: 0
+      }}
+      transition={{ 
+        type: 'spring',
+        stiffness: 1000,
+        damping: 50,
+        mass: 0.3,
+        opacity: { duration: 0.04 },
+        filter: { duration: 0.04 }
+      }}
+      onClick={isAvailable && !disabled ? onClick : undefined}
+      className={`flex-1 relative flex flex-col items-center gap-1 sm:gap-2 gpu-accelerated ${isDull ? 'cursor-not-allowed' : 'cursor-pointer'}`}
     >
-      <div className={`w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center text-[10px] sm:text-xs font-bold rounded-md shadow-md transition-colors ${isAvailable ? `${theme.counterBgColor} ${theme.counterTextColor}` : 'bg-game-dark text-game-cream/20'}`}>
+      <div className={`w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center text-[10px] sm:text-xs font-bold rounded-md shadow-md ${isAvailable ? `${theme.counterBgColor} ${theme.counterTextColor}` : 'bg-game-dark text-game-cream/20'}`}>
         {count}
       </div>
-      <div className={`w-full max-w-[5.5rem] aspect-[3/4] rounded-lg flex items-center justify-center transition-all duration-300 overflow-hidden ${isAvailable && !disabled ? `${theme.frontColor}` : 'bg-game-dark'}`}>
+      <div className={`w-full max-w-[7.5rem] aspect-[3/4] rounded-lg flex items-center justify-center overflow-hidden ${isAvailable && !disabled ? `${theme.frontColor}` : 'bg-game-dark'}`}>
         <img src={getCardImagePath(theme, type)} alt={CARD_NAMES[type]} className="w-2/3 h-2/3 object-contain" referrerPolicy="no-referrer" />
       </div>
-      <span className="text-[10px] sm:text-xs font-display text-game-cream tracking-wider">{CARD_NAMES[type]}</span>
+      <span className="text-[10px] sm:text-xs font-display text-game-cream tracking-wider uppercase opacity-80">{CARD_NAMES[type]}</span>
     </motion.button>
   );
 });
@@ -1838,11 +1937,11 @@ const PlayedCard = memo(({ type, isPlayer, winner, faceDown = false, theme }: { 
   return (
     <motion.div
       initial={{ 
-        scale: 0.3, 
+        scale: 0.5, 
         opacity: 0, 
-        x: isPlayer ? 0 : 0, 
-        y: isPlayer ? 500 : -500, 
-        rotate: isPlayer ? -30 : 30,
+        x: 0, 
+        y: isPlayer ? 400 : -400, 
+        rotate: isPlayer ? -20 : 20,
         rotateY: 180
       }}
       animate={{ 
@@ -1855,10 +1954,10 @@ const PlayedCard = memo(({ type, isPlayer, winner, faceDown = false, theme }: { 
       }}
       transition={{ 
         type: 'spring', 
-        damping: 20, 
-        stiffness: 90,
-        mass: 1.1,
-        rotateY: { duration: 0.6, type: 'tween', ease: 'easeInOut' }
+        damping: 25, 
+        stiffness: 150,
+        mass: 0.8,
+        rotateY: { duration: 0.4, type: 'tween', ease: 'easeInOut' }
       }}
       style={{ transformStyle: 'preserve-3d' }}
       className="relative w-16 sm:w-24 aspect-[3/4] z-10"
@@ -1871,7 +1970,7 @@ const PlayedCard = memo(({ type, isPlayer, winner, faceDown = false, theme }: { 
           transition={{ duration: 0.5, delay: 0.4 }}
           className="absolute -inset-4 z-0"
         >
-          <div className={`absolute inset-0 ${theme.frontColor} blur-2xl opacity-40 animate-glow-pulse`} />
+          <div className={`absolute inset-0 ${theme.frontColor} blur-2xl opacity-20 animate-glow-pulse`} />
         </motion.div>
       )}
       <div 
