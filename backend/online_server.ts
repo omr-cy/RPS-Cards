@@ -247,6 +247,7 @@ async function startServer() {
       }
       res.json(user);
     } catch (e) {
+      console.error(e);
       res.status(500).json({ error: 'Failed to load profile' });
     }
   });
@@ -259,6 +260,7 @@ async function startServer() {
       saveDB(db);
       res.json(db.users[req.params.id]);
     } catch (e) {
+      console.error(e);
       res.status(500).json({ error: 'Failed to save profile' });
     }
   });
