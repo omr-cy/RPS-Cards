@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef, memo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Bot, Globe, Home, Trophy, XCircle, Minus, Copy, Edit2, Bug, X, Wifi, ShieldCheck, Activity, ShoppingCart, User } from 'lucide-react';
+import { Bot, Globe, Home, Trophy, XCircle, Minus, Copy, Edit2, Bug, X, Wifi, ShieldCheck, Activity, ShoppingCart, User, LogIn, LogOut, Swords, PlusCircle } from 'lucide-react';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { SplashScreen } from '@capacitor/splash-screen';
 import { Network } from '@capacitor/network';
 import { registerPlugin, Capacitor } from '@capacitor/core';
+import { useAuth } from './contexts/AuthContext';
 
 export interface LocalServerPlugin {
   startServer(options: { port: number }): Promise<{ status: string; port: number }>;
@@ -271,7 +272,7 @@ const StoreView = memo(({ coins, ownedThemes, selectedThemeId, onBack, onBuy, on
   </div>
 ));
 
-const ProfileView = memo(({ playerName, coins, ownedThemes, selectedThemeId, onBack, onSelect, selectedPack, setSelectedPack, onEditName }: {
+const ProfileView = memo(({ playerName, coins, ownedThemes, selectedThemeId, onBack, onSelect, selectedPack, setSelectedPack, onEditName, onLogout, user }: {
   playerName: string,
   coins: number,
   ownedThemes: string[],
@@ -280,7 +281,9 @@ const ProfileView = memo(({ playerName, coins, ownedThemes, selectedThemeId, onB
   onSelect: (id: string) => void,
   selectedPack: ThemeConfig | null,
   setSelectedPack: (theme: ThemeConfig | null) => void,
-  onEditName: () => void
+  onEditName: () => void,
+  onLogout?: () => void,
+  user?: any
 }) => (
   <div 
     dir="rtl" 
@@ -301,11 +304,23 @@ const ProfileView = memo(({ playerName, coins, ownedThemes, selectedThemeId, onB
     </div>
 
     <div className="max-w-4xl mx-auto w-full space-y-8 pb-20">
-      <div className="bg-game-dark/80 p-6 rounded-xl border border-white/10 flex items-center gap-6">
-        <div className="w-20 h-20 rounded-full bg-game-dark/80 border-2 border-game-offwhite/20 flex items-center justify-center">
-          <User className="w-10 h-10 text-game-offwhite/50" />
+      <div className="bg-game-dark/80 p-6 rounded-xl border border-white/10 flex items-center gap-6 relative">
+        {user && onLogout && (
+          <button 
+            onClick={onLogout}
+            className="absolute top-4 left-4 p-2 bg-game-red/20 text-game-red hover:bg-game-red/40 rounded-lg text-sm font-display transition-colors flex items-center gap-2"
+          >
+            <LogOut className="w-4 h-4" /> تسجيل الخروج
+          </button>
+        )}
+        <div className="w-20 h-20 rounded-full bg-game-dark/80 border-2 border-game-offwhite/20 flex items-center justify-center overflow-hidden">
+          {user?.photoURL ? (
+            <img src={user.photoURL} className="w-full h-full object-cover" alt="Avatar" referrerPolicy="no-referrer" />
+          ) : (
+            <User className="w-10 h-10 text-game-offwhite/50" />
+          )}
         </div>
-        <div className="flex-1">
+        <div className="flex-1 mt-6 sm:mt-0">
           <div className="flex items-center gap-3">
             <h2 className="text-2xl font-display text-game-offwhite">{playerName}</h2>
             <button 
@@ -354,25 +369,59 @@ const ProfileView = memo(({ playerName, coins, ownedThemes, selectedThemeId, onB
 ));
 
 const App = () => {
-  const [appState, setAppState] = useState<'nameEntry' | 'menu' | 'inRoom' | 'store' | 'profile'>('nameEntry');
+  const { user, profile, loading, login, logout, updateUserProfile } = useAuth();
+  const [appState, setAppState] = useState<'nameEntry' | 'menu' | 'inRoom' | 'store' | 'profile'>(() => {
+    return localStorage.getItem('cardClashPlayerName') ? 'menu' : 'nameEntry';
+  });
   const [menuTab, setMenuTab] = useState<'main' | 'online' | 'local'>('main');
-  const [playerName, setPlayerName] = useState(() => localStorage.getItem('cardClashPlayerName') || '');
-  const [selectedThemeId, setSelectedThemeId] = useState(() => localStorage.getItem('cardClashTheme') || 'normal');
-  const [ownedThemes, setOwnedThemes] = useState<string[]>(() => {
+
+  const [localPlayerName, setLocalPlayerName] = useState(() => localStorage.getItem('cardClashPlayerName') || '');
+  const [localSelectedThemeId, setLocalSelectedThemeId] = useState(() => localStorage.getItem('cardClashTheme') || 'normal');
+  const [localOwnedThemes, setLocalOwnedThemes] = useState<string[]>(() => {
     const saved = localStorage.getItem('cardClashOwnedThemes');
     return saved ? JSON.parse(saved) : ['normal'];
   });
-  const [coins, setCoins] = useState(() => parseInt(localStorage.getItem('cardClashCoins') || '1000'));
+  const [localCoins, setLocalCoins] = useState(() => parseInt(localStorage.getItem('cardClashCoins') || '100'));
+
+  const playerName = user && profile?.displayName ? profile.displayName : localPlayerName;
+  const selectedThemeId = user && profile?.equippedTheme ? profile.equippedTheme : localSelectedThemeId;
+  const ownedThemes = user && profile?.purchasedThemes ? profile.purchasedThemes : localOwnedThemes;
+  const coins = user && profile?.coins !== undefined ? profile.coins : localCoins;
+
+  const setPlayerName = (name: string) => {
+    setLocalPlayerName(name);
+    localStorage.setItem('cardClashPlayerName', name);
+    if (user) updateUserProfile({ displayName: name });
+  };
+  const setSelectedThemeId = (id: string) => {
+    setLocalSelectedThemeId(id);
+    localStorage.setItem('cardClashTheme', id);
+    if (user) updateUserProfile({ equippedTheme: id });
+  };
+  const setOwnedThemes = (themes: string[]) => {
+    setLocalOwnedThemes(themes);
+    localStorage.setItem('cardClashOwnedThemes', JSON.stringify(themes));
+    if (user) updateUserProfile({ purchasedThemes: themes });
+  };
+  const setCoins = (newCoins: number | ((prev: number) => number)) => {
+    const currentVal = user && profile?.coins !== undefined ? profile.coins : localCoins;
+    const val = typeof newCoins === 'function' ? newCoins(currentVal) : newCoins;
+    setLocalCoins(val);
+    localStorage.setItem('cardClashCoins', val.toString());
+    if (user) updateUserProfile({ coins: val });
+  };
+
   const [ipInput, setIpInput] = useState('');
   const [roomIdInput, setRoomIdInput] = useState('');
   const [roomId, setRoomId] = useState<string | null>(null);
   const [roomState, setRoomState] = useState<Room | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [userIp, setUserIp] = useState<string>('جاري التحميل...');
+  const [isSearching, setIsSearching] = useState(false);
   
   // Native Networking State
   const [connectionStatus, setConnectionStatus] = useState<'DISCONNECTED' | 'CONNECTING' | 'SERVER_STARTED' | 'CONNECTION_VERIFIED'>('DISCONNECTED');
-  const [role, setRole] = useState<'HOST' | 'CLIENT' | 'NONE'>('NONE');
+  const [role, setRole] = useState<'HOST' | 'CLIENT' | 'NONE' | 'ONLINE'>('NONE');
   const [clientCount, setClientCount] = useState(0);
   
   // Debug State
@@ -417,23 +466,39 @@ const App = () => {
   const roomStateRef = useRef<Room | null>(null);
   const playerNameRef = useRef<string>('');
   const selectedThemeIdRef = useRef<string>('normal');
+  const appStateRef = useRef(appState);
+  const roleRef = useRef(role);
 
   useEffect(() => {
     roomIdRef.current = roomId;
     roomStateRef.current = roomState;
     playerNameRef.current = playerName;
     selectedThemeIdRef.current = selectedThemeId;
-  }, [roomId, roomState, playerName, selectedThemeId]);
+    appStateRef.current = appState;
+    roleRef.current = role;
+  }, [roomId, roomState, playerName, selectedThemeId, appState, role]);
 
   useEffect(() => {
-    if (roomState?.gameState === 'gameOver' && roomId === OFFLINE_BOT_ID) {
-      const me = roomState.players.me;
-      const bot = roomState.players.bot;
-      if (me.score > bot.score && !ownedThemes.includes('robot')) {
-        const newOwned = [...ownedThemes, 'robot'];
-        setOwnedThemes(newOwned);
-        localStorage.setItem('cardClashOwnedThemes', JSON.stringify(newOwned));
-        addLog('تهانينا! لقد فتحت ثيم الروبوت بالفوز على الكمبيوتر!', 'success');
+    if (roomState?.gameState === 'gameOver' && roomId) {
+      const me = roomState.players.me || Object.values(roomState.players).find(p => p.id === 'me' || p.name === playerName);
+      const opponent = Object.values(roomState.players).find(p => p.id !== (me ? me.id : ''));
+      
+      if (me && opponent) {
+        if (me.score > opponent.score) {
+          // Reward coins for winning
+          const reward = roomId === OFFLINE_BOT_ID ? 25 : 50; 
+          setCoins(prev => prev + reward);
+          addLog(`لقد فزت وربحت ${reward} 🪙 عملة!`, 'success');
+          
+          // Robot theme unlock logic
+          if (roomId === OFFLINE_BOT_ID && !ownedThemes.includes('robot')) {
+            setOwnedThemes([...ownedThemes, 'robot']);
+            addLog('تهانينا! لقد فتحت ثيم الروبوت بالفوز على الكمبيوتر!', 'success');
+          }
+        } else if (me.score === opponent.score) {
+          setCoins(prev => prev + 10);
+          addLog('تعادل! حصلت على 10 🪙 عملات', 'info');
+        }
       }
     }
   }, [roomState?.gameState, roomId, ownedThemes]);
@@ -572,12 +637,20 @@ const App = () => {
 
   const sendNativeAction = async (action: any) => {
     try {
-      if (Capacitor.isNativePlatform()) {
-        await LocalServer.sendMessage({ message: JSON.stringify(action) });
-      } else if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify(action));
+      if (role === 'ONLINE') {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify(action));
+        } else {
+          addLog('Cannot send action, no WebSocket connection', 'error');
+        }
       } else {
-        addLog(`Action skipped on web (no ws): ${action.type}`, 'info');
+        if (Capacitor.isNativePlatform()) {
+          await LocalServer.sendMessage({ message: JSON.stringify(action) });
+        } else if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify(action));
+        } else {
+          addLog(`Action skipped on web (no ws): ${action.type}`, 'info');
+        }
       }
     } catch (e) {
       addLog(`Failed to send action: ${e}`, 'error');
@@ -783,128 +856,109 @@ const App = () => {
     }
   };
 
-  const createOnlineRoom = () => {
-    if (Capacitor.isNativePlatform()) {
-      const serverUrl = window.location.hostname;
-      LocalServer.connectToServer({ ip: serverUrl, port: 3000 })
-        .then(() => {
-          // Check immediately first, then interval
-          const checkStatus = async () => {
-             const status = await LocalServer.getStatus();
-             if (status.status === 'VERIFIED') {
-               sendNativeAction({ type: 'create_room', playerName: playerName.trim() });
-               return true;
-             }
-             return false;
-          };
-          
-          checkStatus().then(done => {
-             if (done) return;
-             const intervalId = setInterval(async () => {
-               if (await checkStatus()) clearInterval(intervalId);
-             }, 100); // Faster polling
-             setTimeout(() => clearInterval(intervalId), 10000); // Safety timeout
-          });
-        })
-        .catch(e => setErrorMsg('تعذر الاتصال بالخادم'));
-    } else {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}`;
-      const newWs = new WebSocket(wsUrl);
+  const connectToOnline = (): Promise<WebSocket> => {
+    return new Promise((resolve, reject) => {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        resolve(ws);
+        return;
+      }
       
-      newWs.onopen = () => {
-        addLog('Connected to online server', 'success');
-        setWs(newWs);
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const serverUrl = Capacitor.isNativePlatform() 
+        ? 'ws://localhost:3000' // Better default for native assuming local proxy
+        : `${protocol}//${window.location.host}`;
+        
+      addLog(`Connecting to online server: ${serverUrl}`, 'info');
+      const socket = new WebSocket(serverUrl);
+      
+      socket.onopen = () => {
+        addLog('Connected to Cloud Server', 'success');
+        setWs(socket);
         setConnectionStatus('CONNECTION_VERIFIED');
-        newWs.send(JSON.stringify({ type: 'create_room', playerName: playerName.trim() }));
+        resolve(socket);
       };
       
-      newWs.onmessage = (event) => {
+      socket.onerror = (e) => {
+        addLog(`WebSocket error: ${JSON.stringify(e)}`, 'error');
+        setErrorMsg('فشل الاتصال بالسيرفر الأونلاين');
+        reject(e);
+      };
+      
+      socket.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
           if (data.type === 'PING') {
-            newWs.send(JSON.stringify({ type: 'PONG' }));
-          } else {
-            handleNativeMessage(data);
+            socket.send(JSON.stringify({ type: 'PONG' }));
+            return;
           }
-        } catch (e) {
+          handleOnlineMessage(data);
+        } catch(err) {
           addLog(`Received non-JSON message: ${event.data}`, 'info');
         }
       };
       
-      newWs.onerror = (error) => {
-        addLog(`WebSocket error`, 'error');
-        setErrorMsg('فشل الاتصال بالسيرفر');
-      };
-      
-      newWs.onclose = () => {
-        addLog('Disconnected from online server', 'info');
+      socket.onclose = () => {
+        addLog('Disconnected from Cloud Server', 'info');
         setWs(null);
         setConnectionStatus('DISCONNECTED');
+        setIsSearching(false);
+        if (appStateRef.current === 'inRoom' && roleRef.current === 'ONLINE') {
+          setAppState('menu');
+          setRoomId(null);
+          setRoomState(null);
+          setRole('NONE');
+          setErrorMsg('تم قطع الاتصال بالسيرفر');
+        }
       };
+    });
+  };
+
+  const handleOnlineMessage = (data: any) => {
+      if (data.type === 'matchmaking_status') {
+        setIsSearching(true);
+      } else if (data.type === 'match_found' || data.type === 'joined_room_success' || data.type === 'room_created') {
+        setIsSearching(false);
+        setRole('ONLINE');
+        setRoomId(data.roomId);
+        if (data.roomCode) setRoomId(data.roomCode);
+        setAppState('inRoom');
+      } else if (data.type === 'room_state') {
+        setRoomState(data.state);
+        setRoomId(data.state.id);
+        if (appStateRef.current !== 'inRoom') setAppState('inRoom');
+      } else if (data.type === 'error_msg') {
+        setErrorMsg(data.msg);
+        setIsSearching(false);
+      }
+  };
+
+  const startQuickMatch = () => {
+    if (!playerNameRef.current.trim()) return setErrorMsg('يرجى إدخال اسمك أولاً');
+    connectToOnline().then(socket => {
+      socket.send(JSON.stringify({ type: 'quick_match', playerName: playerNameRef.current.trim(), themeId: selectedThemeIdRef.current }));
+    }).catch(() => {});
+  };
+
+  const cancelSearch = () => {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'cancel_matchmaking' }));
     }
+    setIsSearching(false);
+  };
+
+  const createOnlineRoom = () => {
+    if (!playerNameRef.current.trim()) return setErrorMsg('يرجى إدخال اسمك أولاً');
+    connectToOnline().then(socket => {
+      socket.send(JSON.stringify({ type: 'create_room', playerName: playerNameRef.current.trim(), themeId: selectedThemeIdRef.current }));
+    }).catch(() => {});
   };
 
   const joinOnlineRoom = () => {
-    if (!roomIdInput.trim()) return;
-    if (Capacitor.isNativePlatform()) {
-      const serverUrl = window.location.hostname;
-      LocalServer.connectToServer({ ip: serverUrl, port: 3000 })
-        .then(() => {
-          const checkStatus = async () => {
-             const status = await LocalServer.getStatus();
-             if (status.status === 'VERIFIED') {
-               sendNativeAction({ type: 'join_room', roomId: roomIdInput.trim().toUpperCase(), playerName: playerName.trim() });
-               return true;
-             }
-             return false;
-          };
-          
-          checkStatus().then(done => {
-             if (done) return;
-             const intervalId = setInterval(async () => {
-               if (await checkStatus()) clearInterval(intervalId);
-             }, 100);
-             setTimeout(() => clearInterval(intervalId), 10000);
-          });
-        })
-        .catch(e => setErrorMsg('تعذر الاتصال بالخادم'));
-    } else {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}`;
-      const newWs = new WebSocket(wsUrl);
-      
-      newWs.onopen = () => {
-        addLog('Connected to online server', 'success');
-        setWs(newWs);
-        setConnectionStatus('CONNECTION_VERIFIED');
-        newWs.send(JSON.stringify({ type: 'join_room', roomId: roomIdInput.trim().toUpperCase(), playerName: playerName.trim() }));
-      };
-      
-      newWs.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.type === 'PING') {
-            newWs.send(JSON.stringify({ type: 'PONG' }));
-          } else {
-            handleNativeMessage(data);
-          }
-        } catch (e) {
-          addLog(`Received non-JSON message: ${event.data}`, 'info');
-        }
-      };
-      
-      newWs.onerror = (error) => {
-        addLog(`WebSocket error`, 'error');
-        setErrorMsg('فشل الاتصال بالسيرفر');
-      };
-      
-      newWs.onclose = () => {
-        addLog('Disconnected from online server', 'info');
-        setWs(null);
-        setConnectionStatus('DISCONNECTED');
-      };
-    }
+    if (!roomIdInput.trim()) return setErrorMsg('يرجى إدخال رمز الغرفة');
+    if (!playerNameRef.current.trim()) return setErrorMsg('يرجى إدخال اسمك أولاً');
+    connectToOnline().then(socket => {
+      socket.send(JSON.stringify({ type: 'join_room_by_code', roomCode: roomIdInput.trim(), playerName: playerNameRef.current.trim(), themeId: selectedThemeIdRef.current }));
+    }).catch(() => {});
   };
 
   const createBotRoom = () => {
@@ -1231,6 +1285,15 @@ const App = () => {
     </>
   );
 
+  if (loading && user) {
+    return (
+      <div className="w-full h-[100dvh] wood-texture flex items-center justify-center text-game-offwhite font-display flex-col gap-4">
+        <Activity className="w-12 h-12 animate-spin text-game-teal" />
+        <p className="text-xl">جاري التحميل...</p>
+      </div>
+    );
+  }
+
   if (appState === 'nameEntry') {
     return (
       <>
@@ -1256,16 +1319,29 @@ const App = () => {
               <input
                 type="text"
                 placeholder="أدخل اسمك هنا..."
-                value={playerName}
-                onChange={(e) => setPlayerName(e.target.value)}
+                value={localPlayerName}
+                onChange={(e) => setLocalPlayerName(e.target.value)}
                 autoFocus
                 className="w-full bg-transparent border-0 border-b-2 border-white/30 rounded-none py-3 px-2 text-center text-xl font-bold text-game-offwhite focus:outline-none focus:border-white transition-all placeholder:text-white/10"
-                onKeyDown={(e) => e.key === 'Enter' && saveName()}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && localPlayerName.trim().length >= 2) {
+                     setPlayerName(localPlayerName.trim());
+                     setAppState('menu');
+                  }
+                }}
               />
               
               <button
-                onClick={saveName}
-                className="w-full py-4 bg-game-offwhite hover:bg-white text-black rounded-lg font-display text-2xl shadow-lg transition-all active:scale-95"
+                onClick={() => {
+                  if (localPlayerName.trim().length >= 2) {
+                    setPlayerName(localPlayerName.trim());
+                    setAppState('menu');
+                  } else {
+                    setErrorMsg('الاسم يجب أن يتكون من حرفين على الأقل');
+                  }
+                }}
+                disabled={localPlayerName.trim().length < 2}
+                className={`w-full py-4 bg-game-offwhite hover:bg-white text-black rounded-lg font-display text-2xl shadow-lg transition-all active:scale-95 ${localPlayerName.trim().length < 2 ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 تأكيد الاسم
               </button>
@@ -1304,12 +1380,13 @@ const App = () => {
                   key="main"
                   className="flex flex-col gap-5"
                 >
-                    <button
-                      disabled
-                      className="w-[90%] mx-auto py-4 bg-white/5 text-white/10 rounded-lg font-display text-xl border border-white/5 cursor-not-allowed flex items-center justify-center gap-3"
+                    <motion.button
+                      whileTap={{ scale: 0.94 }}
+                      onClick={() => setMenuTab('online')}
+                      className="w-[90%] mx-auto py-4 bg-game-teal text-game-dark hover:bg-emerald-400 rounded-lg font-display text-2xl shadow-lg transition-all flex items-center justify-center gap-3"
                     >
-                      <Globe className="w-6 h-6" /> لعب عبر الإنترنت (قريباً)
-                    </button>
+                      <Globe className="w-6 h-6" /> لعب عبر الإنترنت
+                    </motion.button>
                     <motion.button
                       whileTap={{ scale: 0.94 }}
                       onClick={() => setMenuTab('local')}
@@ -1346,46 +1423,123 @@ const App = () => {
                 {menuTab === 'online' && (
                   <div
                     key="online"
-                    className="flex flex-col gap-4"
+                    className="flex flex-col gap-6 w-full max-w-[340px] mx-auto px-2"
                   >
-                    <button onClick={() => setMenuTab('main')} className="text-game-offwhite/40 hover:text-game-offwhite flex items-center gap-2 mb-4 w-fit transition-colors text-sm font-display tracking-widest">
-                      <span>➔</span> رجوع
-                    </button>
-                    <button
-                      onClick={createOnlineRoom}
-                      className="w-[90%] mx-auto py-4 bg-game-offwhite hover:bg-white text-black rounded-lg font-display text-2xl shadow-lg transition-all active:scale-95"
-                    >
-                      إنشاء غرفة جديدة
+                    <button onClick={() => {
+                        cancelSearch();
+                        setMenuTab('main');
+                      }} 
+                      className="text-game-offwhite/40 hover:text-game-offwhite flex items-center gap-2 mb-2 w-fit transition-colors text-sm font-display tracking-widest group">
+                      <span className="group-hover:-translate-x-1 transition-transform">➔</span> رجوع للخلف
                     </button>
                     
-                    <div className="relative flex items-center py-4">
-                      <div className="flex-grow border-t border-white/5"></div>
-                      <span className="flex-shrink-0 mx-4 text-white/20 text-xs font-display italic">أو الانضمام لغرفة</span>
-                      <div className="flex-grow border-t border-white/5"></div>
-                    </div>
-
-                      <div className="w-[90%] mx-auto flex flex-col gap-4">
-                        <input
-                          type="text"
-                          placeholder="أدخل كود الغرفة..."
-                          value={roomIdInput}
-                          onChange={(e) => setRoomIdInput(e.target.value)}
-                          className="w-full bg-transparent border-0 border-b-2 border-white/30 rounded-none py-3 px-2 text-center text-xl font-mono text-game-offwhite focus:outline-none focus:border-white transition-all placeholder:text-white/10"
-                          maxLength={6}
-                        />
-                        {roomIdInput.trim().length > 0 && (
-                          <div
-                            style={{ transformOrigin: 'top' }}
+                    <div className="relative flex flex-col gap-6">
+                      {!user ? (
+                        <div className="bg-game-dark/90 p-6 rounded-3xl border border-white/10 text-center flex flex-col items-center shadow-2xl">
+                          <Globe className="w-12 h-12 text-game-teal mb-4 opacity-80" />
+                          <h3 className="text-2xl font-display text-white mb-2">تسجيل الدخول</h3>
+                          <p className="text-game-offwhite/60 mb-6 font-display text-sm leading-relaxed">للعب عبر الإنترنت وحفظ تقدمك سحابياً، يرجى تسجيل الدخول بحساب Google.</p>
+                          <motion.button
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => login()}
+                            className="bg-game-offwhite hover:bg-white text-black px-6 py-4 rounded-xl shadow-lg font-bold font-display text-xl flex items-center justify-center gap-3 w-full transition-all"
                           >
-                            <button
-                              onClick={joinOnlineRoom}
-                              className="w-full py-4 bg-game-offwhite hover:bg-white text-black rounded-lg font-display text-2xl shadow-lg transition-all active:scale-95"
+                            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-6 h-6"/>
+                            دخول بحساب جوجل
+                          </motion.button>
+                        </div>
+                      ) : (
+                        <>
+                          {isSearching && (
+                            <div
+                              className="absolute inset-0 z-50 bg-black/95 flex flex-col items-center justify-center rounded-xl border border-game-teal/30 shadow-[0_0_30px_rgba(20,184,166,0.15)]"
                             >
-                              انضمام
+                              <div className="w-12 h-12 rounded-full border-2 border-game-teal/20 border-t-game-teal animate-spin mb-4"></div>
+                              <p className="text-game-teal font-display text-lg tracking-widest animate-pulse">جاري البحث عن خصم...</p>
+                              <p className="text-game-offwhite/40 font-body text-xs mt-2 mb-6">يرجى الانتظار، سيتم توجيهك للمباراة تلقائياً</p>
+                              <button 
+                                onClick={cancelSearch} 
+                                className="px-6 py-2 border-2 border-game-red/30 text-game-red hover:bg-game-red hover:text-white rounded-lg font-display text-sm transition-all shadow-md active:scale-95"
+                              >
+                                إلغاء البحث
+                              </button>
+                            </div>
+                          )}
+
+                          <div className="bg-game-dark/90 border border-white/10 p-6 rounded-xl shadow-xl">
+                            <div className="flex items-center gap-3 mb-5">
+                              <div className="p-2 bg-white/5 rounded-lg border border-game-teal/20">
+                                <Swords className="w-6 h-6 text-game-teal" />
+                              </div>
+                              <div className="text-right">
+                                <h3 className="text-game-cream font-display text-lg tracking-widest">بحث عشوائي</h3>
+                                <p className="text-[10px] text-game-cream/40 font-body italic">اللعب ضد خصم عشوائي عالمياً</p>
+                              </div>
+                            </div>
+                            <button
+                               onClick={startQuickMatch}
+                               disabled={isSearching}
+                               className="w-full py-4 bg-game-teal hover:bg-emerald-400 text-game-dark rounded-xl font-display text-2xl shadow-lg transition-all active:scale-95 disabled:opacity-50"
+                            >
+                              مباراة سريعة
                             </button>
                           </div>
-                        )}
-                      </div>
+
+                          <div className="bg-game-dark/90 border border-white/10 p-6 rounded-xl shadow-xl">
+                            <div className="flex items-center gap-3 mb-5">
+                              <div className="p-2 bg-white/5 rounded-lg border border-white/10">
+                                <Globe className="w-6 h-6 text-game-offwhite" />
+                              </div>
+                              <div className="text-right">
+                                <h3 className="text-game-cream font-display text-lg tracking-widest">غرفة خاصة</h3>
+                                <p className="text-[10px] text-game-cream/40 font-body italic">العب مع أصدقائك برمز سري</p>
+                              </div>
+                            </div>
+
+                            <button
+                               onClick={createOnlineRoom}
+                               disabled={isSearching}
+                               className="w-full py-3 mb-6 bg-game-slate hover:bg-slate-600 text-white rounded-lg font-display text-lg transition-all active:scale-95 flex items-center justify-center gap-2 border border-white/10 disabled:opacity-50"
+                            >
+                              <PlusCircle className="w-5 h-5" /> إنشاء غرفة جديدة
+                            </button>
+                            
+                            <div className="relative flex items-center mb-5">
+                              <div className="flex-grow border-t border-white/10"></div>
+                              <span className="flex-shrink-0 mx-3 text-white/30 font-display text-xs">أو انضمام برمز</span>
+                              <div className="flex-grow border-t border-white/10"></div>
+                            </div>
+
+                            <div className="flex flex-col gap-4">
+                              <input
+                                 type="text"
+                                 placeholder="مثال: AX72"
+                                 value={roomIdInput}
+                                 onChange={(e) => setRoomIdInput(e.target.value.toUpperCase())}
+                                 className="w-full bg-transparent border-0 border-b-2 border-white/30 rounded-none py-3 px-2 text-center text-2xl font-mono text-game-offwhite focus:outline-none focus:border-game-teal transition-all placeholder:text-white/10 uppercase tracking-[0.2em]"
+                                 maxLength={4}
+                                 disabled={isSearching}
+                                 dir="ltr"
+                              />
+                              <AnimatePresence>
+                                {roomIdInput.length === 4 && (
+                                  <motion.button
+                                    initial={{ opacity: 0, height: 0, marginTop: 0 }}
+                                    animate={{ opacity: 1, height: 'auto', marginTop: 8 }}
+                                    exit={{ opacity: 0, height: 0, marginTop: 0 }}
+                                    onClick={joinOnlineRoom}
+                                    disabled={isSearching}
+                                    className="w-full py-4 bg-game-teal hover:bg-emerald-400 text-game-dark rounded-xl font-display text-xl shadow-lg transition-all active:scale-95 overflow-hidden"
+                                  >
+                                    دخول
+                                  </motion.button>
+                                )}
+                              </AnimatePresence>
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </div>
                 )}
 
@@ -1523,6 +1677,7 @@ const App = () => {
   if (appState === 'profile') {
     return (
       <ProfileView 
+        user={user}
         playerName={playerName}
         coins={coins}
         ownedThemes={ownedThemes}
@@ -1534,7 +1689,13 @@ const App = () => {
         }}
         selectedPack={selectedPack}
         setSelectedPack={setSelectedPack}
-        onEditName={() => setAppState('nameEntry')}
+        onEditName={() => {
+          const newName = prompt('أدخل اسمك الجديد:', playerName);
+          if (newName && newName.trim().length >= 2) {
+             setPlayerName(newName.trim());
+          }
+        }}
+        onLogout={logout}
       />
     );
   }

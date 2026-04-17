@@ -76,6 +76,17 @@ export const THEMES: ThemeConfig[] = [
     counterBgColor: 'bg-[#C87874]',
     counterTextColor: 'text-[#F5F5F5]'
   },
+    {
+    id: 'building_tools',
+    name: 'أدوات بناء',
+    path: '/building_tools',
+    price: 0,
+    frontColor: 'bg-[#E9B41C]',
+    backColor: 'bg-[#E9B41C]',
+    backIcon: 'default',
+    counterBgColor: 'bg-[#E9B41C]',
+    counterTextColor: 'text-[#121212]'
+  },
   // {
   //   id: 'bone',
   //   name: 'ياقوتي',

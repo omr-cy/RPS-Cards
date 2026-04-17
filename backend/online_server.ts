@@ -1,8 +1,8 @@
 import express from 'express';
-import { createServer as createViteServer } from 'vite';
 import { createServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import path from 'path';
+import { createServer as createViteServer } from 'vite';
 
 type CardType = 'rock' | 'paper' | 'scissors';
 
@@ -15,6 +15,7 @@ interface Deck {
 interface Player {
   id: string;
   name: string;
+  themeId: string;
   deck: Deck;
   score: number;
   choice: CardType | null;
@@ -24,7 +25,6 @@ interface Player {
 
 interface Room {
   id: string;
-  isBotRoom?: boolean;
   players: Record<string, Player>;
   gameState: 'waiting' | 'playing' | 'revealing' | 'roundResult' | 'gameOver';
   round: number;
@@ -35,7 +35,21 @@ interface Room {
 const rooms: Record<string, Room> = {};
 const roomTimers: Record<string, NodeJS.Timeout> = {};
 
+// Queue for Random Matchmaking
+const matchmakingQueue: { id: string; name: string; themeId: string; ws: WebSocket }[] = [];
+
 const INITIAL_DECK: Deck = { rock: 3, paper: 3, scissors: 3 };
+
+function generateRoomCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Excluded I, O, 1, 0 to avoid confusion
+  let result = '';
+  // Generate 4 character matching code (e.g., "M7X9")
+  for (let i = 0; i < 4; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  // Ensure the code doesn't exist already
+  return rooms[result] ? generateRoomCode() : result;
+}
 
 function getWinner(choice1: CardType, choice2: CardType): 1 | 2 | 0 {
   if (choice1 === choice2) return 0;
@@ -64,7 +78,6 @@ function startNextRound(roomId: string) {
   const room = rooms[roomId];
   if (!room) return;
 
-  // Apply score here, at the end of the roundResult phase
   const playerIds = Object.keys(room.players);
   const p1 = room.players[playerIds[0]];
   const p2 = room.players[playerIds[1]];
@@ -87,7 +100,7 @@ function startNextRound(roomId: string) {
     room.roundWinner = null;
     Object.values(room.players).forEach(p => {
       p.choice = null;
-      p.readyForNext = p.id === 'bot';
+      p.readyForNext = false;
     });
     startRoundTimer(roomId);
   }
@@ -111,7 +124,14 @@ function handleReveal(roomId: string) {
     const p1 = room.players[playerIds[0]];
     const p2 = room.players[playerIds[1]];
     
-    const winnerCode = getWinner(p1.choice!, p2.choice!);
+    // Only process if both players actually exist
+    if (!p1 || !p2) return;
+
+    // Safety fallback: if no choice was made
+    const p1Choice = p1.choice || 'rock'; 
+    const p2Choice = p2.choice || 'rock';
+
+    const winnerCode = getWinner(p1Choice, p2Choice);
     
     if (winnerCode === 1) {
       room.roundWinner = p1.id;
@@ -145,16 +165,16 @@ function startRoundTimer(roomId: string) {
       }
   });
 
-  // Check if both have choices
   const playerIds = Object.keys(room.players);
   const p1 = room.players[playerIds[0]];
   const p2 = room.players[playerIds[1]];
+  
   if (p1 && p2 && p1.choice && p2.choice) {
       handleReveal(roomId);
       return;
   }
 
-  room.timeLeft = 15;
+  room.timeLeft = 15; // 15 seconds per round in online mode
   
   roomTimers[roomId] = setInterval(() => {
     const currentRoom = rooms[roomId];
@@ -170,7 +190,7 @@ function startRoundTimer(roomId: string) {
       clearInterval(roomTimers[roomId]);
       
       Object.values(currentRoom.players).forEach(player => {
-        if (!player.choice && player.id !== 'bot') {
+        if (!player.choice) {
           const availableCards: CardType[] = [];
           if (player.deck.rock > 0) availableCards.push('rock');
           if (player.deck.paper > 0) availableCards.push('paper');
@@ -183,22 +203,6 @@ function startRoundTimer(roomId: string) {
           }
         }
       });
-
-      if (currentRoom.isBotRoom) {
-        const bot = currentRoom.players['bot'];
-        if (!bot.choice) {
-          const availableCards: CardType[] = [];
-          if (bot.deck.rock > 0) availableCards.push('rock');
-          if (bot.deck.paper > 0) availableCards.push('paper');
-          if (bot.deck.scissors > 0) availableCards.push('scissors');
-          if (availableCards.length > 0) {
-            const botChoice = availableCards[Math.floor(Math.random() * availableCards.length)];
-            bot.choice = botChoice;
-            bot.deck[botChoice] -= 1;
-          }
-        }
-      }
-
       handleReveal(roomId);
     }
   }, 1000);
@@ -212,40 +216,19 @@ async function startServer() {
 
   wss.on('connection', (ws) => {
     const socketId = Math.random().toString(36).substring(2, 10);
-    console.log('User connected:', socketId);
+    console.log('Online User connected:', socketId);
 
-    // Handshake: Send PING
     ws.send(JSON.stringify({ type: 'PING' }));
 
     ws.on('message', (data) => {
       try {
         const message = JSON.parse(data.toString());
         
-        if (message.type === 'PONG') {
-          console.log('Handshake verified with:', socketId);
-          return;
-        }
+        if (message.type === 'PONG') return;
 
-        if (message.type === 'create_bot_room') {
-          const roomId = 'BOT_' + Math.random().toString(36).substring(2, 8).toUpperCase();
-          const me: Player = { id: socketId, name: message.playerName || 'لاعب', themeId: message.themeId || 'normal', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false, ws };
-          const bot: Player = { id: 'bot', name: 'الكمبيوتر', themeId: 'robot', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: true, ws: ws }; // Bot uses same ws but it's fine
-          
-          rooms[roomId] = {
-            id: roomId,
-            isBotRoom: true,
-            players: { [socketId]: me, 'bot': bot },
-            gameState: 'playing',
-            round: 1,
-            roundWinner: null
-          };
-          ws.send(JSON.stringify({ type: 'room_created', roomId }));
-          startRoundTimer(roomId);
-          broadcastToRoom(roomId, { type: 'room_state', state: rooms[roomId] });
-        }
-
+        // --- 1. Create Room via Code ---
         if (message.type === 'create_room') {
-          const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
+          const roomId = generateRoomCode();
           rooms[roomId] = {
             id: roomId,
             players: {
@@ -255,51 +238,77 @@ async function startServer() {
             round: 1,
             roundWinner: null
           };
-          ws.send(JSON.stringify({ type: 'room_created', roomId }));
+          ws.send(JSON.stringify({ type: 'room_created', roomId, roomCode: roomId, isHost: true }));
           broadcastToRoom(roomId, { type: 'room_state', state: rooms[roomId] });
         }
 
-        if (message.type === 'host_join') {
-          const roomId = Object.keys(rooms).find(rid => rooms[rid].players[socketId]);
-          if (roomId) {
-            const room = rooms[roomId];
-            room.players[socketId].name = message.playerName || room.players[socketId].name;
-            room.players[socketId].themeId = message.themeId || 'normal';
-            broadcastToRoom(roomId, { type: 'room_state', state: room });
-          }
-        }
-
-        if (message.type === 'join_game') {
-          const rid = Object.keys(rooms).find(r => rooms[r].gameState === 'waiting');
-          if (!rid) {
-            ws.send(JSON.stringify({ type: 'error_msg', msg: 'لا يوجد غرفة بانتظار لاعبين' }));
-            return;
-          }
-          const room = rooms[rid];
-          room.players[socketId] = { id: socketId, name: message.playerName || 'لاعب', themeId: message.themeId || 'normal', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false, ws };
-          room.gameState = 'playing';
-          startRoundTimer(rid);
-          broadcastToRoom(rid, { type: 'room_state', state: room });
-        }
-
-        if (message.type === 'join_room') {
-          const { roomId, playerName, themeId } = message;
-          const room = rooms[roomId];
+        // --- 2. Join via Code ---
+        if (message.type === 'join_room_by_code') {
+          const code = (message.roomCode || '').toUpperCase().trim();
+          const room = rooms[code];
+          
           if (!room) {
-            ws.send(JSON.stringify({ type: 'error_msg', msg: 'الغرفة غير موجودة' }));
+            ws.send(JSON.stringify({ type: 'error_msg', msg: 'كود الغرفة غير صحيح أو الغرفة غير موجودة' }));
             return;
           }
           if (Object.keys(room.players).length >= 2) {
-            ws.send(JSON.stringify({ type: 'error_msg', msg: 'الغرفة ممتلئة' }));
+            ws.send(JSON.stringify({ type: 'error_msg', msg: 'الغرفة ممتلئة باللاعبين' }));
             return;
           }
 
-          room.players[socketId] = { id: socketId, name: playerName || 'لاعب', themeId: themeId || 'normal', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false, ws };
+          room.players[socketId] = { id: socketId, name: message.playerName || 'لاعب', themeId: message.themeId || 'normal', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false, ws };
           room.gameState = 'playing';
-          startRoundTimer(roomId);
-          broadcastToRoom(roomId, { type: 'room_state', state: room });
+          ws.send(JSON.stringify({ type: 'joined_room_success', roomId: code }));
+          startRoundTimer(code);
+          broadcastToRoom(code, { type: 'room_state', state: room });
         }
 
+        // --- 3. Random Matchmaking Queue ---
+        if (message.type === 'quick_match') {
+          // Prevent duplicate queue entries
+          if (matchmakingQueue.find(p => p.id === socketId)) return;
+
+          matchmakingQueue.push({
+            id: socketId,
+            name: message.playerName || 'لاعب',
+            themeId: message.themeId || 'normal',
+            ws: ws
+          });
+
+          ws.send(JSON.stringify({ type: 'matchmaking_status', msg: 'جاري البحث عن خصم مناسب...' }));
+
+          // Pair logic (if 2 or more players are waiting)
+          if (matchmakingQueue.length >= 2) {
+            const p1 = matchmakingQueue.shift()!;
+            const p2 = matchmakingQueue.shift()!;
+            
+            const roomId = generateRoomCode();
+            rooms[roomId] = {
+               id: roomId,
+               players: {
+                 [p1.id]: { id: p1.id, name: p1.name, themeId: p1.themeId, deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false, ws: p1.ws },
+                 [p2.id]: { id: p2.id, name: p2.name, themeId: p2.themeId, deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false, ws: p2.ws }
+               },
+               gameState: 'playing',
+               round: 1,
+               roundWinner: null
+            };
+
+            p1.ws.send(JSON.stringify({ type: 'match_found', roomId }));
+            p2.ws.send(JSON.stringify({ type: 'match_found', roomId }));
+
+            startRoundTimer(roomId);
+            broadcastToRoom(roomId, { type: 'room_state', state: rooms[roomId] });
+          }
+        }
+
+        // Cancel matchmaking
+        if (message.type === 'cancel_matchmaking') {
+          const idx = matchmakingQueue.findIndex(p => p.id === socketId);
+          if (idx !== -1) matchmakingQueue.splice(idx, 1);
+        }
+
+        // Gameplay actions
         if (message.type === 'play_card') {
           const { roomId, choice } = message;
           const room = rooms[roomId];
@@ -339,7 +348,7 @@ async function startServer() {
               p.deck = { ...INITIAL_DECK };
               p.score = 0;
               p.choice = null;
-              p.readyForNext = p.id === 'bot';
+              p.readyForNext = false;
             });
             startRoundTimer(roomId);
           }
@@ -357,11 +366,16 @@ async function startServer() {
     });
 
     ws.on('close', () => {
-      console.log('User disconnected:', socketId);
+      console.log('Online User disconnected:', socketId);
       handleDisconnect(socketId);
     });
 
     function handleDisconnect(id: string, specificRoomId?: string) {
+      // Remove from matchmaking queue if they disconnect while searching
+      const queueIdx = matchmakingQueue.findIndex(p => p.id === id);
+      if (queueIdx !== -1) matchmakingQueue.splice(queueIdx, 1);
+
+      // Handle leaving active rooms
       const roomIds = specificRoomId ? [specificRoomId] : Object.keys(rooms);
       roomIds.forEach(rid => {
         const room = rooms[rid];
@@ -383,6 +397,8 @@ async function startServer() {
     }
   });
 
+  app.get('/api/health', (req, res) => res.json({ status: 'ok', activeRooms: Object.keys(rooms).length }));
+
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -398,7 +414,7 @@ async function startServer() {
   }
 
   httpServer.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`Online Server running on port ${PORT}`);
   });
 }
 
