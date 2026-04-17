@@ -65,6 +65,17 @@ export const THEMES: ThemeConfig[] = [
     counterBgColor: 'bg-[#BC4A00]',
     counterTextColor: 'text-[#F5F5F5]'
   },
+  {
+    id: 'cats',
+    name: 'قطط',
+    path: '/cats',
+    price: 0,
+    frontColor: 'bg-[#C87874]',
+    backColor: 'bg-[#C87874]',
+    backIcon: 'default',
+    counterBgColor: 'bg-[#C87874]',
+    counterTextColor: 'text-[#F5F5F5]'
+  },
   // {
   //   id: 'bone',
   //   name: 'ياقوتي',
