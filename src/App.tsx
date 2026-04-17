@@ -210,7 +210,7 @@ const StoreView = memo(({ coins, ownedThemes, selectedThemeId, onBack, onBuy, on
 }) => (
   <div 
     dir="rtl" 
-    className="h-[100dvh] wood-texture text-game-cream flex flex-col p-4 sm:p-6 font-body overflow-x-hidden overflow-y-auto select-none relative gpu-accelerated"
+    className="h-[100dvh] wood-texture text-game-cream flex flex-col p-4 sm:p-6 font-body overflow-x-hidden overflow-y-auto select-none relative"
     style={{
       paddingTop: 'env(safe-area-inset-top)',
       paddingBottom: 'env(safe-area-inset-bottom)',
@@ -255,7 +255,7 @@ const StoreView = memo(({ coins, ownedThemes, selectedThemeId, onBack, onBuy, on
   </div>
 ));
 
-const ProfileView = memo(({ playerName, coins, ownedThemes, selectedThemeId, onBack, onSelect, selectedPack, setSelectedPack }: {
+const ProfileView = memo(({ playerName, coins, ownedThemes, selectedThemeId, onBack, onSelect, selectedPack, setSelectedPack, onEditName }: {
   playerName: string,
   coins: number,
   ownedThemes: string[],
@@ -263,11 +263,12 @@ const ProfileView = memo(({ playerName, coins, ownedThemes, selectedThemeId, onB
   onBack: () => void,
   onSelect: (id: string) => void,
   selectedPack: ThemeConfig | null,
-  setSelectedPack: (theme: ThemeConfig | null) => void
+  setSelectedPack: (theme: ThemeConfig | null) => void,
+  onEditName: () => void
 }) => (
   <div 
     dir="rtl" 
-    className="h-[100dvh] wood-texture text-game-cream flex flex-col p-4 sm:p-6 font-body overflow-x-hidden overflow-y-auto select-none gpu-accelerated"
+    className="h-[100dvh] wood-texture text-game-cream flex flex-col p-4 sm:p-6 font-body overflow-x-hidden overflow-y-auto select-none"
     style={{
       paddingTop: 'env(safe-area-inset-top)',
       paddingBottom: 'env(safe-area-inset-bottom)',
@@ -289,7 +290,16 @@ const ProfileView = memo(({ playerName, coins, ownedThemes, selectedThemeId, onB
           <User className="w-10 h-10 text-game-offwhite/50" />
         </div>
         <div className="flex-1">
-          <h2 className="text-2xl font-display text-game-offwhite">{playerName}</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-2xl font-display text-game-offwhite">{playerName}</h2>
+            <button 
+              onClick={onEditName}
+              className="p-1.5 text-game-offwhite/40 hover:text-game-offwhite transition-all bg-white/5 rounded-lg border border-white/5"
+              title="تعديل الاسم"
+            >
+              <Edit2 className="w-4 h-4" />
+            </button>
+          </div>
           <div className="flex items-center gap-2 mt-1">
             <span className="text-yellow-500 font-display">{coins}</span>
             <span className="text-xs text-game-offwhite/40 font-body">عملة ذهبية</span>
@@ -352,46 +362,38 @@ const App = () => {
   // Debug State
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [showDebug, setShowDebug] = useState(false);
-  const [isPreloaded, setIsPreloaded] = useState(false);
+  const [isPreloaded, setIsPreloaded] = useState(true);
   const [isRevealingLocal, setIsRevealingLocal] = useState(false);
   const [ws, setWs] = useState<WebSocket | null>(null);
   const [selectedPack, setSelectedPack] = useState<ThemeConfig | null>(null);
 
-  // Preload Assets
-  const withPreload = async (action: () => void, targetView?: 'game' | 'store' | 'profile' | 'initial') => {
-    if (targetView === 'initial') {
-      setIsPreloaded(false);
-      let assetsToLoad: string[] = [];
-      
-      // Collect all themes from the current THEMES array
-      // This makes it dynamic: adding a theme to the array automatically preloads it
-      THEMES.forEach(theme => {
-        assetsToLoad.push(
-          `${theme.path}/rock.${theme.extension || 'svg'}`,
-          `${theme.path}/paper.${theme.extension || 'svg'}`,
-          `${theme.path}/scissors.${theme.extension || 'svg'}`
-        );
-        if (theme.backIcon && theme.backIcon !== 'default' && theme.backIcon.startsWith('/')) {
-          assetsToLoad.push(theme.backIcon);
-        }
-      });
-      
-      const uniqueUrls = Array.from(new Set(assetsToLoad));
-      assetPreloader.setTotal(uniqueUrls.length);
-      
-      // Execute all Base64 conversions in parallel
-      await Promise.all(uniqueUrls.map(url => assetPreloader.preloadImage(url)));
-
-      setIsPreloaded(true);
-      action();
-      return;
-    }
-
-    action();
+  // Silent Preload Assets
+  const preloadAssets = async () => {
+    let assetsToLoad: string[] = [];
+    
+    // Collect all themes from the current THEMES array
+    THEMES.forEach(theme => {
+      assetsToLoad.push(
+        `${theme.path}/rock.${theme.extension || 'svg'}`,
+        `${theme.path}/paper.${theme.extension || 'svg'}`,
+        `${theme.path}/scissors.${theme.extension || 'svg'}`
+      );
+      if (theme.backIcon && theme.backIcon !== 'default' && theme.backIcon.startsWith('/')) {
+        assetsToLoad.push(theme.backIcon);
+      }
+    });
+    
+    const uniqueUrls = Array.from(new Set(assetsToLoad));
+    assetPreloader.setTotal(uniqueUrls.length);
+    
+    // Execute all Base64 conversions in parallel in background
+    Promise.all(uniqueUrls.map(url => assetPreloader.preloadImage(url))).then(() => {
+      addLog('Silent preloading complete', 'success');
+    });
   };
 
   useEffect(() => {
-    withPreload(() => {}, 'initial');
+    preloadAssets();
   }, []);
 
   // Refs to avoid stale closures in listeners
@@ -484,24 +486,20 @@ const App = () => {
   const handleNativeMessage = (data: any) => {
     if (data.type === 'ROOM_READY') {
       addLog('Room is ready, joining...', 'success');
-      withPreload(() => {
-        setAppState('inRoom');
-        if (Capacitor.isNativePlatform()) {
-          LocalServer.getStatus().then(status => {
-            if (status.role === 'HOST') {
-              sendNativeAction({ type: 'host_join', playerName: playerNameRef.current });
-            } else if (status.role === 'CLIENT') {
-              sendNativeAction({ type: 'join_game', playerName: playerNameRef.current });
-            }
-          }).catch(e => addLog(`Failed to get status: ${e}`, 'error'));
-        }
-      }, 'game');
+      setAppState('inRoom');
+      if (Capacitor.isNativePlatform()) {
+        LocalServer.getStatus().then(status => {
+          if (status.role === 'HOST') {
+            sendNativeAction({ type: 'host_join', playerName: playerNameRef.current });
+          } else if (status.role === 'CLIENT') {
+            sendNativeAction({ type: 'join_game', playerName: playerNameRef.current });
+          }
+        }).catch(e => addLog(`Failed to get status: ${e}`, 'error'));
+      }
     } else if (data.type === 'room_state') {
-      withPreload(() => {
-        setRoomState(data.state);
-        setRoomId(data.state.id);
-        setAppState('inRoom');
-      }, 'game');
+      setRoomState(data.state);
+      setRoomId(data.state.id);
+      setAppState('inRoom');
     } else if (data.type === 'room_created') {
       setRoomId(data.roomId);
     } else if (data.type === 'error_msg') {
@@ -703,155 +701,147 @@ const App = () => {
       setErrorMsg('ميزة الانضمام متاحة فقط في تطبيق الأندرويد');
       return;
     }
-    withPreload(async () => {
-      try {
-        await LocalServer.connectToServer({ ip: ipInput.trim(), port: LAN_PORT });
-        // Native will send ROOM_READY after handshake is verified
-      } catch (e) {
-        addLog(`Join failed: ${e}`, 'error');
-        setErrorMsg('فشل الاتصال بالسيرفر');
-      }
-    }, 'game');
+    try {
+      await LocalServer.connectToServer({ ip: ipInput.trim(), port: LAN_PORT });
+      // Native will send ROOM_READY after handshake is verified
+    } catch (e) {
+      addLog(`Join failed: ${e}`, 'error');
+      setErrorMsg('فشل الاتصال بالسيرفر');
+    }
   };
 
   const createOnlineRoom = () => {
-    withPreload(() => {
-      if (Capacitor.isNativePlatform()) {
-        const serverUrl = window.location.hostname;
-        LocalServer.connectToServer({ ip: serverUrl, port: 3000 })
-          .then(() => {
-            const checkVerified = setInterval(() => {
-              if (Capacitor.isNativePlatform()) {
-                LocalServer.getStatus().then(status => {
-                  if (status.status === 'VERIFIED') {
-                    clearInterval(checkVerified);
-                    sendNativeAction({ type: 'create_room', playerName: playerName.trim() });
-                  }
-                }).catch(() => clearInterval(checkVerified));
-              } else {
-                clearInterval(checkVerified);
-              }
-            }, 500);
-          })
-          .catch(e => setErrorMsg('تعذر الاتصال بالخادم'));
-      } else {
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}`;
-        const newWs = new WebSocket(wsUrl);
-        
-        newWs.onopen = () => {
-          addLog('Connected to online server', 'success');
-          setWs(newWs);
-          setConnectionStatus('CONNECTION_VERIFIED');
-          newWs.send(JSON.stringify({ type: 'create_room', playerName: playerName.trim() }));
-        };
-        
-        newWs.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            if (data.type === 'PING') {
-              newWs.send(JSON.stringify({ type: 'PONG' }));
+    if (Capacitor.isNativePlatform()) {
+      const serverUrl = window.location.hostname;
+      LocalServer.connectToServer({ ip: serverUrl, port: 3000 })
+        .then(() => {
+          const checkVerified = setInterval(() => {
+            if (Capacitor.isNativePlatform()) {
+              LocalServer.getStatus().then(status => {
+                if (status.status === 'VERIFIED') {
+                  clearInterval(checkVerified);
+                  sendNativeAction({ type: 'create_room', playerName: playerName.trim() });
+                }
+              }).catch(() => clearInterval(checkVerified));
             } else {
-              handleNativeMessage(data);
+              clearInterval(checkVerified);
             }
-          } catch (e) {
-            addLog(`Received non-JSON message: ${event.data}`, 'info');
+          }, 500);
+        })
+        .catch(e => setErrorMsg('تعذر الاتصال بالخادم'));
+    } else {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${window.location.host}`;
+      const newWs = new WebSocket(wsUrl);
+      
+      newWs.onopen = () => {
+        addLog('Connected to online server', 'success');
+        setWs(newWs);
+        setConnectionStatus('CONNECTION_VERIFIED');
+        newWs.send(JSON.stringify({ type: 'create_room', playerName: playerName.trim() }));
+      };
+      
+      newWs.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'PING') {
+            newWs.send(JSON.stringify({ type: 'PONG' }));
+          } else {
+            handleNativeMessage(data);
           }
-        };
-        
-        newWs.onerror = (error) => {
-          addLog(`WebSocket error`, 'error');
-          setErrorMsg('فشل الاتصال بالسيرفر');
-        };
-        
-        newWs.onclose = () => {
-          addLog('Disconnected from online server', 'info');
-          setWs(null);
-          setConnectionStatus('DISCONNECTED');
-        };
-      }
-    }, 'game');
+        } catch (e) {
+          addLog(`Received non-JSON message: ${event.data}`, 'info');
+        }
+      };
+      
+      newWs.onerror = (error) => {
+        addLog(`WebSocket error`, 'error');
+        setErrorMsg('فشل الاتصال بالسيرفر');
+      };
+      
+      newWs.onclose = () => {
+        addLog('Disconnected from online server', 'info');
+        setWs(null);
+        setConnectionStatus('DISCONNECTED');
+      };
+    }
   };
 
   const joinOnlineRoom = () => {
     if (!roomIdInput.trim()) return;
-    withPreload(() => {
-      if (Capacitor.isNativePlatform()) {
-        const serverUrl = window.location.hostname;
-        LocalServer.connectToServer({ ip: serverUrl, port: 3000 })
-          .then(() => {
-            const checkVerified = setInterval(() => {
-              if (Capacitor.isNativePlatform()) {
-                LocalServer.getStatus().then(status => {
-                  if (status.status === 'VERIFIED') {
-                    clearInterval(checkVerified);
-                    sendNativeAction({ type: 'join_room', roomId: roomIdInput.trim().toUpperCase(), playerName: playerName.trim() });
-                  }
-                }).catch(() => clearInterval(checkVerified));
-              } else {
-                clearInterval(checkVerified);
-              }
-            }, 500);
-          })
-          .catch(e => setErrorMsg('تعذر الاتصال بالخادم'));
-      } else {
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}`;
-        const newWs = new WebSocket(wsUrl);
-        
-        newWs.onopen = () => {
-          addLog('Connected to online server', 'success');
-          setWs(newWs);
-          setConnectionStatus('CONNECTION_VERIFIED');
-          newWs.send(JSON.stringify({ type: 'join_room', roomId: roomIdInput.trim().toUpperCase(), playerName: playerName.trim() }));
-        };
-        
-        newWs.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            if (data.type === 'PING') {
-              newWs.send(JSON.stringify({ type: 'PONG' }));
+    if (Capacitor.isNativePlatform()) {
+      const serverUrl = window.location.hostname;
+      LocalServer.connectToServer({ ip: serverUrl, port: 3000 })
+        .then(() => {
+          const checkVerified = setInterval(() => {
+            if (Capacitor.isNativePlatform()) {
+              LocalServer.getStatus().then(status => {
+                if (status.status === 'VERIFIED') {
+                  clearInterval(checkVerified);
+                  sendNativeAction({ type: 'join_room', roomId: roomIdInput.trim().toUpperCase(), playerName: playerName.trim() });
+                }
+              }).catch(() => clearInterval(checkVerified));
             } else {
-              handleNativeMessage(data);
+              clearInterval(checkVerified);
             }
-          } catch (e) {
-            addLog(`Received non-JSON message: ${event.data}`, 'info');
+          }, 500);
+        })
+        .catch(e => setErrorMsg('تعذر الاتصال بالخادم'));
+    } else {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${window.location.host}`;
+      const newWs = new WebSocket(wsUrl);
+      
+      newWs.onopen = () => {
+        addLog('Connected to online server', 'success');
+        setWs(newWs);
+        setConnectionStatus('CONNECTION_VERIFIED');
+        newWs.send(JSON.stringify({ type: 'join_room', roomId: roomIdInput.trim().toUpperCase(), playerName: playerName.trim() }));
+      };
+      
+      newWs.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'PING') {
+            newWs.send(JSON.stringify({ type: 'PONG' }));
+          } else {
+            handleNativeMessage(data);
           }
-        };
-        
-        newWs.onerror = (error) => {
-          addLog(`WebSocket error`, 'error');
-          setErrorMsg('فشل الاتصال بالسيرفر');
-        };
-        
-        newWs.onclose = () => {
-          addLog('Disconnected from online server', 'info');
-          setWs(null);
-          setConnectionStatus('DISCONNECTED');
-        };
-      }
-    }, 'game');
+        } catch (e) {
+          addLog(`Received non-JSON message: ${event.data}`, 'info');
+        }
+      };
+      
+      newWs.onerror = (error) => {
+        addLog(`WebSocket error`, 'error');
+        setErrorMsg('فشل الاتصال بالسيرفر');
+      };
+      
+      newWs.onclose = () => {
+        addLog('Disconnected from online server', 'info');
+        setWs(null);
+        setConnectionStatus('DISCONNECTED');
+      };
+    }
   };
 
   const createBotRoom = () => {
-    withPreload(() => {
-      const newRoom: Room = {
-        id: OFFLINE_BOT_ID,
-        isBotRoom: true,
-        players: {
-          me: { id: 'me', name: playerName.trim() || 'لاعب', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false },
-          bot: { id: 'bot', name: 'الكمبيوتر', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: true }
-        },
-        gameState: 'playing',
-        round: 1,
-        roundWinner: null,
-        timeLeft: 15
-      };
-      setRoomState(newRoom);
-      setRoomId(OFFLINE_BOT_ID);
-      setAppState('inRoom');
-      addLog('Started offline game against bot', 'success');
-    }, 'game');
+    const newRoom: Room = {
+      id: OFFLINE_BOT_ID,
+      isBotRoom: true,
+      players: {
+        me: { id: 'me', name: playerName.trim() || 'لاعب', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false },
+        bot: { id: 'bot', name: 'الكمبيوتر', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: true }
+      },
+      gameState: 'playing',
+      round: 1,
+      roundWinner: null,
+      timeLeft: 15
+    };
+    setRoomState(newRoom);
+    setRoomId(OFFLINE_BOT_ID);
+    setAppState('inRoom');
+    addLog('Started offline game against bot', 'success');
   };
 
   const copyRoomId = () => {
@@ -985,25 +975,23 @@ const App = () => {
 
   const playAgain = () => {
     if (!roomId) return;
-    withPreload(() => {
-      if (roomId === OFFLINE_BOT_ID) {
-        const newState: Room = {
-          id: OFFLINE_BOT_ID,
-          isBotRoom: true,
-          players: {
-            me: { id: 'me', name: playerName.trim() || 'لاعب', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false },
-            bot: { id: 'bot', name: 'الكمبيوتر', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: true }
-          },
-          gameState: 'playing',
-          round: 1,
-          roundWinner: null,
-          timeLeft: 15
-        };
-        setRoomState(newState);
-      } else {
-        sendNativeAction({ type: 'play_again', roomId });
-      }
-    }, 'game');
+    if (roomId === OFFLINE_BOT_ID) {
+      const newState: Room = {
+        id: OFFLINE_BOT_ID,
+        isBotRoom: true,
+        players: {
+          me: { id: 'me', name: playerName.trim() || 'لاعب', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false },
+          bot: { id: 'bot', name: 'الكمبيوتر', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: true }
+        },
+        gameState: 'playing',
+        round: 1,
+        roundWinner: null,
+        timeLeft: 15
+      };
+      setRoomState(newState);
+    } else {
+      sendNativeAction({ type: 'play_again', roomId });
+    }
   };
 
   const leaveRoom = async () => {
@@ -1179,9 +1167,7 @@ const App = () => {
             paddingBottom: 'env(safe-area-inset-bottom)',
           }}
         >
-          <motion.div
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
+          <div
             className="max-w-sm w-full bg-game-dark/80 p-8 rounded-xl border border-white/10 shadow-2xl"
           >
             <div className="mb-8 flex justify-center gap-4">
@@ -1208,7 +1194,7 @@ const App = () => {
                 تأكيد الاسم
               </button>
             </div>
-          </motion.div>
+          </div>
         </div>
         {renderDebugUI()}
       </>
@@ -1229,38 +1215,19 @@ const App = () => {
             paddingRight: 'env(safe-area-inset-right)'
           }}
         >
-          <motion.div
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
+          <div
             className="max-w-md w-full text-center"
           >
-            {menuTab === 'main' && (
-              <div className="mb-8 flex items-center justify-center gap-3 bg-white/10 py-2 px-5 rounded-full border border-white/10 w-fit mx-auto">
-                <span className="text-game-offwhite font-display text-lg tracking-wider">المحارب: {playerName}</span>
-                <button 
-                  onClick={() => setAppState('nameEntry')}
-                  className="p-1.5 text-game-offwhite/40 hover:text-game-offwhite transition-all"
-                  title="تعديل الاسم"
-                >
-                  <Edit2 className="w-4 h-4" />
-                </button>
-              </div>
-            )}
-
             <h1 className="text-5xl sm:text-6xl font-display mb-12 text-game-offwhite tracking-[0.2em] uppercase">
               صراع البطاقات
             </h1>
             
             <div className="space-y-5">
-              <AnimatePresence mode="wait">
-                {menuTab === 'main' && (
-                  <motion.div
-                    key="main"
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 20 }}
-                    className="flex flex-col gap-5"
-                  >
+              {menuTab === 'main' && (
+                <div
+                  key="main"
+                  className="flex flex-col gap-5"
+                >
                     <button
                       disabled
                       className="w-[90%] mx-auto py-4 bg-white/5 text-white/10 rounded-lg font-display text-xl border border-white/5 cursor-not-allowed flex items-center justify-center gap-3"
@@ -1281,27 +1248,24 @@ const App = () => {
                     </button>
                     <div className="flex w-[90%] mx-auto gap-3">
                       <button
-                        onClick={() => withPreload(() => setAppState('store'), 'store')}
+                        onClick={() => setAppState('store')}
                         className="flex-1 py-3 bg-game-dark/50 hover:bg-game-dark text-game-cream rounded-lg font-display text-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 border border-white/10"
                       >
                         <ShoppingCart className="w-5 h-5" /> المتجر
                       </button>
                       <button
-                        onClick={() => withPreload(() => setAppState('profile'), 'profile')}
+                        onClick={() => setAppState('profile')}
                         className="flex-1 py-3 bg-game-dark/50 hover:bg-game-dark text-game-cream rounded-lg font-display text-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 border border-white/10"
                       >
                         <User className="w-5 h-5" /> حسابي
                       </button>
                     </div>
-                  </motion.div>
+                  </div>
                 )}
 
                 {menuTab === 'online' && (
-                  <motion.div
+                  <div
                     key="online"
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 20 }}
                     className="flex flex-col gap-4"
                   >
                     <button onClick={() => setMenuTab('main')} className="text-game-offwhite/40 hover:text-game-offwhite flex items-center gap-2 mb-4 w-fit transition-colors text-sm font-display tracking-widest">
@@ -1320,21 +1284,17 @@ const App = () => {
                       <div className="flex-grow border-t border-white/5"></div>
                     </div>
 
-                    <div className="w-[90%] mx-auto flex flex-col gap-4">
-                      <input
-                        type="text"
-                        placeholder="أدخل كود الغرفة..."
-                        value={roomIdInput}
-                        onChange={(e) => setRoomIdInput(e.target.value)}
-                        className="w-full bg-transparent border-0 border-b-2 border-white/30 rounded-none py-3 px-2 text-center text-xl font-mono text-game-offwhite focus:outline-none focus:border-white transition-all placeholder:text-white/10"
-                        maxLength={6}
-                      />
-                      <AnimatePresence>
+                      <div className="w-[90%] mx-auto flex flex-col gap-4">
+                        <input
+                          type="text"
+                          placeholder="أدخل كود الغرفة..."
+                          value={roomIdInput}
+                          onChange={(e) => setRoomIdInput(e.target.value)}
+                          className="w-full bg-transparent border-0 border-b-2 border-white/30 rounded-none py-3 px-2 text-center text-xl font-mono text-game-offwhite focus:outline-none focus:border-white transition-all placeholder:text-white/10"
+                          maxLength={6}
+                        />
                         {roomIdInput.trim().length > 0 && (
-                          <motion.div
-                            initial={{ opacity: 0, scaleY: 0 }}
-                            animate={{ opacity: 1, scaleY: 1 }}
-                            exit={{ opacity: 0, scaleY: 0 }}
+                          <div
                             style={{ transformOrigin: 'top' }}
                           >
                             <button
@@ -1343,19 +1303,15 @@ const App = () => {
                             >
                               انضمام
                             </button>
-                          </motion.div>
+                          </div>
                         )}
-                      </AnimatePresence>
-                    </div>
-                  </motion.div>
+                      </div>
+                  </div>
                 )}
 
                 {menuTab === 'local' && (
-                  <motion.div
+                  <div
                     key="local"
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 20 }}
                     className="flex flex-col gap-6 w-full max-w-[340px] mx-auto px-2"
                   >
                     <button 
@@ -1366,30 +1322,25 @@ const App = () => {
                     </button>
 
                     <div className="relative flex flex-col gap-6">
-                      <AnimatePresence>
-                        {connectionStatus === 'CONNECTING' && (
-                          <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            className="absolute inset-0 z-50 bg-black/90 flex flex-col items-center justify-center rounded-xl border border-white/10"
+                      {connectionStatus === 'CONNECTING' && (
+                        <div
+                          className="absolute inset-0 z-50 bg-black/90 flex flex-col items-center justify-center rounded-xl border border-white/10"
+                        >
+                          <div className="w-10 h-10 rounded-full border-2 border-white/10 border-t-white animate-spin mb-4"></div>
+                          <p className="text-game-offwhite font-display text-lg tracking-widest animate-pulse">جاري الاتصال...</p>
+                          <button 
+                            onClick={async () => {
+                              if (Capacitor.isNativePlatform()) {
+                                await LocalServer.stopAll();
+                              }
+                              setConnectionStatus('DISCONNECTED');
+                            }}
+                            className="mt-6 px-5 py-2 bg-game-slate text-white rounded-full text-xs font-display tracking-widest transition-all hover:bg-slate-600"
                           >
-                            <div className="w-10 h-10 rounded-full border-2 border-white/10 border-t-white animate-spin mb-4"></div>
-                            <p className="text-game-offwhite font-display text-lg tracking-widest animate-pulse">جاري الاتصال...</p>
-                            <button 
-                              onClick={async () => {
-                                if (Capacitor.isNativePlatform()) {
-                                  await LocalServer.stopAll();
-                                }
-                                setConnectionStatus('DISCONNECTED');
-                              }}
-                              className="mt-6 px-5 py-2 bg-game-slate text-white rounded-full text-xs font-display tracking-widest transition-all hover:bg-slate-600"
-                            >
-                              إلغاء الاتصال
-                            </button>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
+                            إلغاء الاتصال
+                          </button>
+                        </div>
+                      )}
 
                       {/* Host Section */}
                     <div className="bg-game-dark/90 border border-white/10 p-6 rounded-xl shadow-2xl">
@@ -1446,31 +1397,25 @@ const App = () => {
                           className="w-full bg-transparent border-0 border-b-2 border-white/30 rounded-none py-3 px-2 text-center text-xl font-mono text-game-offwhite focus:outline-none focus:border-white transition-all placeholder:text-white/10"
                           dir="ltr"
                         />
-                        <AnimatePresence>
-                          {isValidIp(ipInput.trim()) && (
-                            <motion.div
-                              initial={{ opacity: 0, scaleY: 0 }}
-                              animate={{ opacity: 1, scaleY: 1 }}
-                              exit={{ opacity: 0, scaleY: 0 }}
-                              style={{ transformOrigin: 'top' }}
+                        {isValidIp(ipInput.trim()) && (
+                          <div
+                            style={{ transformOrigin: 'top' }}
+                          >
+                            <button
+                              onClick={joinGame}
+                              className="w-full py-4 bg-game-offwhite hover:bg-white text-black rounded-lg font-display text-2xl shadow-lg transition-all active:scale-95"
                             >
-                              <button
-                                onClick={joinGame}
-                                className="w-full py-4 bg-game-offwhite hover:bg-white text-black rounded-lg font-display text-2xl shadow-lg transition-all active:scale-95"
-                              >
-                                اتصال
-                              </button>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
+                              اتصال
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
-                </motion.div>
-                )}
-              </AnimatePresence>
+                </div>
+              )}
             </div>
-          </motion.div>
+          </div>
         </div>
         {renderDebugUI()}
       </>
@@ -1509,6 +1454,7 @@ const App = () => {
         }}
         selectedPack={selectedPack}
         setSelectedPack={setSelectedPack}
+        onEditName={() => setAppState('nameEntry')}
       />
     );
   }
@@ -1567,8 +1513,6 @@ const App = () => {
           }}
         >
           <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
             className="bg-game-dark/90 p-8 rounded-xl border border-white/10 shadow-2xl max-w-sm w-full text-center"
           >
             <div className="w-10 h-10 rounded-full border-2 border-white/10 border-t-white animate-spin mx-auto mb-8"></div>
@@ -1647,8 +1591,6 @@ const App = () => {
           }}
         >
           <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
             className="bg-game-dark/90 p-8 rounded-xl border border-white/10 shadow-2xl max-w-sm w-full text-center relative overflow-hidden"
           >
             <div className="relative z-10">
@@ -1695,19 +1637,6 @@ const App = () => {
   return (
     <>
       {renderErrorToast()}
-      <AnimatePresence>
-        {!isPreloaded && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[200] wood-texture flex flex-col items-center justify-center"
-          >
-            <div className="w-12 h-12 rounded-full border-4 border-game-bg border-t-game-slate animate-spin mb-4"></div>
-            <p className="text-game-offwhite font-display text-xl tracking-widest animate-pulse">جاري تحميل الموارد...</p>
-          </motion.div>
-        )}
-      </AnimatePresence>
       <div 
         dir="rtl" 
         className="h-[100dvh] wood-texture text-game-cream font-body selection:bg-game-red/30 overflow-hidden flex flex-col select-none"
