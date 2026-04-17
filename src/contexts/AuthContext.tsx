@@ -1,7 +1,4 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc, setDoc, onSnapshot, serverTimestamp, updateDoc } from 'firebase/firestore';
-import { auth, db } from '../lib/firebase';
 
 export interface UserProfile {
   uid: string;
@@ -12,7 +9,7 @@ export interface UserProfile {
 }
 
 interface AuthContextType {
-  user: User | null;
+  user: { uid: string, photoURL?: string } | null;
   profile: UserProfile | null;
   loading: boolean;
   login: () => Promise<void>;
@@ -23,92 +20,84 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<{ uid: string, photoURL?: string } | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
-      if (!currentUser) {
-        setProfile(null);
-        setLoading(false);
-        return;
+    const initAuth = async () => {
+      let deviceId = localStorage.getItem('cardClashDeviceId');
+      if (!deviceId) {
+        deviceId = 'user_' + Math.random().toString(36).substring(2, 15);
+        localStorage.setItem('cardClashDeviceId', deviceId);
       }
-    });
-    return () => unsubscribe();
+      
+      setUser({ uid: deviceId });
+
+      try {
+        const apiBase = window.location.protocol + '//' + window.location.host;
+        const res = await fetch(`${apiBase}/api/profile/${deviceId}`);
+        if (res.ok) {
+          const data = await res.json();
+          
+          // Merge local legacy data if any
+          let shouldUpdate = false;
+          let mergedData = { ...data };
+          
+          const localCoins = localStorage.getItem('cardClashCoins');
+          if (localCoins && parseInt(localCoins) > data.coins) {
+             mergedData.coins = parseInt(localCoins);
+             shouldUpdate = true;
+          }
+          
+          const localThemes = localStorage.getItem('cardClashOwnedThemes');
+          if (localThemes) {
+             const parsed = JSON.parse(localThemes);
+             if (parsed.length > data.purchasedThemes.length) {
+                mergedData.purchasedThemes = Array.from(new Set([...data.purchasedThemes, ...parsed]));
+                shouldUpdate = true;
+             }
+          }
+          
+          setProfile(mergedData);
+          
+          if (shouldUpdate) {
+             await fetch(`${apiBase}/api/profile/${deviceId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(mergedData)
+             });
+          }
+
+        }
+      } catch (e) {
+        console.error('Failed to load profile', e);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initAuth();
   }, []);
 
-  useEffect(() => {
-    if (!user) return;
-
-    let unsubscribeProfile: () => void;
-    
-    const fetchOrCreateProfile = async () => {
-      const userRef = doc(db, 'users', user.uid);
-      try {
-        const docSnap = await getDoc(userRef);
-        if (!docSnap.exists()) {
-          // Check for pre-existing local data
-          const localCoins = parseInt(localStorage.getItem('cardClashCoins') || '100');
-          const localThemes = JSON.parse(localStorage.getItem('cardClashOwnedThemes') || '["normal"]');
-          const localTheme = localStorage.getItem('cardClashTheme') || 'normal';
-          const localName = localStorage.getItem('cardClashPlayerName') || user.displayName || 'لاعب';
-          
-          // Create initial profile migrating data
-          const initialProfile = {
-            uid: user.uid,
-            displayName: localName,
-            coins: localCoins,
-            purchasedThemes: localThemes,
-            equippedTheme: localTheme,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp()
-          };
-          await setDoc(userRef, initialProfile);
-        }
-
-        // Setup real-time listener for profile (coins, themes, etc.)
-        unsubscribeProfile = onSnapshot(userRef, (snapshot) => {
-          if (snapshot.exists()) {
-            setProfile(snapshot.data() as UserProfile);
-          }
-          setLoading(false);
-        });
-      } catch (err) {
-        console.error("Error fetching profile:", err);
-        setLoading(false);
-      }
-    };
-
-    fetchOrCreateProfile();
-
-    return () => {
-      if (unsubscribeProfile) unsubscribeProfile();
-    };
-  }, [user]);
-
-  const login = async () => {
-    const provider = new GoogleAuthProvider();
-    provider.setCustomParameters({ prompt: 'select_account' });
-    try {
-      await signInWithPopup(auth, provider);
-    } catch (error) {
-      console.error("Login failed:", error);
-    }
-  };
-
-  const logout = async () => {
-    await signOut(auth);
-  };
+  const login = async () => {};
+  const logout = async () => {};
 
   const updateUserProfile = async (data: Partial<UserProfile>) => {
     if (!user) return;
-    const userRef = doc(db, 'users', user.uid);
-    await updateDoc(userRef, {
-      ...data,
-      updatedAt: serverTimestamp()
-    });
+    setProfile(prev => prev ? { ...prev, ...data } : null);
+    try {
+        const apiBase = window.location.protocol + '//' + window.location.host;
+        await fetch(`${apiBase}/api/profile/${user.uid}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+    } catch (e) {
+        console.error('Update profile failed', e);
+    }
   };
 
   return (

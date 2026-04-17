@@ -1434,21 +1434,6 @@ const App = () => {
                     </button>
                     
                     <div className="relative flex flex-col gap-6">
-                      {!user ? (
-                        <div className="bg-game-dark/90 p-6 rounded-3xl border border-white/10 text-center flex flex-col items-center shadow-2xl">
-                          <Globe className="w-12 h-12 text-game-teal mb-4 opacity-80" />
-                          <h3 className="text-2xl font-display text-white mb-2">تسجيل الدخول</h3>
-                          <p className="text-game-offwhite/60 mb-6 font-display text-sm leading-relaxed">للعب عبر الإنترنت وحفظ تقدمك سحابياً، يرجى تسجيل الدخول بحساب Google.</p>
-                          <motion.button
-                            whileTap={{ scale: 0.95 }}
-                            onClick={() => login()}
-                            className="bg-game-offwhite hover:bg-white text-black px-6 py-4 rounded-xl shadow-lg font-bold font-display text-xl flex items-center justify-center gap-3 w-full transition-all"
-                          >
-                            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-6 h-6"/>
-                            دخول بحساب جوجل
-                          </motion.button>
-                        </div>
-                      ) : (
                         <>
                           {isSearching && (
                             <div
@@ -1538,7 +1523,6 @@ const App = () => {
                             </div>
                           </div>
                         </>
-                      )}
                     </div>
                   </div>
                 )}

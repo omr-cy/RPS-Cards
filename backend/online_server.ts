@@ -2,7 +2,21 @@ import express from 'express';
 import { createServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import path from 'path';
+import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
+
+const DB_FILE = path.join(process.cwd(), 'backend', 'database.json');
+
+function loadDB() {
+  if (!fs.existsSync(DB_FILE)) {
+    fs.writeFileSync(DB_FILE, JSON.stringify({ users: {} }, null, 2));
+  }
+  return JSON.parse(fs.readFileSync(DB_FILE, 'utf-8'));
+}
+
+function saveDB(data: any) {
+  fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
+}
 
 type CardType = 'rock' | 'paper' | 'scissors';
 
@@ -213,6 +227,41 @@ async function startServer() {
   const PORT = 3000;
   const httpServer = createServer(app);
   const wss = new WebSocketServer({ server: httpServer });
+
+  app.use(express.json());
+
+  app.get('/api/profile/:id', (req, res) => {
+    try {
+      const db = loadDB();
+      let user = db.users[req.params.id];
+      if (!user) {
+        user = {
+          uid: req.params.id,
+          displayName: 'لاعب',
+          coins: 100,
+          purchasedThemes: ['normal'],
+          equippedTheme: 'normal'
+        };
+        db.users[req.params.id] = user;
+        saveDB(db);
+      }
+      res.json(user);
+    } catch (e) {
+      res.status(500).json({ error: 'Failed to load profile' });
+    }
+  });
+
+  app.post('/api/profile/:id', (req, res) => {
+    try {
+      const db = loadDB();
+      const user = db.users[req.params.id] || {};
+      db.users[req.params.id] = { ...user, ...req.body };
+      saveDB(db);
+      res.json(db.users[req.params.id]);
+    } catch (e) {
+      res.status(500).json({ error: 'Failed to save profile' });
+    }
+  });
 
   wss.on('connection', (ws) => {
     const socketId = Math.random().toString(36).substring(2, 10);
