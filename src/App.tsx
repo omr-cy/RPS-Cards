@@ -102,11 +102,12 @@ const GameTimer = memo(({ timeLeft }: { timeLeft?: number }) => {
   );
 });
 
-const CardPack = memo(({ theme, isOwned, isSelected, onClick }: { 
+const CardPack = memo(({ theme, isOwned, isSelected, onClick, onSelect }: { 
   theme: ThemeConfig, 
   isOwned: boolean, 
   isSelected: boolean, 
-  onClick: () => void 
+  onClick: () => void,
+  onSelect: () => void
 }) => (
   <div 
     onClick={onClick}
@@ -117,12 +118,14 @@ const CardPack = memo(({ theme, isOwned, isSelected, onClick }: {
       <div className={`absolute inset-0 rounded-xl shadow-md flex flex-col items-center justify-center p-2 ${theme.frontColor} border-2 ${isSelected ? 'border-indigo-400 ring-2 ring-indigo-500/20' : 'border-white/20'} z-10 overflow-hidden transition-[transform,border-color] duration-300 gpu-accelerated`}>
         <img src={getCardImagePath(theme, 'rock')} alt="rock" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
         {isOwned && (
-          <div className={`absolute top-2 right-2 p-1 rounded-full shadow-sm z-20 transition-[transform,background-color] duration-300 ${
+          <div 
+            onClick={(e) => { e.stopPropagation(); onSelect(); }}
+            className={`absolute top-2 right-2 p-1 rounded-full shadow-sm z-20 transition-[transform,background-color] duration-300 ${
             isSelected 
               ? 'bg-indigo-500 text-white ring-1 ring-white/30 scale-105' 
-              : 'bg-slate-900/40 text-white/20 border border-white/5'
+              : 'bg-slate-900/80 text-white hover:bg-slate-700 hover:scale-110 border border-white/10'
           }`}>
-            <ShieldCheck className={`w-3.5 h-3.5 ${isSelected ? 'fill-white/10' : ''}`} />
+            <ShieldCheck className={`w-4 h-4 ${isSelected ? 'fill-white/10' : ''}`} />
           </div>
         )}
       </div>
@@ -148,17 +151,11 @@ const PackPreviewModal = memo(({ selectedPack, ownedThemes, selectedThemeId, onB
   onSelect: (id: string) => void,
   onClose: () => void
 }) => (
-  <motion.div 
-    initial={{ opacity: 0 }}
-    animate={{ opacity: 1 }}
-    exit={{ opacity: 0 }}
+  <div 
     className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/90"
     onClick={onClose}
   >
-    <motion.div 
-      initial={{ scale: 0.8, y: 20 }}
-      animate={{ scale: 1, y: 0 }}
-      exit={{ scale: 0.8, y: 20 }}
+    <div 
       className="bg-game-dark/90 w-full max-w-2xl rounded-3xl p-6 sm:p-10 border border-white/10 shadow-2xl relative overflow-hidden"
       onClick={e => e.stopPropagation()}
     >
@@ -197,8 +194,8 @@ const PackPreviewModal = memo(({ selectedPack, ownedThemes, selectedThemeId, onB
           </button>
         </div>
       </div>
-    </motion.div>
-  </motion.div>
+    </div>
+  </div>
 ));
 
 const StoreView = memo(({ coins, ownedThemes, selectedThemeId, onBack, onBuy, onSelect, selectedPack, setSelectedPack }: {
@@ -221,7 +218,7 @@ const StoreView = memo(({ coins, ownedThemes, selectedThemeId, onBack, onBuy, on
       paddingRight: 'env(safe-area-inset-right)'
     }}
   >
-    <div className="flex justify-between items-center mb-8">
+    <div className="sticky top-0 z-50 wood-texture bg-game-dark/95 backdrop-blur-sm border-b border-white/10 flex justify-between items-center p-4 sm:p-6 mb-8">
       <button onClick={onBack} className="p-2 bg-game-dark/50 rounded-full text-game-cream hover:bg-game-dark border border-white/10 transition-all">
         <X className="w-6 h-6" />
       </button>
@@ -240,11 +237,11 @@ const StoreView = memo(({ coins, ownedThemes, selectedThemeId, onBack, onBuy, on
           isOwned={ownedThemes.includes(theme.id)}
           isSelected={selectedThemeId === theme.id}
           onClick={() => setSelectedPack(theme)}
+          onSelect={() => onSelect(theme.id)}
         />
       ))}
     </div>
 
-    <AnimatePresence>
       {selectedPack && (
         <PackPreviewModal 
           selectedPack={selectedPack}
@@ -255,7 +252,6 @@ const StoreView = memo(({ coins, ownedThemes, selectedThemeId, onBack, onBuy, on
           onClose={() => setSelectedPack(null)}
         />
       )}
-    </AnimatePresence>
   </div>
 ));
 
@@ -279,7 +275,7 @@ const ProfileView = memo(({ playerName, coins, ownedThemes, selectedThemeId, onB
       paddingRight: 'env(safe-area-inset-right)'
     }}
   >
-    <div className="flex justify-between items-center mb-8">
+    <div className="sticky top-0 z-50 wood-texture bg-game-dark/95 backdrop-blur-sm border-b border-white/10 flex justify-between items-center p-4 sm:p-6 mb-8">
       <button onClick={onBack} className="p-2 bg-game-dark/50 rounded-full text-game-cream hover:bg-game-dark border border-white/10 transition-all">
         <X className="w-6 h-6" />
       </button>
@@ -311,13 +307,13 @@ const ProfileView = memo(({ playerName, coins, ownedThemes, selectedThemeId, onB
               isOwned={true}
               isSelected={selectedThemeId === theme.id}
               onClick={() => setSelectedPack(theme)}
+              onSelect={() => onSelect(theme.id)}
             />
           ))}
         </div>
       </div>
     </div>
 
-    <AnimatePresence>
       {selectedPack && (
         <PackPreviewModal 
           selectedPack={selectedPack}
@@ -328,7 +324,6 @@ const ProfileView = memo(({ playerName, coins, ownedThemes, selectedThemeId, onB
           onClose={() => setSelectedPack(null)}
         />
       )}
-    </AnimatePresence>
   </div>
 ));
 
