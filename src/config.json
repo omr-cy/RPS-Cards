@@ -1,0 +1,5 @@
+{
+  "ONLINE_SERVER_URL": "ws://rpscards.duckdns.org:3000/game-socket",
+  "ONLINE_API_BASE_URL": "http://rpscards.duckdns.org:3000",
+  "LAN_PORT": 3000
+}

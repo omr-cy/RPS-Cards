@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import config from '../config.json';
 
 export interface UserProfile {
   uid: string;
@@ -35,14 +36,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       setUser({ uid: deviceId });
 
       try {
-        let apiBase = window.location.protocol + '//' + window.location.host;
-        const envBackendUrl = import.meta.env.VITE_BACKEND_URL;
-        if (envBackendUrl) {
-          apiBase = envBackendUrl
-            .replace('wss://', 'https://')
-            .replace('ws://', 'http://')
-            .replace('/game-socket', '');
-        }
+        const apiBase = config.ONLINE_API_BASE_URL;
         
         const res = await fetch(`${apiBase}/api/profile/${deviceId}`);
         if (res.ok) {
@@ -115,14 +109,7 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     if (!user) return;
     setProfile(prev => prev ? { ...prev, ...data } : null);
     try {
-        let apiBase = window.location.protocol + '//' + window.location.host;
-        const envBackendUrl = import.meta.env.VITE_BACKEND_URL;
-        if (envBackendUrl) {
-          apiBase = envBackendUrl
-            .replace('wss://', 'https://')
-            .replace('ws://', 'http://')
-            .replace('/game-socket', '');
-        }
+        const apiBase = config.ONLINE_API_BASE_URL;
         await fetch(`${apiBase}/api/profile/${user.uid}`, {
             method: 'POST',
             headers: {

@@ -7,6 +7,8 @@ import { Network } from '@capacitor/network';
 import { registerPlugin, Capacitor } from '@capacitor/core';
 import { useAuth } from './contexts/AuthContext';
 
+import config from './config.json';
+
 export interface LocalServerPlugin {
   startServer(options: { port: number }): Promise<{ status: string; port: number }>;
   connectToServer(options: { ip?: string; port?: number; url?: string; isOnline?: boolean }): Promise<void>;
@@ -56,7 +58,7 @@ const CARD_NAMES: Record<CardType, string> = {
   scissors: 'مقص'
 };
 
-const LAN_PORT = 3000;
+// Removed hardcoded LAN_PORT, now using config.LAN_PORT
 const OFFLINE_BOT_ID = 'OFFLINE_BOT';
 const INITIAL_DECK: Deck = { rock: 3, paper: 3, scissors: 3 };
 
@@ -822,7 +824,7 @@ const App = () => {
       return;
     }
     try {
-      await LocalServer.startServer({ port: LAN_PORT });
+      await LocalServer.startServer({ port: config.LAN_PORT });
       // Native will send ROOM_READY when server is started
     } catch (e) {
       addLog(`Host failed: ${e}`, 'error');
@@ -853,7 +855,7 @@ const App = () => {
       return;
     }
     try {
-      await LocalServer.connectToServer({ ip: ipInput.trim(), port: LAN_PORT });
+      await LocalServer.connectToServer({ ip: ipInput.trim(), port: config.LAN_PORT });
       // Native will send ROOM_READY after handshake is verified
     } catch (e) {
       addLog(`Join failed: ${e}`, 'error');
@@ -863,12 +865,8 @@ const App = () => {
 
   const connectToOnline = (action?: any): Promise<WebSocket | void> => {
     return new Promise(async (resolve, reject) => {
-      let serverUrl = 'ws://rpscards.duckdns.org:3000/game-socket';
-      const envUrl = import.meta.env.VITE_BACKEND_URL;
-      if (envUrl && envUrl.trim() !== '') {
-        serverUrl = envUrl;
-      }
-
+      let serverUrl = config.ONLINE_SERVER_URL;
+      
       if (Capacitor.isNativePlatform()) {
         try {
           addLog(`Connecting NATIVELY to online server: ${serverUrl}`, 'info');

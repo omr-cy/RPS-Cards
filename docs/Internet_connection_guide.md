@@ -55,11 +55,19 @@ sudo iptables -A INPUT -p tcp --dport 3000 -j ACCEPT
 3. اضغط على أداة "Update IP" لربط الدومين بالـ Public IP الحالي الخاص بك. (يمكن تشغيل سكريبت من DuckDNS لتحديثه تلقائياً).
 
 ### 6- التوصيل في جزء الـ Client (تطبيق أو لعبة)
-الآن يمكن لكود اللعبة (فرونت-اند) الاتصال بالخادم من أي مكان في العالم كالتالي:
-```typescript
-const serverUrl = 'ws://mygame.duckdns.org:3000/game-socket';
-const socket = new WebSocket(serverUrl);
+الآن يمكنك ضبط المسارات في ملف واحد مركزي هو `src/config.json`:
+```json
+{
+  "ONLINE_SERVER_URL": "ws://mygame.duckdns.org:3000/game-socket",
+  "ONLINE_API_BASE_URL": "http://mygame.duckdns.org:3000"
+}
 ```
+سيقوم التطبيق تلقائياً بقراءة هذه الإعدادات للاتصال بـ WebSocket والـ API الخاص ببيانات البروفايل.
+
+### 💡 هيكلية المشروع (Project Structure)
+لضمان الأمان وعدم تسريب كود السيرفر داخل تطبيق الأندرويد، تم فصل الكود تماماً:
+- **مجلد `src/`**: يحتوي فقط على كود الفرونت-اند (الواجهة) الذي يتم بناؤه للأندرويد.
+- **مجلد `server/`**: يحتوي على كود الباك-اند (السيرفر) وهو معزول تماماً عن عملية البناء (Build) الخاصة بـ Capacitor، مما يضمن أن الـ APK سيكون خفيفاً وآمناً.
 
 ---
 
