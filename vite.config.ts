@@ -50,7 +50,6 @@ export default defineConfig(({mode}) => {
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
       'process.env.APP_URL': JSON.stringify(env.APP_URL),
-      'process.env.VITE_BACKEND_URL': JSON.stringify(env.VITE_BACKEND_URL),
     },
     resolve: {
       alias: {
@@ -63,6 +62,8 @@ export default defineConfig(({mode}) => {
       chunkSizeWarningLimit: 2000,
     },
     server: {
+      port: 3000,
+      host: '0.0.0.0',
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modifyâfile watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',

@@ -863,20 +863,14 @@ const App = () => {
         return;
       }
       
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      let serverUrl = `${protocol}//${window.location.host}`;
+      // Use environment variable if provided, otherwise default to user's standalone server
+      let serverUrl = 'wss://rpscards.duckdns.org:3000/game-socket';
+      const envUrl = import.meta.env.VITE_BACKEND_URL;
       
-      // Use environment variable if provided
-      const envUrl = (process.env as any).VITE_BACKEND_URL;
-      
-      if (envUrl) {
-        serverUrl = envUrl.startsWith('ws') ? envUrl : `${protocol}//${envUrl}`;
-      } else if (Capacitor.isNativePlatform()) {
-        // Fallback for native if no URL is provided
-        serverUrl = 'wss://rpscards.duckdns.org:3000';
+      if (envUrl && envUrl.trim() !== '') {
+        serverUrl = envUrl;
       }
-      // If we are on web and not native, we default to window.location.host which is the internal server
-        
+      
       addLog(`Connecting to online server: ${serverUrl}`, 'info');
       const socket = new WebSocket(serverUrl);
       

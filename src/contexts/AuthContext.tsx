@@ -35,10 +35,22 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
       setUser({ uid: deviceId });
 
       try {
-        const apiBase = window.location.protocol + '//' + window.location.host;
+        let apiBase = window.location.protocol + '//' + window.location.host;
+        const envBackendUrl = import.meta.env.VITE_BACKEND_URL;
+        if (envBackendUrl) {
+          apiBase = envBackendUrl
+            .replace('wss://', 'https://')
+            .replace('ws://', 'http://')
+            .replace('/game-socket', '');
+        }
+        
         const res = await fetch(`${apiBase}/api/profile/${deviceId}`);
         if (res.ok) {
-          const data = await res.json();
+          const text = await res.text();
+          if (text.trim().startsWith('<')) {
+             throw new Error('Received HTML instead of JSON. Backend disconnected.');
+          }
+          const data = JSON.parse(text);
           
           // Merge local legacy data if any
           let shouldUpdate = false;
@@ -69,9 +81,25 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
              });
           }
 
+        } else {
+          throw new Error('Profile endpoint failed '+ res.status);
         }
-      } catch (e) {
-        console.error('Failed to load profile', e);
+      } catch (e: any) {
+        if (e.name === 'TypeError' || e.message === 'Failed to fetch') {
+           console.log('⚠️ Backend unreachable, using Local Profile.');
+        } else {
+           console.log('⚠️ Error fetching profile:', e.message);
+        }
+        
+        // Fallback to purely local profile if backend isn't there
+        const fallbackProfile: UserProfile = {
+           uid: deviceId,
+           displayName: 'لاعب',
+           coins: parseInt(localStorage.getItem('cardClashCoins') || '100'),
+           purchasedThemes: JSON.parse(localStorage.getItem('cardClashOwnedThemes') || '["normal"]'),
+           equippedTheme: localStorage.getItem('cardClashTheme') || 'normal'
+        };
+        setProfile(fallbackProfile);
       } finally {
         setLoading(false);
       }
@@ -87,16 +115,23 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
     if (!user) return;
     setProfile(prev => prev ? { ...prev, ...data } : null);
     try {
-        const apiBase = window.location.protocol + '//' + window.location.host;
+        let apiBase = window.location.protocol + '//' + window.location.host;
+        const envBackendUrl = import.meta.env.VITE_BACKEND_URL;
+        if (envBackendUrl) {
+          apiBase = envBackendUrl
+            .replace('wss://', 'https://')
+            .replace('ws://', 'http://')
+            .replace('/game-socket', '');
+        }
         await fetch(`${apiBase}/api/profile/${user.uid}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify(data)
-        });
+        }).catch(() => {});
     } catch (e) {
-        console.error('Update profile failed', e);
+        // Silent failure if offline
     }
   };
 

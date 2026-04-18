@@ -1,8 +1,6 @@
 import express from 'express';
 import { createServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
-import path from 'path';
-import { createServer as createViteServer } from 'vite';
 
 // In-memory profile storage (resets on server restart)
 const profileStore = new Map<string, any>();
@@ -44,13 +42,11 @@ const matchmakingQueue: { id: string; name: string; themeId: string; ws: WebSock
 const INITIAL_DECK: Deck = { rock: 3, paper: 3, scissors: 3 };
 
 function generateRoomCode(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Excluded I, O, 1, 0 to avoid confusion
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let result = '';
-  // Generate 4 character matching code (e.g., "M7X9")
   for (let i = 0; i < 4; i++) {
     result += chars.charAt(Math.floor(Math.random() * chars.length));
   }
-  // Ensure the code doesn't exist already
   return rooms[result] ? generateRoomCode() : result;
 }
 
@@ -66,88 +62,39 @@ function getWinner(choice1: CardType, choice2: CardType): 1 | 2 | 0 {
   return 2;
 }
 
-function broadcastToRoom(roomId: string, data: any) {
-  const room = rooms[roomId];
-  if (!room) return;
-  const message = JSON.stringify(data);
-  Object.values(room.players).forEach(player => {
-    if (player.ws.readyState === WebSocket.OPEN) {
-      player.ws.send(message);
+const cleanPlayerForBroadcast = (player: Player) => {
+  const { ws, choice, ...safePlayer } = player;
+  return { ...safePlayer, hasChosen: choice !== null };
+};
+
+const cleanRoomForBroadcast = (room: Room, askingPlayerId?: string) => {
+  const cleanPlayers: Record<string, any> = {};
+  Object.values(room.players).forEach(p => {
+    if (room.gameState === 'revealing' || room.gameState === 'roundResult' || room.gameState === 'gameOver') {
+      const { ws, ...safePlayer } = p;
+      cleanPlayers[p.id] = safePlayer;
+    } else {
+      if (p.id === askingPlayerId) {
+        const { ws, ...safePlayer } = p;
+        cleanPlayers[p.id] = safePlayer;
+      } else {
+        cleanPlayers[p.id] = cleanPlayerForBroadcast(p);
+      }
     }
   });
-}
+  return { ...room, players: cleanPlayers };
+};
 
-function startNextRound(roomId: string) {
+function broadcastToRoom(roomId: string, message: any) {
   const room = rooms[roomId];
   if (!room) return;
-
-  const playerIds = Object.keys(room.players);
-  const p1 = room.players[playerIds[0]];
-  const p2 = room.players[playerIds[1]];
-  
-  let points = 1;
-  if (room.round >= 7) points = 3;
-  else if (room.round >= 4) points = 2;
-
-  if (room.roundWinner === p1.id) {
-    p1.score += points;
-  } else if (room.roundWinner === p2.id) {
-    p2.score += points;
-  }
-
-  if (room.round >= 9) {
-    room.gameState = 'gameOver';
-  } else {
-    room.round += 1;
-    room.gameState = 'playing';
-    room.roundWinner = null;
-    Object.values(room.players).forEach(p => {
-      p.choice = null;
-      p.readyForNext = false;
-    });
-    startRoundTimer(roomId);
-  }
-  broadcastToRoom(roomId, { type: 'room_state', state: room });
-}
-
-function handleReveal(roomId: string) {
-  const room = rooms[roomId];
-  if (!room) return;
-
-  if (roomTimers[roomId]) {
-    clearInterval(roomTimers[roomId]);
-    delete roomTimers[roomId];
-  }
-
-  room.gameState = 'revealing';
-  broadcastToRoom(roomId, { type: 'room_state', state: room });
-
-  setTimeout(() => {
-    const playerIds = Object.keys(room.players);
-    const p1 = room.players[playerIds[0]];
-    const p2 = room.players[playerIds[1]];
-    
-    // Only process if both players actually exist
-    if (!p1 || !p2) return;
-
-    // Safety fallback: if no choice was made
-    const p1Choice = p1.choice || 'rock'; 
-    const p2Choice = p2.choice || 'rock';
-
-    const winnerCode = getWinner(p1Choice, p2Choice);
-    
-    if (winnerCode === 1) {
-      room.roundWinner = p1.id;
-    } else if (winnerCode === 2) {
-      room.roundWinner = p2.id;
-    } else {
-      room.roundWinner = 'draw';
+  Object.values(room.players).forEach(p => {
+    const tailoredState = message.type === 'room_state' ? cleanRoomForBroadcast(message.state, p.id) : message.state;
+    const tailoredMessage = message.type === 'room_state' ? { ...message, state: tailoredState } : message;
+    if (p.ws.readyState === WebSocket.OPEN) {
+      p.ws.send(JSON.stringify(tailoredMessage));
     }
-    room.gameState = 'roundResult';
-    broadcastToRoom(roomId, { type: 'room_state', state: room });
-
-    setTimeout(() => startNextRound(roomId), 3000);
-  }, 1200);
+  });
 }
 
 function startRoundTimer(roomId: string) {
@@ -158,47 +105,28 @@ function startRoundTimer(roomId: string) {
     clearInterval(roomTimers[roomId]);
   }
 
-  // Auto-play if only 1 card left
-  Object.values(room.players).forEach(p => {
-      const total = p.deck.rock + p.deck.paper + p.deck.scissors;
-      if (total === 1 && !p.choice) {
-        if (p.deck.rock === 1) { p.choice = 'rock'; p.deck.rock = 0; }
-        else if (p.deck.paper === 1) { p.choice = 'paper'; p.deck.paper = 0; }
-        else if (p.deck.scissors === 1) { p.choice = 'scissors'; p.deck.scissors = 0; }
-      }
-  });
+  room.timeLeft = 15;
+  broadcastToRoom(roomId, { type: 'room_state', state: room });
 
-  const playerIds = Object.keys(room.players);
-  const p1 = room.players[playerIds[0]];
-  const p2 = room.players[playerIds[1]];
-  
-  if (p1 && p2 && p1.choice && p2.choice) {
-      handleReveal(roomId);
-      return;
-  }
-
-  room.timeLeft = 15; // 15 seconds per round in online mode
-  
   roomTimers[roomId] = setInterval(() => {
-    const currentRoom = rooms[roomId];
-    if (!currentRoom || currentRoom.gameState !== 'playing') {
+    if (!rooms[roomId]) {
+      clearInterval(roomTimers[roomId]);
+      return;
+    }
+    const r = rooms[roomId];
+    if (r.gameState !== 'playing') {
       clearInterval(roomTimers[roomId]);
       return;
     }
 
-    currentRoom.timeLeft! -= 1;
-    broadcastToRoom(roomId, { type: 'room_state', state: currentRoom });
-
-    if (currentRoom.timeLeft! <= 0) {
+    if (r.timeLeft && r.timeLeft > 0) {
+      r.timeLeft -= 1;
+      broadcastToRoom(roomId, { type: 'room_state', state: r });
+    } else {
       clearInterval(roomTimers[roomId]);
-      
-      Object.values(currentRoom.players).forEach(player => {
+      Object.values(r.players).forEach(player => {
         if (!player.choice) {
-          const availableCards: CardType[] = [];
-          if (player.deck.rock > 0) availableCards.push('rock');
-          if (player.deck.paper > 0) availableCards.push('paper');
-          if (player.deck.scissors > 0) availableCards.push('scissors');
-          
+          const availableCards = (Object.keys(player.deck) as CardType[]).filter(t => player.deck[t] > 0);
           if (availableCards.length > 0) {
             const randomChoice = availableCards[Math.floor(Math.random() * availableCards.length)];
             player.choice = randomChoice;
@@ -211,13 +139,67 @@ function startRoundTimer(roomId: string) {
   }, 1000);
 }
 
+function handleReveal(roomId: string) {
+  const room = rooms[roomId];
+  if (!room) return;
+
+  room.gameState = 'revealing';
+  broadcastToRoom(roomId, { type: 'room_state', state: room });
+
+  setTimeout(() => {
+    const players = Object.values(room.players);
+    if (players.length !== 2) return;
+    
+    const p1 = players[0];
+    const p2 = players[1];
+
+    if (p1.choice && p2.choice) {
+      const winner = getWinner(p1.choice, p2.choice);
+      if (winner === 1) {
+        room.roundWinner = p1.id;
+        p1.score += 1;
+      } else if (winner === 2) {
+        room.roundWinner = p2.id;
+        p2.score += 1;
+      } else {
+        room.roundWinner = 'draw';
+      }
+    }
+
+    room.gameState = 'roundResult';
+    broadcastToRoom(roomId, { type: 'room_state', state: room });
+
+    setTimeout(() => {
+      // Check for Game Over (9 rounds total means cards run out)
+      const totalCardsPlayed = 9 - Object.values(p1.deck).reduce((a,b)=>a+b,0);
+      if (totalCardsPlayed >= 9 || p1.score === 5 || p2.score === 5) {
+        room.gameState = 'gameOver';
+        if (roomTimers[roomId]) clearInterval(roomTimers[roomId]);
+      }
+      broadcastToRoom(roomId, { type: 'room_state', state: room });
+    }, 3000);
+
+  }, 2000);
+}
+
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.PORT || 3000;
   const httpServer = createServer(app);
-  const wss = new WebSocketServer({ server: httpServer });
+  
+  // This matches your App.tsx path
+  const wss = new WebSocketServer({ server: httpServer, path: '/game-socket' });
 
   app.use(express.json());
+
+  // CORS middleware for API endpoints
+  app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+    next();
+  });
+
+  app.get('/api/health', (req, res) => res.json({ status: 'ok', activeRooms: Object.keys(rooms).length }));
 
   app.get('/api/profile/:id', (req, res) => {
     try {
@@ -273,7 +255,6 @@ async function startServer() {
     const socketId = Math.random().toString(36).substring(2, 10);
     console.log(`[WS] New connection attempt. ID: ${socketId}`);
 
-    // Pulse check
     ws.send(JSON.stringify({ type: 'PING' }));
 
     ws.on('message', (data) => {
@@ -321,9 +302,8 @@ async function startServer() {
           broadcastToRoom(code, { type: 'room_state', state: room });
         }
 
-        // --- 3. Random Matchmaking Queue ---
+        // --- 3. Random Matchmaking ---
         if (message.type === 'quick_match') {
-          // Prevent duplicate queue entries
           if (matchmakingQueue.find(p => p.id === socketId)) return;
 
           matchmakingQueue.push({
@@ -335,7 +315,6 @@ async function startServer() {
 
           ws.send(JSON.stringify({ type: 'matchmaking_status', msg: 'جاري البحث عن خصم مناسب...' }));
 
-          // Pair logic (if 2 or more players are waiting)
           if (matchmakingQueue.length >= 2) {
             const p1 = matchmakingQueue.shift()!;
             const p2 = matchmakingQueue.shift()!;
@@ -351,66 +330,96 @@ async function startServer() {
                round: 1,
                roundWinner: null
             };
-
-            p1.ws.send(JSON.stringify({ type: 'match_found', roomId }));
-            p2.ws.send(JSON.stringify({ type: 'match_found', roomId }));
-
+            
+            p1.ws.send(JSON.stringify({ type: 'match_found', roomId, roomCode: roomId }));
+            p2.ws.send(JSON.stringify({ type: 'match_found', roomId, roomCode: roomId }));
             startRoundTimer(roomId);
             broadcastToRoom(roomId, { type: 'room_state', state: rooms[roomId] });
           }
         }
 
-        // Cancel matchmaking
         if (message.type === 'cancel_matchmaking') {
           const idx = matchmakingQueue.findIndex(p => p.id === socketId);
           if (idx !== -1) matchmakingQueue.splice(idx, 1);
         }
 
-        // Gameplay actions
+        // --- 4. Game Actions ---
         if (message.type === 'play_card') {
-          const { roomId, choice } = message;
+          const { roomId, cardType } = message;
           const room = rooms[roomId];
-          if (!room || room.gameState !== 'playing') return;
           
-          const player = room.players[socketId];
-          if (!player || player.choice || player.deck[choice as CardType] <= 0) return;
+          if (room && room.gameState === 'playing' && room.players[socketId]) {
+            const player = room.players[socketId];
+            if (!player.choice && player.deck[cardType as CardType] > 0) {
+              player.choice = cardType as CardType;
+              player.deck[cardType as CardType] -= 1;
+              broadcastToRoom(roomId, { type: 'room_state', state: room });
 
-          player.choice = choice as CardType;
-          player.deck[choice as CardType] -= 1;
+              const allChosen = Object.values(room.players).every(p => p.choice !== null);
+              if (allChosen) {
+                if (roomTimers[roomId]) clearInterval(roomTimers[roomId]);
+                handleReveal(roomId);
+              }
+            }
+          }
+        }
 
-          const playerIds = Object.keys(room.players);
-          const p1 = room.players[playerIds[0]];
-          const p2 = room.players[playerIds[1]];
-
-          if (p1 && p2 && p1.choice && p2.choice) {
-            handleReveal(roomId);
-          } else {
+        if (message.type === 'ready_next_round') {
+          const { roomId } = message;
+          const room = rooms[roomId];
+          if (room && (room.gameState === 'roundResult' || room.gameState === 'gameOver')) {
+            room.players[socketId].readyForNext = true;
             broadcastToRoom(roomId, { type: 'room_state', state: room });
+
+            const allReady = Object.values(room.players).every(p => p.readyForNext);
+            if (allReady) {
+              if (room.gameState === 'gameOver') {
+                // Rematch
+                room.round = 1;
+                Object.values(room.players).forEach(p => {
+                  p.deck = { ...INITIAL_DECK };
+                  p.score = 0;
+                  p.choice = null;
+                  p.readyForNext = false;
+                });
+              } else {
+                // Next round
+                room.round += 1;
+                Object.values(room.players).forEach(p => {
+                  p.choice = null;
+                  p.readyForNext = false;
+                });
+              }
+              room.gameState = 'playing';
+              room.roundWinner = null;
+              startRoundTimer(roomId);
+              broadcastToRoom(roomId, { type: 'room_state', state: room });
+            }
           }
         }
 
         if (message.type === 'play_again') {
           const { roomId } = message;
           const room = rooms[roomId];
-          if (!room || room.gameState !== 'gameOver') return;
-
-          const player = room.players[socketId];
-          if (player) player.readyForNext = true;
-
-          const allReady = Object.values(room.players).every(p => p.readyForNext);
-          if (allReady) {
-            room.round = 1;
-            room.gameState = 'playing';
-            room.roundWinner = null;
-            Object.values(room.players).forEach(p => {
-              p.deck = { ...INITIAL_DECK };
-              p.score = 0;
-              p.choice = null;
-              p.readyForNext = false;
-            });
-            startRoundTimer(roomId);
+          if (room && room.gameState === 'gameOver') {
+            room.players[socketId].readyForNext = true;
+            broadcastToRoom(roomId, { type: 'room_state', state: room });
+            
+            const allReady = Object.values(room.players).every(p => p.readyForNext);
+            if (allReady) {
+              room.round = 1;
+              room.gameState = 'playing';
+              room.roundWinner = null;
+              Object.values(room.players).forEach(p => {
+                p.deck = { ...INITIAL_DECK };
+                p.score = 0;
+                p.choice = null;
+                p.readyForNext = false;
+              });
+              startRoundTimer(roomId);
+            }
+            broadcastToRoom(roomId, { type: 'room_state', state: room });
           }
-          broadcastToRoom(roomId, { type: 'room_state', state: room });
         }
 
         if (message.type === 'leave_room') {
@@ -429,20 +438,16 @@ async function startServer() {
     });
 
     function handleDisconnect(id: string, specificRoomId?: string) {
-      // Remove from matchmaking queue if they disconnect while searching
       const queueIdx = matchmakingQueue.findIndex(p => p.id === id);
       if (queueIdx !== -1) matchmakingQueue.splice(queueIdx, 1);
 
-      // Handle leaving active rooms
       const roomIds = specificRoomId ? [specificRoomId] : Object.keys(rooms);
       roomIds.forEach(rid => {
         const room = rooms[rid];
         if (room && room.players[id]) {
           delete room.players[id];
-          if (roomTimers[rid]) {
-            clearInterval(roomTimers[rid]);
-            delete roomTimers[rid];
-          }
+          if (roomTimers[rid]) clearInterval(roomTimers[rid]);
+          
           if (Object.keys(room.players).length === 0) {
             delete rooms[rid];
           } else {
@@ -455,25 +460,13 @@ async function startServer() {
     }
   });
 
-  app.get('/api/health', (req, res) => res.json({ status: 'ok', activeRooms: Object.keys(rooms).length }));
-
-  if (process.env.NODE_ENV !== 'production') {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
-  }
-
   httpServer.listen(PORT, '0.0.0.0', () => {
-    console.log(`Online Server running on port ${PORT}`);
+    console.log(`=========================================`);
+    console.log(`🚀 Standalone Game Server Running!`);
+    console.log(`👉 Port: ${PORT}`);
+    console.log(`👉 Path: /game-socket`);
+    console.log(`=========================================`);
   });
 }
 
-startServer();
+startServer().catch(console.error);
