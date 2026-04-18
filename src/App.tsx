@@ -480,8 +480,8 @@ const App = () => {
 
   useEffect(() => {
     if (roomState?.gameState === 'gameOver' && roomId) {
-      const me = roomState.players.me || Object.values(roomState.players).find(p => p.id === 'me' || p.name === playerName);
-      const opponent = Object.values(roomState.players).find(p => p.id !== (me ? me.id : ''));
+      const me = roomState.players.me || (Object.values(roomState.players) as Player[]).find(p => p.id === 'me' || p.name === playerName);
+      const opponent = (Object.values(roomState.players) as Player[]).find(p => p.id !== (me ? me.id : ''));
       
       if (me && opponent) {
         if (me.score > opponent.score) {
@@ -863,9 +863,15 @@ const App = () => {
         return;
       }
       
-      const serverUrl = import.meta.env.VITE_BACKEND_URL || 'ws://localhost:3000';
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      let serverUrl = `${protocol}//${window.location.host}`;
+      
+      // Override for online server based on user request
+      if (Capacitor.isNativePlatform() || window.location.host.includes('ai.studio') || window.location.host.includes('run.app')) {
+        serverUrl = 'wss://rpscards.duckdns.org:3000';
+      }
         
-      addLog(`Connecting to backend server: ${serverUrl}`, 'info');
+      addLog(`Connecting to online server: ${serverUrl}`, 'info');
       const socket = new WebSocket(serverUrl);
       
       socket.onopen = () => {
@@ -876,10 +882,8 @@ const App = () => {
       };
       
       socket.onerror = (e) => {
-        // Log detailed error to Debug UI only
-        const errorMsg = 'فشل الاتصال: تأكد من السيرفر ومن التشفير (WSS)';
-        addLog(`WebSocket error: ${errorMsg}`, 'error');
-        setErrorMsg(errorMsg);
+        addLog(`WebSocket error: ${JSON.stringify(e)}`, 'error');
+        setErrorMsg('فشل الاتصال بالسيرفر الأونلاين');
         reject(e);
       };
       
@@ -965,8 +969,8 @@ const App = () => {
       id: OFFLINE_BOT_ID,
       isBotRoom: true,
       players: {
-        me: { id: 'me', name: playerName.trim() || 'لاعب', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false },
-        bot: { id: 'bot', name: 'الكمبيوتر', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: true }
+        me: { id: 'me', name: playerName.trim() || 'لاعب', themeId: selectedThemeId, deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false },
+        bot: { id: 'bot', name: 'الكمبيوتر', themeId: 'robot', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: true }
       },
       gameState: 'playing',
       round: 1,
@@ -1107,8 +1111,8 @@ const App = () => {
         id: OFFLINE_BOT_ID,
         isBotRoom: true,
         players: {
-          me: { id: 'me', name: playerName.trim() || 'لاعب', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false },
-          bot: { id: 'bot', name: 'الكمبيوتر', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: true }
+          me: { id: 'me', name: playerName.trim() || 'لاعب', themeId: selectedThemeId, deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false },
+          bot: { id: 'bot', name: 'الكمبيوتر', themeId: 'robot', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: true }
         },
         gameState: 'playing',
         round: 1,

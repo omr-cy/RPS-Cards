@@ -15,6 +15,7 @@ interface Deck {
 interface Player {
   id: string;
   name: string;
+  themeId: string;
   deck: Deck;
   score: number;
   choice: CardType | null;
@@ -34,6 +35,7 @@ interface Room {
 
 const rooms: Record<string, Room> = {};
 const roomTimers: Record<string, NodeJS.Timeout> = {};
+const matchmakingQueue: any[] = [];
 
 const INITIAL_DECK: Deck = { rock: 3, paper: 3, scissors: 3 };
 

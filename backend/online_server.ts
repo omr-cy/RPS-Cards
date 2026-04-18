@@ -4,6 +4,9 @@ import { WebSocketServer, WebSocket } from 'ws';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 
+// In-memory profile storage (resets on server restart)
+const profileStore = new Map<string, any>();
+
 type CardType = 'rock' | 'paper' | 'scissors';
 
 interface Deck {
@@ -210,14 +213,65 @@ function startRoundTimer(roomId: string) {
 
 async function startServer() {
   const app = express();
-  const PORT = parseInt(process.env.PORT || '3000', 10);
+  const PORT = 3000;
   const httpServer = createServer(app);
   const wss = new WebSocketServer({ server: httpServer });
 
+  app.use(express.json());
+
+  app.get('/api/profile/:id', (req, res) => {
+    try {
+      const userId = req.params.id;
+      let user = profileStore.get(userId);
+      
+      if (!user) {
+        user = {
+          uid: userId,
+          displayName: 'لاعب',
+          coins: 100,
+          purchasedThemes: ['normal'],
+          equippedTheme: 'normal',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        profileStore.set(userId, user);
+      }
+      res.json(user);
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: 'Failed to load profile' });
+    }
+  });
+
+  app.post('/api/profile/:id', (req, res) => {
+    try {
+      const userId = req.params.id;
+      const existing = profileStore.get(userId);
+      
+      const updateData = {
+        ...(existing || {
+          uid: userId,
+          displayName: 'لاعب',
+          coins: 100,
+          purchasedThemes: ['normal'],
+          equippedTheme: 'normal',
+          createdAt: new Date().toISOString()
+        }),
+        ...req.body,
+        updatedAt: new Date().toISOString()
+      };
+
+      profileStore.set(userId, updateData);
+      res.json(updateData);
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: 'Failed to save profile' });
+    }
+  });
+
   wss.on('connection', (ws) => {
     const socketId = Math.random().toString(36).substring(2, 10);
-    const guestName = 'Guest_' + Math.floor(1000 + Math.random() * 9000);
-    console.log('Online User connected:', socketId, guestName);
+    console.log('Online User connected:', socketId);
 
     ws.send(JSON.stringify({ type: 'PING' }));
 
@@ -233,7 +287,7 @@ async function startServer() {
           rooms[roomId] = {
             id: roomId,
             players: {
-              [socketId]: { id: socketId, name: guestName, themeId: message.themeId || 'normal', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false, ws }
+              [socketId]: { id: socketId, name: message.playerName || 'لاعب', themeId: message.themeId || 'normal', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false, ws }
             },
             gameState: 'waiting',
             round: 1,
@@ -257,7 +311,7 @@ async function startServer() {
             return;
           }
 
-          room.players[socketId] = { id: socketId, name: guestName, themeId: message.themeId || 'normal', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false, ws };
+          room.players[socketId] = { id: socketId, name: message.playerName || 'لاعب', themeId: message.themeId || 'normal', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false, ws };
           room.gameState = 'playing';
           ws.send(JSON.stringify({ type: 'joined_room_success', roomId: code }));
           startRoundTimer(code);
@@ -271,7 +325,7 @@ async function startServer() {
 
           matchmakingQueue.push({
             id: socketId,
-            name: guestName,
+            name: message.playerName || 'لاعب',
             themeId: message.themeId || 'normal',
             ws: ws
           });
