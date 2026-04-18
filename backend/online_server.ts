@@ -2,21 +2,7 @@ import express from 'express';
 import { createServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import path from 'path';
-import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
-
-const DB_FILE = path.join(process.cwd(), 'backend', 'database.json');
-
-function loadDB() {
-  if (!fs.existsSync(DB_FILE)) {
-    fs.writeFileSync(DB_FILE, JSON.stringify({ users: {} }, null, 2));
-  }
-  return JSON.parse(fs.readFileSync(DB_FILE, 'utf-8'));
-}
-
-function saveDB(data: any) {
-  fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
-}
 
 type CardType = 'rock' | 'paper' | 'scissors';
 
@@ -224,48 +210,14 @@ function startRoundTimer(roomId: string) {
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = parseInt(process.env.PORT || '3000', 10);
   const httpServer = createServer(app);
   const wss = new WebSocketServer({ server: httpServer });
 
-  app.use(express.json());
-
-  app.get('/api/profile/:id', (req, res) => {
-    try {
-      const db = loadDB();
-      let user = db.users[req.params.id];
-      if (!user) {
-        user = {
-          uid: req.params.id,
-          displayName: 'لاعب',
-          coins: 100,
-          purchasedThemes: ['normal'],
-          equippedTheme: 'normal'
-        };
-        db.users[req.params.id] = user;
-        saveDB(db);
-      }
-      res.json(user);
-    } catch (e) {
-      res.status(500).json({ error: 'Failed to load profile' });
-    }
-  });
-
-  app.post('/api/profile/:id', (req, res) => {
-    try {
-      const db = loadDB();
-      const user = db.users[req.params.id] || {};
-      db.users[req.params.id] = { ...user, ...req.body };
-      saveDB(db);
-      res.json(db.users[req.params.id]);
-    } catch (e) {
-      res.status(500).json({ error: 'Failed to save profile' });
-    }
-  });
-
   wss.on('connection', (ws) => {
     const socketId = Math.random().toString(36).substring(2, 10);
-    console.log('Online User connected:', socketId);
+    const guestName = 'Guest_' + Math.floor(1000 + Math.random() * 9000);
+    console.log('Online User connected:', socketId, guestName);
 
     ws.send(JSON.stringify({ type: 'PING' }));
 
@@ -281,7 +233,7 @@ async function startServer() {
           rooms[roomId] = {
             id: roomId,
             players: {
-              [socketId]: { id: socketId, name: message.playerName || 'لاعب', themeId: message.themeId || 'normal', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false, ws }
+              [socketId]: { id: socketId, name: guestName, themeId: message.themeId || 'normal', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false, ws }
             },
             gameState: 'waiting',
             round: 1,
@@ -305,7 +257,7 @@ async function startServer() {
             return;
           }
 
-          room.players[socketId] = { id: socketId, name: message.playerName || 'لاعب', themeId: message.themeId || 'normal', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false, ws };
+          room.players[socketId] = { id: socketId, name: guestName, themeId: message.themeId || 'normal', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false, ws };
           room.gameState = 'playing';
           ws.send(JSON.stringify({ type: 'joined_room_success', roomId: code }));
           startRoundTimer(code);
@@ -319,7 +271,7 @@ async function startServer() {
 
           matchmakingQueue.push({
             id: socketId,
-            name: message.playerName || 'لاعب',
+            name: guestName,
             themeId: message.themeId || 'normal',
             ws: ws
           });
