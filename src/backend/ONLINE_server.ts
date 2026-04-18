@@ -69,19 +69,23 @@ const cleanPlayerForBroadcast = (player: Player) => {
 
 const cleanRoomForBroadcast = (room: Room, askingPlayerId?: string) => {
   const cleanPlayers: Record<string, any> = {};
+  
+  if (askingPlayerId && room.players[askingPlayerId]) {
+    const { ws, ...safePlayer } = room.players[askingPlayerId];
+    cleanPlayers[askingPlayerId] = safePlayer;
+  }
+
   Object.values(room.players).forEach(p => {
+    if (p.id === askingPlayerId) return;
+
     if (room.gameState === 'revealing' || room.gameState === 'roundResult' || room.gameState === 'gameOver') {
       const { ws, ...safePlayer } = p;
       cleanPlayers[p.id] = safePlayer;
     } else {
-      if (p.id === askingPlayerId) {
-        const { ws, ...safePlayer } = p;
-        cleanPlayers[p.id] = safePlayer;
-      } else {
-        cleanPlayers[p.id] = cleanPlayerForBroadcast(p);
-      }
+      cleanPlayers[p.id] = cleanPlayerForBroadcast(p);
     }
   });
+  
   return { ...room, players: cleanPlayers };
 };
 
@@ -143,43 +147,73 @@ function handleReveal(roomId: string) {
   const room = rooms[roomId];
   if (!room) return;
 
+  if (roomTimers[roomId]) clearInterval(roomTimers[roomId]);
   room.gameState = 'revealing';
   broadcastToRoom(roomId, { type: 'room_state', state: room });
 
   setTimeout(() => {
-    const players = Object.values(room.players);
-    if (players.length !== 2) return;
+    resolveRound(roomId);
+  }, 1200); // Wait 1.2s for reveal animation
+}
+
+function resolveRound(roomId: string) {
+  const room = rooms[roomId];
+  if (!room) return;
+
+  const players = Object.values(room.players);
+  if (players.length !== 2) return;
+  
+  const p1 = players[0];
+  const p2 = players[1];
+
+  let winner = 0; // 0 = draw, 1 = p1, 2 = p2
+  if (p1.choice && p2.choice) {
+     winner = getWinner(p1.choice, p2.choice);
+  }
+
+  const round = room.round;
+  let points = 1;
+  if (round >= 6 && round <= 8) points = 2;
+  else if (round === 9) points = 3;
+
+  if (winner === 1) {
+    p1.score += points;
+    room.roundWinner = p1.id;
+  } else if (winner === 2) {
+    p2.score += points;
+    room.roundWinner = p2.id;
+  } else {
+    room.roundWinner = 'draw';
+  }
+
+  room.gameState = 'roundResult';
+  broadcastToRoom(roomId, { type: 'room_state', state: room });
+
+  setTimeout(() => {
+    startNextRound(roomId);
+  }, 3000); // 3 seconds before next round begins (like LAN mode)
+}
+
+function startNextRound(roomId: string) {
+  const room = rooms[roomId];
+  if (!room) return;
+
+  const round = room.round;
+  if (round >= 9) {
+    room.gameState = 'gameOver';
+  } else {
+    room.round = round + 1;
+    room.gameState = 'playing';
+    room.roundWinner = null;
     
-    const p1 = players[0];
-    const p2 = players[1];
-
-    if (p1.choice && p2.choice) {
-      const winner = getWinner(p1.choice, p2.choice);
-      if (winner === 1) {
-        room.roundWinner = p1.id;
-        p1.score += 1;
-      } else if (winner === 2) {
-        room.roundWinner = p2.id;
-        p2.score += 1;
-      } else {
-        room.roundWinner = 'draw';
-      }
-    }
-
-    room.gameState = 'roundResult';
-    broadcastToRoom(roomId, { type: 'room_state', state: room });
-
-    setTimeout(() => {
-      // Check for Game Over (9 rounds total means cards run out)
-      const totalCardsPlayed = 9 - Object.values(p1.deck).reduce((a,b)=>a+b,0);
-      if (totalCardsPlayed >= 9 || p1.score === 5 || p2.score === 5) {
-        room.gameState = 'gameOver';
-        if (roomTimers[roomId]) clearInterval(roomTimers[roomId]);
-      }
-      broadcastToRoom(roomId, { type: 'room_state', state: room });
-    }, 3000);
-
-  }, 2000);
+    Object.values(room.players).forEach(p => {
+      p.choice = null;
+      p.readyForNext = false;
+    });
+    
+    startRoundTimer(roomId);
+  }
+  broadcastToRoom(roomId, { type: 'room_state', state: room });
 }
 
 async function startServer() {
@@ -345,55 +379,21 @@ async function startServer() {
 
         // --- 4. Game Actions ---
         if (message.type === 'play_card') {
-          const { roomId, cardType } = message;
+          const { roomId, choice } = message;
           const room = rooms[roomId];
           
           if (room && room.gameState === 'playing' && room.players[socketId]) {
             const player = room.players[socketId];
-            if (!player.choice && player.deck[cardType as CardType] > 0) {
-              player.choice = cardType as CardType;
-              player.deck[cardType as CardType] -= 1;
+            if (!player.choice && player.deck[choice as CardType] > 0) {
+              player.choice = choice as CardType;
+              player.deck[choice as CardType] -= 1;
+              
               broadcastToRoom(roomId, { type: 'room_state', state: room });
 
               const allChosen = Object.values(room.players).every(p => p.choice !== null);
               if (allChosen) {
-                if (roomTimers[roomId]) clearInterval(roomTimers[roomId]);
                 handleReveal(roomId);
               }
-            }
-          }
-        }
-
-        if (message.type === 'ready_next_round') {
-          const { roomId } = message;
-          const room = rooms[roomId];
-          if (room && (room.gameState === 'roundResult' || room.gameState === 'gameOver')) {
-            room.players[socketId].readyForNext = true;
-            broadcastToRoom(roomId, { type: 'room_state', state: room });
-
-            const allReady = Object.values(room.players).every(p => p.readyForNext);
-            if (allReady) {
-              if (room.gameState === 'gameOver') {
-                // Rematch
-                room.round = 1;
-                Object.values(room.players).forEach(p => {
-                  p.deck = { ...INITIAL_DECK };
-                  p.score = 0;
-                  p.choice = null;
-                  p.readyForNext = false;
-                });
-              } else {
-                // Next round
-                room.round += 1;
-                Object.values(room.players).forEach(p => {
-                  p.choice = null;
-                  p.readyForNext = false;
-                });
-              }
-              room.gameState = 'playing';
-              room.roundWinner = null;
-              startRoundTimer(roomId);
-              broadcastToRoom(roomId, { type: 'room_state', state: room });
             }
           }
         }
