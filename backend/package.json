@@ -2,10 +2,9 @@
   "name": "rps-standalone-backend",
   "version": "1.0.0",
   "description": "Pure NodeJS WebSocket Server for Card Clash Game",
-  "main": "ONLINE_server.ts",
+  "main": "server.ts",
   "scripts": {
-    "start": "npx tsx ONLINE_server.ts",
-    "lan": "npx tsx LAN_server.ts"
+    "start": "npx tsx server.ts"
   },
   "dependencies": {
     "express": "^4.21.2",
