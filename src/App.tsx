@@ -863,12 +863,9 @@ const App = () => {
         return;
       }
       
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const serverUrl = Capacitor.isNativePlatform() 
-        ? 'ws://localhost:3000' // Better default for native assuming local proxy
-        : `${protocol}//${window.location.host}`;
+      const serverUrl = import.meta.env.VITE_BACKEND_URL || 'ws://localhost:3000';
         
-      addLog(`Connecting to online server: ${serverUrl}`, 'info');
+      addLog(`Connecting to backend server: ${serverUrl}`, 'info');
       const socket = new WebSocket(serverUrl);
       
       socket.onopen = () => {
