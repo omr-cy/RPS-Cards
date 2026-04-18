@@ -876,8 +876,10 @@ const App = () => {
       };
       
       socket.onerror = (e) => {
-        addLog(`WebSocket error: ${JSON.stringify(e)}`, 'error');
-        setErrorMsg('فشل الاتصال بالسيرفر الأونلاين');
+        // Log detailed error to Debug UI only
+        const errorMsg = 'فشل الاتصال: تأكد من السيرفر ومن التشفير (WSS)';
+        addLog(`WebSocket error: ${errorMsg}`, 'error');
+        setErrorMsg(errorMsg);
         reject(e);
       };
       
