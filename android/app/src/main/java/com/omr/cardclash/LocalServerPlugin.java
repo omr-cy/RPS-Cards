@@ -71,20 +71,28 @@ public class LocalServerPlugin extends Plugin {
     @PluginMethod
     public void connectToServer(PluginCall call) {
         String ip = call.getString("ip");
+        String url = call.getString("url");
         int port = call.getInt("port", 3000);
+        boolean isOnline = call.getBoolean("isOnline", false);
         
-        if (ip == null) {
-            call.reject("IP address is required");
+        if (ip == null && url == null) {
+            call.reject("IP address or URL is required");
             return;
         }
 
         try {
             stopAll();
 
-            role = "CLIENT";
+            role = isOnline ? "ONLINE" : "CLIENT";
             connectionStatus = "CONNECTING";
 
-            URI uri = new URI("ws://" + ip + ":" + port);
+            URI uri;
+            if (url != null && !url.isEmpty()) {
+                uri = new URI(url);
+            } else {
+                uri = new URI("ws://" + ip + ":" + port);
+            }
+
             client = new GameWebSocketClient(uri);
             client.connect();
             
@@ -107,6 +115,20 @@ public class LocalServerPlugin extends Plugin {
             data.put("message", msg.toString());
             notifyListeners("onMessageReceived", data);
             logToReact("NATIVE -> REACT: ROOM_READY", "success");
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void notifyOnlineReady() {
+        try {
+            JSONObject msg = new JSONObject();
+            msg.put("type", "ONLINE_READY");
+            
+            JSObject data = new JSObject();
+            data.put("message", msg.toString());
+            notifyListeners("onMessageReceived", data);
+            logToReact("NATIVE -> REACT: ONLINE_READY", "success");
         } catch (JSONException e) {
             e.printStackTrace();
         }
@@ -155,7 +177,7 @@ public class LocalServerPlugin extends Plugin {
             }
             server.broadcast(message);
             call.resolve();
-        } else if (role.equals("CLIENT") && client != null && client.isOpen()) {
+        } else if ((role.equals("CLIENT") || role.equals("ONLINE")) && client != null && client.isOpen()) {
             client.send(message);
             call.resolve();
         } else {
@@ -599,9 +621,13 @@ public class LocalServerPlugin extends Plugin {
                     send(pong.toString());
                     
                     connectionStatus = "CONNECTION_VERIFIED";
-                    logToReact("Handshake verified with host", "success");
+                    logToReact("Handshake verified with server", "success");
                     updateStatusToReact();
-                    notifyRoomReady();
+                    if (role.equals("ONLINE")) {
+                        notifyOnlineReady();
+                    } else {
+                        notifyRoomReady();
+                    }
                 } else {
                     JSObject data = new JSObject();
                     data.put("message", message);

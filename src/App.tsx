@@ -9,7 +9,7 @@ import { useAuth } from './contexts/AuthContext';
 
 export interface LocalServerPlugin {
   startServer(options: { port: number }): Promise<{ status: string; port: number }>;
-  connectToServer(options: { ip: string; port: number }): Promise<void>;
+  connectToServer(options: { ip?: string; port?: number; url?: string; isOnline?: boolean }): Promise<void>;
   stopAll(): Promise<void>;
   sendMessage(options: { message: string }): Promise<void>;
   getStatus(): Promise<{ role: string; status: string; clientCount: number; localIp: string }>;
@@ -468,6 +468,7 @@ const App = () => {
   const selectedThemeIdRef = useRef<string>('normal');
   const appStateRef = useRef(appState);
   const roleRef = useRef(role);
+  const onlineActionRef = useRef<any>(null);
 
   useEffect(() => {
     roomIdRef.current = roomId;
@@ -623,34 +624,38 @@ const App = () => {
           }
         }).catch(e => addLog(`Failed to get status: ${e}`, 'error'));
       }
+    } else if (data.type === 'ONLINE_READY') {
+      addLog('Online Handshake Natively Verified', 'success');
+      setConnectionStatus('CONNECTION_VERIFIED');
+      setRole('ONLINE');
+      if (onlineActionRef.current) {
+         sendNativeAction(onlineActionRef.current);
+         onlineActionRef.current = null;
+      }
+    } else if (data.type === 'matchmaking_status' || data.type === 'match_found' || data.type === 'joined_room_success') {
+      handleOnlineMessage(data);
     } else if (data.type === 'room_state') {
       setRoomState(data.state);
       setRoomId(data.state.id);
       setAppState('inRoom');
     } else if (data.type === 'room_created') {
       setRoomId(data.roomId);
+      if (roleRef.current === 'ONLINE') setAppState('inRoom');
     } else if (data.type === 'error_msg') {
       setErrorMsg(data.msg);
       addLog(`Server Error: ${data.msg}`, 'error');
+      setIsSearching(false);
     }
   };
 
   const sendNativeAction = async (action: any) => {
     try {
-      if (role === 'ONLINE') {
-        if (ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify(action));
-        } else {
-          addLog('Cannot send action, no WebSocket connection', 'error');
-        }
+      if (Capacitor.isNativePlatform()) {
+        await LocalServer.sendMessage({ message: JSON.stringify(action) });
+      } else if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(action));
       } else {
-        if (Capacitor.isNativePlatform()) {
-          await LocalServer.sendMessage({ message: JSON.stringify(action) });
-        } else if (ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify(action));
-        } else {
-          addLog(`Action skipped on web (no ws): ${action.type}`, 'info');
-        }
+        addLog(`Action skipped (no connection): ${action.type}`, 'info');
       }
     } catch (e) {
       addLog(`Failed to send action: ${e}`, 'error');
@@ -856,19 +861,32 @@ const App = () => {
     }
   };
 
-  const connectToOnline = (): Promise<WebSocket> => {
-    return new Promise((resolve, reject) => {
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        resolve(ws);
-        return;
-      }
-      
-      // Use environment variable if provided, otherwise default to user's standalone server
-      let serverUrl = 'wss://rpscards.duckdns.org:3000/game-socket';
+  const connectToOnline = (action?: any): Promise<WebSocket | void> => {
+    return new Promise(async (resolve, reject) => {
+      let serverUrl = 'ws://12.34.56.78:3000/game-socket';
       const envUrl = import.meta.env.VITE_BACKEND_URL;
-      
       if (envUrl && envUrl.trim() !== '') {
         serverUrl = envUrl;
+      }
+
+      if (Capacitor.isNativePlatform()) {
+        try {
+          addLog(`Connecting NATIVELY to online server: ${serverUrl}`, 'info');
+          if (action) onlineActionRef.current = action;
+          await LocalServer.connectToServer({ url: serverUrl, isOnline: true });
+          resolve();
+        } catch (e) {
+          addLog(`Native online connection failed: ${e}`, 'error');
+          setErrorMsg('فشل الاتصال عبر النيتف');
+          reject(e);
+        }
+        return;
+      }
+
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        if (action) ws.send(JSON.stringify(action));
+        resolve(ws);
+        return;
       }
       
       addLog(`Connecting to online server: ${serverUrl}`, 'info');
@@ -888,6 +906,7 @@ const App = () => {
         addLog('Connected to Cloud Server', 'success');
         setWs(socket);
         setConnectionStatus('CONNECTION_VERIFIED');
+        if (action) socket.send(JSON.stringify(action));
         resolve(socket);
       };
       
@@ -947,31 +966,23 @@ const App = () => {
 
   const startQuickMatch = () => {
     if (!playerNameRef.current.trim()) return setErrorMsg('يرجى إدخال اسمك أولاً');
-    connectToOnline().then(socket => {
-      socket.send(JSON.stringify({ type: 'quick_match', playerName: playerNameRef.current.trim(), themeId: selectedThemeIdRef.current }));
-    }).catch(() => {});
+    connectToOnline({ type: 'quick_match', playerName: playerNameRef.current.trim(), themeId: selectedThemeIdRef.current }).catch(() => {});
   };
 
   const cancelSearch = () => {
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: 'cancel_matchmaking' }));
-    }
+    sendNativeAction({ type: 'cancel_matchmaking' });
     setIsSearching(false);
   };
 
   const createOnlineRoom = () => {
     if (!playerNameRef.current.trim()) return setErrorMsg('يرجى إدخال اسمك أولاً');
-    connectToOnline().then(socket => {
-      socket.send(JSON.stringify({ type: 'create_room', playerName: playerNameRef.current.trim(), themeId: selectedThemeIdRef.current }));
-    }).catch(() => {});
+    connectToOnline({ type: 'create_room', playerName: playerNameRef.current.trim(), themeId: selectedThemeIdRef.current }).catch(() => {});
   };
 
   const joinOnlineRoom = () => {
     if (!roomIdInput.trim()) return setErrorMsg('يرجى إدخال رمز الغرفة');
     if (!playerNameRef.current.trim()) return setErrorMsg('يرجى إدخال اسمك أولاً');
-    connectToOnline().then(socket => {
-      socket.send(JSON.stringify({ type: 'join_room_by_code', roomCode: roomIdInput.trim(), playerName: playerNameRef.current.trim(), themeId: selectedThemeIdRef.current }));
-    }).catch(() => {});
+    connectToOnline({ type: 'join_room_by_code', roomCode: roomIdInput.trim(), playerName: playerNameRef.current.trim(), themeId: selectedThemeIdRef.current }).catch(() => {});
   };
 
   const createBotRoom = () => {
