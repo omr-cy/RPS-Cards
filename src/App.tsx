@@ -864,9 +864,18 @@ const App = () => {
       }
       
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const serverUrl = Capacitor.isNativePlatform() 
-        ? 'ws://localhost:3000' // Better default for native assuming local proxy
-        : `${protocol}//${window.location.host}`;
+      let serverUrl = '';
+
+      if (window.location.hostname && window.location.hostname !== 'localhost' && !window.location.hostname.startsWith('127.')) {
+        // We are on a real remote host (like .run.app)
+        serverUrl = `${protocol}//${window.location.host}`;
+      } else if (Capacitor.isNativePlatform()) {
+        // Native app logic fallback (usually for local testing on device)
+        serverUrl = 'ws://localhost:3000';
+      } else {
+        // Desktop local dev
+        serverUrl = `${protocol}//${window.location.host}`;
+      }
         
       addLog(`Connecting to online server: ${serverUrl}`, 'info');
       const socket = new WebSocket(serverUrl);
