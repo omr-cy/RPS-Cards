@@ -3,21 +3,30 @@ import { createServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
+import { OAuth2Client } from 'google-auth-library';
 
 dotenv.config();
 
 // Mongoose Schema for User Profile
 const userSchema = new mongoose.Schema({
   uid: { type: String, required: true, unique: true },
+  email: { type: String, sparse: true },
+  googleId: String,
   displayName: String,
   coins: { type: Number, default: 100 },
   purchasedThemes: { type: [String], default: ['normal'] },
   equippedTheme: { type: String, default: 'normal' },
+  isGuest: { type: Boolean, default: true },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });
 
 const User = mongoose.models.User || mongoose.model('User', userSchema);
+
+const oauthClient = new OAuth2Client(
+  process.env.GOOGLE_CLIENT_ID,
+  process.env.GOOGLE_CLIENT_SECRET
+);
 
 // In-memory profile storage (fallback if no MongoDB)
 const profileStore = new Map<string, any>();
@@ -275,6 +284,99 @@ async function startServer() {
   });
 
   app.get('/api/health', (req, res) => res.json({ status: 'ok', activeRooms: Object.keys(rooms).length }));
+
+  // Google OAuth Endpoints
+  app.get('/api/auth/google/url', (req, res) => {
+    const redirectUri = `${req.protocol}://${req.get('host')}/auth/callback`;
+    const url = oauthClient.generateAuthUrl({
+      access_type: 'offline',
+      scope: ['https://www.googleapis.com/auth/userinfo.profile', 'https://www.googleapis.com/auth/userinfo.email'],
+      redirect_uri: redirectUri
+    });
+    res.json({ url });
+  });
+
+  app.get('/auth/callback', async (req, res) => {
+    const code = req.query.code as string;
+    const redirectUri = `${req.protocol}://${req.get('host')}/auth/callback`;
+
+    try {
+      const { tokens } = await oauthClient.getToken({ code, redirect_uri: redirectUri });
+      const ticket = await oauthClient.verifyIdToken({
+        idToken: tokens.id_token!,
+        audience: process.env.GOOGLE_CLIENT_ID,
+      });
+      const payload = ticket.getPayload();
+      
+      if (payload && useMongo) {
+        let user = await User.findOne({ email: payload.email });
+        
+        if (!user) {
+          user = await User.create({
+            uid: `google_${payload.sub}`,
+            email: payload.email,
+            googleId: payload.sub,
+            displayName: payload.name,
+            isGuest: false,
+            coins: 100,
+            purchasedThemes: ['normal'],
+            equippedTheme: 'normal'
+          });
+        }
+
+        // Return a script that posts the user info back to the game window
+        res.send(`
+          <html>
+            <body>
+              <script>
+                if (window.opener) {
+                  window.opener.postMessage({ 
+                    type: 'OAUTH_AUTH_SUCCESS', 
+                    user: ${JSON.stringify(user)} 
+                  }, '*');
+                  window.close();
+                } else {
+                  window.location.href = '/';
+                }
+              </script>
+            </body>
+          </html>
+        `);
+      }
+    } catch (err) {
+      console.error('OAuth Error:', err);
+      res.status(500).send('Authentication failed');
+    }
+  });
+
+  app.post('/api/profile/merge', async (req, res) => {
+    if (!useMongo) return res.status(400).json({ error: 'MongoDB required for merge' });
+    
+    try {
+      const { guestUid, targetUid } = req.body;
+      const guest = await User.findOne({ uid: guestUid });
+      const target = await User.findOne({ uid: targetUid });
+      
+      if (!guest || !target) return res.status(404).json({ error: 'User not found' });
+      
+      // Merge: Take guest's coins and themes into the target account
+      target.coins = (target.coins || 0) + (guest.coins || 0);
+      const guestThemes = guest.purchasedThemes || [];
+      const targetThemes = target.purchasedThemes || [];
+      target.purchasedThemes = Array.from(new Set([...targetThemes, ...guestThemes]));
+      target.updatedAt = new Date();
+      
+      await target.save();
+      
+      // Optionally delete or mark guest as merged
+      await User.deleteOne({ uid: guestUid });
+      
+      res.json(target);
+    } catch (e) {
+      console.error(e);
+      res.status(500).json({ error: 'Merge failed' });
+    }
+  });
 
   app.get('/api/profile/:id', async (req, res) => {
     try {

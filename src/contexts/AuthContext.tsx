@@ -10,100 +10,114 @@ export interface UserProfile {
 }
 
 interface AuthContextType {
-  user: { uid: string, photoURL?: string } | null;
+  user: { uid: string, photoURL?: string, email?: string, isGuest?: boolean } | null;
   profile: UserProfile | null;
   loading: boolean;
   login: () => Promise<void>;
   logout: () => Promise<void>;
+  mergeAccounts: (guestUid: string, targetUid: string) => Promise<void>;
   updateUserProfile: (data: Partial<UserProfile>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }) => {
-  const [user, setUser] = useState<{ uid: string, photoURL?: string } | null>(null);
+  const [user, setUser] = useState<{ uid: string, photoURL?: string, email?: string, isGuest?: boolean } | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const fetchProfile = async (uid: string) => {
+    try {
+      const apiBase = config.ONLINE_API_BASE_URL;
+      const res = await fetch(`${apiBase}/api/profile/${uid}`);
+      if (res.ok) {
+        const data = await res.json();
+        setProfile(data);
+        return data;
+      }
+    } catch (e) {
+      console.error('Failed to fetch profile:', e);
+    }
+    return null;
+  };
 
   useEffect(() => {
     const initAuth = async () => {
       let deviceId = localStorage.getItem('cardClashDeviceId');
-      if (!deviceId) {
-        deviceId = 'user_' + Math.random().toString(36).substring(2, 15);
-        localStorage.setItem('cardClashDeviceId', deviceId);
-      }
-      
-      setUser({ uid: deviceId });
+      let googleUser = localStorage.getItem('cardClashGoogleUser');
 
-      try {
-        const apiBase = config.ONLINE_API_BASE_URL;
-        
-        const res = await fetch(`${apiBase}/api/profile/${deviceId}`);
-        if (res.ok) {
-          const text = await res.text();
-          if (text.trim().startsWith('<')) {
-             throw new Error('Received HTML instead of JSON. Backend disconnected.');
-          }
-          const data = JSON.parse(text);
-          
-          // Merge local legacy data if any
-          let shouldUpdate = false;
-          let mergedData = { ...data };
-          
-          const localCoins = localStorage.getItem('cardClashCoins');
-          if (localCoins && parseInt(localCoins) > data.coins) {
-             mergedData.coins = parseInt(localCoins);
-             shouldUpdate = true;
-          }
-          
-          const localThemes = localStorage.getItem('cardClashOwnedThemes');
-          if (localThemes) {
-             const parsed = JSON.parse(localThemes);
-             if (parsed.length > data.purchasedThemes.length) {
-                mergedData.purchasedThemes = Array.from(new Set([...data.purchasedThemes, ...parsed]));
-                shouldUpdate = true;
-             }
-          }
-          
-          setProfile(mergedData);
-          
-          if (shouldUpdate) {
-             await fetch(`${apiBase}/api/profile/${deviceId}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(mergedData)
-             });
-          }
-
-        } else {
-          throw new Error('Profile endpoint failed '+ res.status);
+      if (googleUser) {
+        const parsed = JSON.parse(googleUser);
+        setUser(parsed);
+        await fetchProfile(parsed.uid);
+      } else {
+        if (!deviceId) {
+          deviceId = 'guest_' + Math.random().toString(36).substring(2, 15);
+          localStorage.setItem('cardClashDeviceId', deviceId);
         }
-      } catch (e: any) {
-        if (e.name === 'TypeError' || e.message === 'Failed to fetch') {
-           console.log('⚠️ Backend unreachable, using Local Profile.');
-        } else {
-           console.log('⚠️ Error fetching profile:', e.message);
-        }
-        
-        // Fallback to purely local profile if backend isn't there
-        const fallbackProfile: UserProfile = {
-           uid: deviceId,
-           displayName: 'لاعب',
-           coins: parseInt(localStorage.getItem('cardClashCoins') || '100'),
-           purchasedThemes: JSON.parse(localStorage.getItem('cardClashOwnedThemes') || '["normal"]'),
-           equippedTheme: localStorage.getItem('cardClashTheme') || 'normal'
-        };
-        setProfile(fallbackProfile);
-      } finally {
-        setLoading(false);
+        setUser({ uid: deviceId, isGuest: true });
+        await fetchProfile(deviceId);
       }
+      setLoading(false);
     };
 
     initAuth();
+
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'OAUTH_AUTH_SUCCESS' && event.data.user) {
+        const loggedUser = {
+          uid: event.data.user.uid,
+          email: event.data.user.email,
+          displayName: event.data.user.displayName,
+          isGuest: false
+        };
+        localStorage.setItem('cardClashGoogleUser', JSON.stringify(loggedUser));
+        setUser(loggedUser);
+        setProfile(event.data.user);
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
   }, []);
 
-  const login = async () => {};
-  const logout = async () => {};
+  const login = async () => {
+    try {
+      const apiBase = config.ONLINE_API_BASE_URL;
+      const res = await fetch(`${apiBase}/api/auth/google/url`);
+      const { url } = await res.json();
+      window.open(url, 'Google Login', 'width=500,height=600');
+    } catch (e) {
+      console.error('Login failed:', e);
+    }
+  };
+
+  const logout = async () => {
+    localStorage.removeItem('cardClashGoogleUser');
+    const deviceId = localStorage.getItem('cardClashDeviceId') || 'guest_' + Math.random().toString(36).substring(2, 15);
+    localStorage.setItem('cardClashDeviceId', deviceId);
+    setUser({ uid: deviceId, isGuest: true });
+    await fetchProfile(deviceId);
+  };
+
+  const mergeAccounts = async (guestUid: string, targetUid: string) => {
+    try {
+      const apiBase = config.ONLINE_API_BASE_URL;
+      const res = await fetch(`${apiBase}/api/profile/merge`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ guestUid, targetUid })
+      });
+      if (res.ok) {
+        const mergedProfile = await res.json();
+        setProfile(mergedProfile);
+        // Clear guest ID since it's merged
+        localStorage.removeItem('cardClashDeviceId');
+      }
+    } catch (e) {
+      console.error('Merge failed:', e);
+    }
+  };
 
   const updateUserProfile = async (data: Partial<UserProfile>) => {
     if (!user) return;

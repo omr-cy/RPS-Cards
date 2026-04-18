@@ -275,7 +275,7 @@ const StoreView = memo(({ coins, ownedThemes, selectedThemeId, onBack, onBuy, on
   </div>
 ));
 
-const ProfileView = memo(({ playerName, coins, ownedThemes, selectedThemeId, onBack, onSelect, selectedPack, setSelectedPack, onEditName, onLogout, user }: {
+const ProfileView = memo(({ playerName, coins, ownedThemes, selectedThemeId, onBack, onSelect, selectedPack, setSelectedPack, onEditName, onLogout, onLogin, user }: {
   playerName: string,
   coins: number,
   ownedThemes: string[],
@@ -286,6 +286,7 @@ const ProfileView = memo(({ playerName, coins, ownedThemes, selectedThemeId, onB
   setSelectedPack: (theme: ThemeConfig | null) => void,
   onEditName: () => void,
   onLogout?: () => void,
+  onLogin?: () => void,
   user?: any
 }) => (
   <div 
@@ -307,8 +308,8 @@ const ProfileView = memo(({ playerName, coins, ownedThemes, selectedThemeId, onB
     </div>
 
     <div className="max-w-4xl mx-auto w-full space-y-8 pb-20">
-      <div className="bg-game-dark/80 p-6 rounded-xl border border-white/10 flex items-center gap-6 relative">
-        {user && onLogout && (
+      <div className="bg-game-dark/80 p-6 rounded-xl border border-white/10 flex flex-col sm:flex-row items-center gap-6 relative">
+        {user && onLogout && !user.isGuest && (
           <button 
             onClick={onLogout}
             className="absolute top-4 left-4 p-2 bg-game-red/20 text-game-red hover:bg-game-red/40 rounded-lg text-sm font-display transition-colors flex items-center gap-2"
@@ -316,7 +317,17 @@ const ProfileView = memo(({ playerName, coins, ownedThemes, selectedThemeId, onB
             <LogOut className="w-4 h-4" /> تسجيل الخروج
           </button>
         )}
-        <div className="w-20 h-20 rounded-full bg-game-dark/80 border-2 border-game-offwhite/20 flex items-center justify-center overflow-hidden">
+        
+        {user?.isGuest && onLogin && (
+          <button 
+            onClick={onLogin}
+            className="absolute top-4 left-4 p-2 bg-blue-600/20 text-blue-400 hover:bg-blue-600/40 rounded-lg text-sm font-display transition-colors flex items-center gap-2 border border-blue-600/30"
+          >
+            <LogIn className="w-4 h-4" /> تسجيل بجوجل
+          </button>
+        )}
+
+        <div className="w-24 h-24 rounded-full bg-game-dark/80 border-2 border-game-offwhite/20 flex items-center justify-center overflow-hidden">
           {user?.photoURL ? (
             <img src={user.photoURL} className="w-full h-full object-cover" alt="Avatar" referrerPolicy="no-referrer" />
           ) : (
@@ -372,11 +383,13 @@ const ProfileView = memo(({ playerName, coins, ownedThemes, selectedThemeId, onB
 ));
 
 const App = () => {
-  const { user, profile, loading, login, logout, updateUserProfile } = useAuth();
+  const { user, profile, loading, login, logout, updateUserProfile, mergeAccounts } = useAuth();
   const [appState, setAppState] = useState<'nameEntry' | 'menu' | 'inRoom' | 'store' | 'profile'>(() => {
     return localStorage.getItem('cardClashPlayerName') ? 'menu' : 'nameEntry';
   });
   const [menuTab, setMenuTab] = useState<'main' | 'online' | 'local'>('main');
+  const [showMergeDialog, setShowMergeDialog] = useState(false);
+  const [pendingGuestUid, setPendingGuestUid] = useState<string | null>(null);
 
   const [localPlayerName, setLocalPlayerName] = useState(() => localStorage.getItem('cardClashPlayerName') || '');
   const [localSelectedThemeId, setLocalSelectedThemeId] = useState(() => localStorage.getItem('cardClashTheme') || 'normal');
@@ -390,6 +403,25 @@ const App = () => {
   const selectedThemeId = user && profile?.equippedTheme ? profile.equippedTheme : localSelectedThemeId;
   const ownedThemes = user && profile?.purchasedThemes ? profile.purchasedThemes : localOwnedThemes;
   const coins = user && profile?.coins !== undefined ? profile.coins : localCoins;
+
+  useEffect(() => {
+    const handleLoginSuccess = (event: MessageEvent) => {
+      if (event.data?.type === 'OAUTH_AUTH_SUCCESS' && event.data.user) {
+        const guestUid = localStorage.getItem('cardClashDeviceId');
+        // If the logged in user was a guest with some progress, check for merge
+        if (guestUid && guestUid.startsWith('guest_')) {
+          const guestCoins = parseInt(localStorage.getItem('cardClashCoins') || '100');
+          // If guest has coins or themes, we might want to merge
+          if (guestCoins > 100 || localOwnedThemes.length > 1) {
+            setPendingGuestUid(guestUid);
+            setShowMergeDialog(true);
+          }
+        }
+      }
+    };
+    window.addEventListener('message', handleLoginSuccess);
+    return () => window.removeEventListener('message', handleLoginSuccess);
+  }, [localOwnedThemes]);
 
   const setPlayerName = (name: string) => {
     setLocalPlayerName(name);
@@ -1308,6 +1340,62 @@ const App = () => {
     </>
   );
 
+  const renderMergeDialog = () => (
+    <AnimatePresence>
+      {showMergeDialog && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            onClick={() => setShowMergeDialog(false)}
+          />
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            className="bg-game-dark border-2 border-game-offwhite/20 p-8 rounded-2xl w-full max-w-md relative z-10 font-body text-center"
+            dir="rtl"
+          >
+            <h2 className="text-3xl font-display text-game-offwhite mb-4">دمج الحسابات</h2>
+            <p className="text-game-cream/80 mb-8 leading-relaxed">
+              هل تريد دمج عملاتك ومقتنياتك الحالية (كضيف) في حسابك المسجل بجوجل؟
+              <br /><br />
+              <span className="text-yellow-500 font-bold">دمج:</span> سيتم إضافة كوينز الضيف الحالية لحساب جوجل.
+              <br />
+              <span className="text-game-offwhite font-bold">استعادة:</span> ستحافظ على بيانات جوجل القديمة فقط وسيفقد تقدم الضيف الحالي.
+            </p>
+            
+            <div className="flex flex-col gap-4">
+              <button 
+                onClick={async () => {
+                  if (pendingGuestUid && user?.uid) {
+                    await mergeAccounts(pendingGuestUid, user.uid);
+                    setShowMergeDialog(false);
+                    setPendingGuestUid(null);
+                  }
+                }}
+                className="w-full py-4 bg-yellow-600 hover:bg-yellow-500 text-white rounded-xl font-display text-xl transition-all shadow-lg active:scale-95"
+              >
+                نعم، دمج البيانات
+              </button>
+              <button 
+                onClick={() => {
+                  setShowMergeDialog(false);
+                  setPendingGuestUid(null);
+                }}
+                className="w-full py-4 bg-white/10 hover:bg-white/20 text-game-cream rounded-xl font-display text-xl transition-all"
+              >
+                استعادة الحساب القديم فقط
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  );
+
   if (loading && user) {
     return (
       <div className="w-full h-[100dvh] wood-texture flex items-center justify-center text-game-offwhite font-display flex-col gap-4">
@@ -1372,6 +1460,7 @@ const App = () => {
           </div>
         </div>
         {renderDebugUI()}
+        {renderMergeDialog()}
       </>
     );
   }
@@ -1659,6 +1748,7 @@ const App = () => {
           </div>
         </div>
         {renderDebugUI()}
+        {renderMergeDialog()}
       </>
     );
   }
@@ -1703,6 +1793,7 @@ const App = () => {
           }
         }}
         onLogout={logout}
+        onLogin={login}
       />
     );
   }
@@ -2045,6 +2136,7 @@ const App = () => {
       </div>
 
       {renderDebugUI()}
+      {renderMergeDialog()}
     </div>
     </>
   );
