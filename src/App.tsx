@@ -40,6 +40,7 @@ interface Player {
   score: number;
   choice: CardType | null;
   readyForNext: boolean;
+  hasChosen?: boolean;
 }
 
 interface Room {
@@ -1934,9 +1935,9 @@ const App = () => {
             </div>
           </div>
           <div className="flex justify-between gap-2 sm:gap-4">
-             <CardCount type="rock" count={(opponent?.deck.rock || 0) + ((roomState.gameState === 'playing' || roomState.gameState === 'revealing' || (roomState.gameState === 'roundResult' && !isRevealingLocal)) && opponent?.choice === 'rock' ? 1 : 0)} theme={opponentTheme} />
-             <CardCount type="paper" count={(opponent?.deck.paper || 0) + ((roomState.gameState === 'playing' || roomState.gameState === 'revealing' || (roomState.gameState === 'roundResult' && !isRevealingLocal)) && opponent?.choice === 'paper' ? 1 : 0)} theme={opponentTheme} />
-             <CardCount type="scissors" count={(opponent?.deck.scissors || 0) + ((roomState.gameState === 'playing' || roomState.gameState === 'revealing' || (roomState.gameState === 'roundResult' && !isRevealingLocal)) && opponent?.choice === 'scissors' ? 1 : 0)} theme={opponentTheme} />
+             <CardCount type="rock" count={opponent?.deck.rock || 0} theme={opponentTheme} />
+             <CardCount type="paper" count={opponent?.deck.paper || 0} theme={opponentTheme} />
+             <CardCount type="scissors" count={opponent?.deck.scissors || 0} theme={opponentTheme} />
           </div>
         </div>
 
@@ -2010,7 +2011,7 @@ const App = () => {
                 </div>
 
                 {/* Opponent Card */}
-                {(opponent?.choice || (opponent && (opponent.deck.rock + opponent.deck.paper + opponent.deck.scissors) < (10 - roomState.round))) ? (
+                {(opponent?.choice || opponent?.hasChosen) ? (
                   <PlayedCard 
                     type={opponent?.choice || 'rock'} 
                     isPlayer={false} 

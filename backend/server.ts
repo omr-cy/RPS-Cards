@@ -1,8 +1,25 @@
 import express from 'express';
 import { createServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
+import mongoose from 'mongoose';
+import dotenv from 'dotenv';
 
-// In-memory profile storage (resets on server restart)
+dotenv.config();
+
+// Mongoose Schema for User Profile
+const userSchema = new mongoose.Schema({
+  uid: { type: String, required: true, unique: true },
+  displayName: String,
+  coins: { type: Number, default: 100 },
+  purchasedThemes: { type: [String], default: ['normal'] },
+  equippedTheme: { type: String, default: 'normal' },
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
+});
+
+const User = mongoose.models.User || mongoose.model('User', userSchema);
+
+// In-memory profile storage (fallback if no MongoDB)
 const profileStore = new Map<string, any>();
 
 type CardType = 'rock' | 'paper' | 'scissors';
@@ -63,8 +80,16 @@ function getWinner(choice1: CardType, choice2: CardType): 1 | 2 | 0 {
 }
 
 const cleanPlayerForBroadcast = (player: Player) => {
-  const { ws, choice, ...safePlayer } = player;
-  return { ...safePlayer, hasChosen: choice !== null };
+  const { ws, choice, deck, ...safePlayer } = player;
+  
+  // Make a copy of the deck. If the player has already chosen a card, 
+  // we add it back to the broadcasted deck so the opponent doesn't see which card count decreased.
+  const maskedDeck = { ...deck };
+  if (choice) {
+    maskedDeck[choice] += 1;
+  }
+  
+  return { ...safePlayer, deck: maskedDeck, hasChosen: choice !== null };
 };
 
 const cleanRoomForBroadcast = (room: Room, askingPlayerId?: string) => {
@@ -220,6 +245,22 @@ async function startServer() {
   const app = express();
   const PORT = process.env.PORT || 3000;
   const httpServer = createServer(app);
+
+  const mongodbUri = process.env.MONGODB_URI;
+  let useMongo = false;
+
+  if (mongodbUri) {
+    try {
+      await mongoose.connect(mongodbUri);
+      console.log('✅ Connected to MongoDB');
+      useMongo = true;
+    } catch (err) {
+      console.error('❌ MongoDB connection error:', err);
+      console.log('⚠️ Falling back to in-memory storage');
+    }
+  } else {
+    console.log('ℹ️ No MONGODB_URI found, using in-memory storage');
+  }
   
   // This matches your App.tsx path
   const wss = new WebSocketServer({ server: httpServer, path: '/game-socket' });
@@ -235,11 +276,25 @@ async function startServer() {
 
   app.get('/api/health', (req, res) => res.json({ status: 'ok', activeRooms: Object.keys(rooms).length }));
 
-  app.get('/api/profile/:id', (req, res) => {
+  app.get('/api/profile/:id', async (req, res) => {
     try {
       const userId = req.params.id;
-      let user = profileStore.get(userId);
       
+      if (useMongo) {
+        let user = await User.findOne({ uid: userId });
+        if (!user) {
+          user = await User.create({
+            uid: userId,
+            displayName: 'لاعب',
+            coins: 100,
+            purchasedThemes: ['normal'],
+            equippedTheme: 'normal'
+          });
+        }
+        return res.json(user);
+      }
+
+      let user = profileStore.get(userId);
       if (!user) {
         user = {
           uid: userId,
@@ -259,11 +314,24 @@ async function startServer() {
     }
   });
 
-  app.post('/api/profile/:id', (req, res) => {
+  app.post('/api/profile/:id', async (req, res) => {
     try {
       const userId = req.params.id;
-      const existing = profileStore.get(userId);
       
+      if (useMongo) {
+        const updateData = {
+          ...req.body,
+          updatedAt: Date.now()
+        };
+        const user = await User.findOneAndUpdate(
+          { uid: userId },
+          { $set: updateData },
+          { new: true, upsert: true }
+        );
+        return res.json(user);
+      }
+
+      const existing = profileStore.get(userId);
       const updateData = {
         ...(existing || {
           uid: userId,
@@ -462,9 +530,9 @@ async function startServer() {
 
   httpServer.listen(parseInt(PORT as string, 10), '0.0.0.0', () => {
     console.log(`=========================================`);
-    console.log(`🚀 Standalone Game Server Running!`);
-    console.log(`👉 Port: ${PORT}`);
-    console.log(`👉 Path: /game-socket`);
+    console.log(`ٌ* Game Server Running!`);
+    console.log(`* Port: ${PORT}`);
+    console.log(`* Path: /game-socket`);
     console.log(`=========================================`);
   });
 }

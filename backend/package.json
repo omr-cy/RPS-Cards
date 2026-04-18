@@ -3,12 +3,14 @@
   "version": "1.0.0",
   "description": "Pure NodeJS WebSocket Server for Card Clash Game",
   "main": "server.ts",
-  "scripts": {
+   "scripts": {
     "start": "npx tsx server.ts"
   },
   "dependencies": {
     "express": "^4.21.2",
-    "ws": "^8.18.0"
+    "ws": "^8.18.0",
+    "mongoose": "^8.2.0",
+    "dotenv": "^16.4.5"
   },
   "devDependencies": {
     "tsx": "^4.7.0",
