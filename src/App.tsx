@@ -863,7 +863,7 @@ const App = () => {
 
   const connectToOnline = (action?: any): Promise<WebSocket | void> => {
     return new Promise(async (resolve, reject) => {
-      let serverUrl = 'ws://12.34.56.78:3000/game-socket';
+      let serverUrl = 'ws://rpscards.duckdns.org:3000/game-socket';
       const envUrl = import.meta.env.VITE_BACKEND_URL;
       if (envUrl && envUrl.trim() !== '') {
         serverUrl = envUrl;
