@@ -866,15 +866,31 @@ const App = () => {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       let serverUrl = `${protocol}//${window.location.host}`;
       
-      // Override for online server based on user request
-      if (Capacitor.isNativePlatform() || window.location.host.includes('ai.studio') || window.location.host.includes('run.app')) {
+      // Use environment variable if provided
+      const envUrl = (process.env as any).VITE_BACKEND_URL;
+      
+      if (envUrl) {
+        serverUrl = envUrl.startsWith('ws') ? envUrl : `${protocol}//${envUrl}`;
+      } else if (Capacitor.isNativePlatform()) {
+        // Fallback for native if no URL is provided
         serverUrl = 'wss://rpscards.duckdns.org:3000';
       }
+      // If we are on web and not native, we default to window.location.host which is the internal server
         
       addLog(`Connecting to online server: ${serverUrl}`, 'info');
       const socket = new WebSocket(serverUrl);
       
+      const timeout = setTimeout(() => {
+        if (socket.readyState !== WebSocket.OPEN) {
+          socket.close();
+          addLog('Connection timeout', 'error');
+          setErrorMsg('انتهت مهلة المزامنة - تأكد من تشغيل السيرفر');
+          reject(new Error('Timeout'));
+        }
+      }, 5000);
+
       socket.onopen = () => {
+        clearTimeout(timeout);
         addLog('Connected to Cloud Server', 'success');
         setWs(socket);
         setConnectionStatus('CONNECTION_VERIFIED');

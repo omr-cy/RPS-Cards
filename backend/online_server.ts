@@ -271,13 +271,16 @@ async function startServer() {
 
   wss.on('connection', (ws) => {
     const socketId = Math.random().toString(36).substring(2, 10);
-    console.log('Online User connected:', socketId);
+    console.log(`[WS] New connection attempt. ID: ${socketId}`);
 
+    // Pulse check
     ws.send(JSON.stringify({ type: 'PING' }));
 
     ws.on('message', (data) => {
       try {
-        const message = JSON.parse(data.toString());
+        const messageString = data.toString();
+        const message = JSON.parse(messageString);
+        console.log(`[WS] Message from ${socketId}:`, message.type);
         
         if (message.type === 'PONG') return;
 
