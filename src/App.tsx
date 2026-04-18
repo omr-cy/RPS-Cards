@@ -308,46 +308,47 @@ const ProfileView = memo(({ playerName, coins, ownedThemes, selectedThemeId, onB
     </div>
 
     <div className="max-w-4xl mx-auto w-full space-y-8 pb-20">
-      <div className="bg-game-dark/80 p-6 rounded-xl border border-white/10 flex flex-col sm:flex-row items-center gap-6 relative">
+      <div className="bg-gradient-to-br from-game-dark/95 to-game-dark/80 p-8 rounded-2xl border border-white/10 flex flex-col sm:flex-row items-center gap-6 relative shadow-2xl">
         {user && onLogout && !user.isGuest && (
           <button 
             onClick={onLogout}
-            className="absolute top-4 left-4 p-2 bg-game-red/20 text-game-red hover:bg-game-red/40 rounded-lg text-sm font-display transition-colors flex items-center gap-2"
+            className="absolute top-4 left-4 p-2 bg-game-red/10 text-game-red hover:bg-game-red/20 rounded-lg text-sm font-display transition-colors flex items-center gap-2"
           >
-            <LogOut className="w-4 h-4" /> تسجيل الخروج
+            <LogOut className="w-4 h-4" /> خروج
           </button>
         )}
         
         {user?.isGuest && onLogin && (
           <button 
             onClick={onLogin}
-            className="absolute top-4 left-4 p-2 bg-blue-600/20 text-blue-400 hover:bg-blue-600/40 rounded-lg text-sm font-display transition-colors flex items-center gap-2 border border-blue-600/30"
+            className="absolute top-4 left-4 p-2 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 rounded-lg text-sm font-display transition-colors flex items-center gap-2 border border-blue-500/20"
           >
             <LogIn className="w-4 h-4" /> تسجيل بجوجل
           </button>
         )}
 
-        <div className="w-24 h-24 rounded-full bg-game-dark/80 border-2 border-game-offwhite/20 flex items-center justify-center overflow-hidden">
+        <div className="w-24 h-24 rounded-full bg-game-bg border-4 border-game-offwhite/5 flex items-center justify-center overflow-hidden shadow-inner">
           {user?.photoURL ? (
             <img src={user.photoURL} className="w-full h-full object-cover" alt="Avatar" referrerPolicy="no-referrer" />
           ) : (
-            <User className="w-10 h-10 text-game-offwhite/50" />
+            <User className="w-12 h-12 text-game-offwhite/20" />
           )}
         </div>
-        <div className="flex-1 mt-6 sm:mt-0">
+        <div className="flex-1 flex flex-col items-center sm:items-start text-center sm:text-right gap-3">
           <div className="flex items-center gap-3">
-            <h2 className="text-2xl font-display text-game-offwhite">{playerName}</h2>
+            <h2 className="text-3xl font-display text-game-offwhite">{playerName}</h2>
             <button 
               onClick={onEditName}
-              className="p-1.5 text-game-offwhite/40 hover:text-game-offwhite transition-all bg-white/5 rounded-lg border border-white/5"
+              className="p-2 text-game-offwhite/40 hover:text-game-offwhite transition-all bg-white/5 rounded-lg border border-white/5"
               title="تعديل الاسم"
             >
               <Edit2 className="w-4 h-4" />
             </button>
           </div>
-          <div className="flex items-center gap-2 mt-1">
-            <span className="text-yellow-500 font-display">{coins}</span>
-            <span className="text-xs text-game-offwhite/40 font-body">عملة ذهبية</span>
+          <div className="flex items-center gap-2 bg-black/20 px-4 py-1.5 rounded-full border border-white/5">
+            <Trophy className="w-4 h-4 text-yellow-500" />
+            <span className="text-xl font-display text-yellow-500">{coins}</span>
+            <span className="text-sm text-game-offwhite/60 font-body">عملة ذهبية</span>
           </div>
         </div>
       </div>
@@ -383,6 +384,13 @@ const ProfileView = memo(({ playerName, coins, ownedThemes, selectedThemeId, onB
 ));
 
 const App = () => {
+  useEffect(() => {
+    // Lock orientation
+    if (screen.orientation && screen.orientation.lock) {
+      screen.orientation.lock('portrait').catch((e) => console.log('Orientation lock failed:', e));
+    }
+  }, []);
+
   const { user, profile, loading, login, logout, updateUserProfile, mergeAccounts } = useAuth();
   const [appState, setAppState] = useState<'nameEntry' | 'menu' | 'inRoom' | 'store' | 'profile'>(() => {
     return localStorage.getItem('cardClashPlayerName') ? 'menu' : 'nameEntry';
@@ -699,12 +707,11 @@ const App = () => {
 
   useEffect(() => {
     const initCapacitor = async () => {
-      if (!isPreloaded) return; // Wait for assets
-      
       addLog('Initializing Capacitor...', 'info');
       try {
         if (Capacitor.isNativePlatform()) {
-          await StatusBar.hide();
+          await StatusBar.setStyle({ style: Style.Dark });
+          await StatusBar.setBackgroundColor({ color: '#0f0f0f' });
         }
         await SplashScreen.hide();
         addLog('Capacitor initialized successfully', 'success');

@@ -82,12 +82,18 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
   }, []);
 
   const login = async () => {
+    const popup = window.open('about:blank', 'Google Login', 'width=500,height=600');
     try {
       const apiBase = config.ONLINE_API_BASE_URL;
       const res = await fetch(`${apiBase}/api/auth/google/url`);
       const { url } = await res.json();
-      window.open(url, 'Google Login', 'width=500,height=600');
+      if (popup) {
+        popup.location.href = url;
+      } else {
+        window.location.href = url; // Fallback
+      }
     } catch (e) {
+      if (popup) popup.close();
       console.error('Login failed:', e);
     }
   };
