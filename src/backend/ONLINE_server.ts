@@ -460,7 +460,7 @@ async function startServer() {
     }
   });
 
-  httpServer.listen(PORT, '0.0.0.0', () => {
+  httpServer.listen(parseInt(PORT as string, 10), '0.0.0.0', () => {
     console.log(`=========================================`);
     console.log(`🚀 Standalone Game Server Running!`);
     console.log(`👉 Port: ${PORT}`);
