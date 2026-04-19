@@ -386,8 +386,9 @@ const ProfileView = memo(({ playerName, coins, ownedThemes, selectedThemeId, onB
 const App = () => {
   useEffect(() => {
     // Lock orientation
-    if (screen.orientation && screen.orientation.lock) {
-      screen.orientation.lock('portrait').catch((e) => console.log('Orientation lock failed:', e));
+    const orientation = screen.orientation as any;
+    if (orientation && orientation.lock) {
+      orientation.lock('portrait').catch((e: any) => console.log('Orientation lock failed:', e));
     }
   }, []);
 
