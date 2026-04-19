@@ -118,10 +118,10 @@ After ANY change, ensure:
 # 🧩 TASK TRACKING
 
 ## LAST TASK
-Assisted the user in configuring a local MongoDB setup on Parrot OS and disabled the cloud fallback in `.env`.
+The user identified their local MongoDB configuration issue. Reverted `.env` to enforce Local MongoDB connection by default.
 
 ## CURRENT SUBTASK
-Waiting for the user to initialize and start the `mongod` service locally to establish the database connection.
+Waiting for the user to confirm the backend stabilizes on `localhost:27017` and the game connects.
 
 ## NEXT STEP
 Review App.tsx for any other forced navigation triggers and ensure consistent behavior across modes.

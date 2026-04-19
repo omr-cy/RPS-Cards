@@ -22,8 +22,9 @@ import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 
 // MongoDB Setup
-const MONGODB_URI = process.env.MONGODB_URI || process.env.MONGODB_URI_LOCAL || 'mongodb://localhost:27017/rpscards_db';
+const MONGODB_URI = process.env.MONGODB_URI_LOCAL || 'mongodb://127.0.0.1:27017/rpscards_db';
 
+console.log("[Startup] Connecting to MongoDB at:", MONGODB_URI);
 mongoose.connect(MONGODB_URI)
   .then(() => console.log('✅ Connected to MongoDB'))
   .catch(err => console.error('❌ MongoDB connection error:', err));
