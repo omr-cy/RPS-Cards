@@ -4,7 +4,7 @@ import { Bot, Globe, Home, Trophy, XCircle, Minus, Copy, Edit2, Bug, X, Wifi, Sh
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { SplashScreen } from '@capacitor/splash-screen';
 import { Network } from '@capacitor/network';
-import { registerPlugin, Capacitor } from '@capacitor/core';
+import { registerPlugin, Capacitor, CapacitorHttp } from '@capacitor/core';
 import config from './config.json';
 import { useAuth } from './contexts/AuthContext';
 
@@ -229,7 +229,7 @@ const StoreView = memo(({ coins, ownedThemes, selectedThemeId, onBack, onBuy, on
 }) => (
   <div 
     dir="rtl" 
-    className="h-[100dvh] wood-texture text-game-cream flex flex-col p-4 sm:p-6 font-body overflow-x-hidden overflow-y-auto select-none relative"
+    className="fixed inset-0 w-full h-full wood-texture text-game-cream flex flex-col p-4 sm:p-6 font-body overflow-x-hidden overflow-y-auto select-none relative"
     style={{
       paddingTop: 'env(safe-area-inset-top)',
       paddingBottom: 'env(safe-area-inset-bottom)',
@@ -290,7 +290,7 @@ const ProfileView = memo(({ playerName, coins, ownedThemes, selectedThemeId, onB
 }) => (
   <div 
     dir="rtl" 
-    className="h-[100dvh] wood-texture text-game-cream flex flex-col p-4 sm:p-6 font-body overflow-x-hidden overflow-y-auto select-none"
+    className="fixed inset-0 w-full h-full wood-texture text-game-cream flex flex-col p-4 sm:p-6 font-body overflow-x-hidden overflow-y-auto select-none"
     style={{
       paddingTop: 'env(safe-area-inset-top)',
       paddingBottom: 'env(safe-area-inset-bottom)',
@@ -860,8 +860,18 @@ const App = () => {
     // 4. Last Resort: Public IP (Only if local fails)
     addLog('Falling back to public IP fetch...', 'info');
     try {
-      const response = await fetch('https://api.ipify.org?format=json');
-      const data = await response.json();
+      let data: any;
+      if (Capacitor.isNativePlatform()) {
+        const response = await CapacitorHttp.request({
+          url: 'https://api.ipify.org?format=json',
+          method: 'GET'
+        });
+        data = response.data;
+      } else {
+        const response = await fetch('https://api.ipify.org?format=json');
+        data = await response.json();
+      }
+      
       if (data.ip) {
         setUserIp(data.ip);
         addLog(`Public IP obtained: ${data.ip}`, 'info');
@@ -929,6 +939,9 @@ const App = () => {
   const connectToOnline = (action?: any): Promise<WebSocket | void> => {
     return new Promise(async (resolve, reject) => {
       let serverUrl = import.meta.env.VITE_BACKEND_URL || config.ONLINE_SERVER_URL;
+      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+          serverUrl = `ws://${window.location.host}/game-socket`;
+      }
       
       if (Capacitor.isNativePlatform()) {
         try {
@@ -1347,11 +1360,9 @@ const App = () => {
     return (
       <div 
         dir="rtl" 
-        className="h-[100dvh] wood-texture text-game-cream flex flex-col items-center justify-center p-4 sm:p-6 font-body overflow-hidden select-none"
+        className="fixed inset-0 w-full h-full wood-texture text-game-cream flex flex-col items-center justify-center p-4 sm:p-6 font-body overflow-hidden select-none"
       >
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
+        <div 
           className="max-w-md w-full bg-game-dark/90 p-5 sm:p-8 rounded-2xl border border-white/10 shadow-2xl space-y-6"
         >
           <div className="text-center space-y-2">
@@ -1458,7 +1469,7 @@ const App = () => {
           >
             <User className="w-4 h-4 opacity-50" /> المتابعة كضيف (بدون حساب)
           </button>
-        </motion.div>
+        </div>
         {renderDebugUI()}
       </div>
     );
@@ -1468,7 +1479,7 @@ const App = () => {
     return (
       <div 
         dir="rtl" 
-        className="h-[100dvh] wood-texture text-game-cream flex flex-col items-center justify-center p-4 sm:p-6 font-body overflow-hidden select-none"
+        className="fixed inset-0 w-full h-full wood-texture text-game-cream flex flex-col items-center justify-center p-4 sm:p-6 font-body overflow-hidden select-none"
       >
         <motion.div 
           initial={{ opacity: 0, scale: 0.9 }} 
@@ -1529,7 +1540,7 @@ const App = () => {
         {renderErrorToast()}
         <div 
           dir="rtl" 
-          className="h-[100dvh] wood-texture text-game-cream flex flex-col p-4 sm:p-6 font-body overflow-x-hidden overflow-y-auto select-none"
+          className="fixed inset-0 w-full h-full wood-texture text-game-cream flex flex-col p-4 sm:p-6 font-body overflow-x-hidden overflow-y-auto select-none"
           style={{
             paddingTop: 'env(safe-area-inset-top)',
             paddingBottom: 'env(safe-area-inset-bottom)',
@@ -1574,6 +1585,23 @@ const App = () => {
                   key="main"
                   className="flex flex-col gap-4 sm:gap-5"
                 >
+                  {!user && (
+                    <div className="bg-yellow-500/10 border border-yellow-500/30 p-3 sm:p-4 rounded-xl flex items-start gap-3 w-full sm:w-[90%] mx-auto text-right mb-2 transition-all">
+                      <Info className="w-5 h-5 text-yellow-500 shrink-0 mt-0.5" />
+                      <div className="space-y-2.5 w-full">
+                        <div>
+                          <p className="text-sm text-yellow-500 font-display">تلعب الآن كضيف</p>
+                          <p className="text-[11px] text-game-cream/60 leading-relaxed font-body">يمكنك الاستمتاع باللعب بكافة الميزات، لكن لن يُحفظ تقدمك أو عملاتك بالسحابة ما لم تسجل دخولك.</p>
+                        </div>
+                        <button 
+                          onClick={() => setAppState('auth')}
+                          className="w-full sm:w-fit px-4 py-2 bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-500 active:scale-95 border border-yellow-500/50 rounded-lg text-xs font-display flex items-center justify-center gap-2 transition-all"
+                        >
+                          <User className="w-3.5 h-3.5" /> تسجيل الدخول أو إنشاء حساب
+                        </button>
+                      </div>
+                    </div>
+                  )}
                     <motion.button
                       whileTap={{ scale: 0.94 }}
                       onClick={() => setMenuTab('online')}
@@ -1628,15 +1656,6 @@ const App = () => {
                     </button>
                     
                     <div className="relative flex flex-col gap-6">
-                        {!user && (
-                          <div className="bg-yellow-500/10 border border-yellow-500/30 p-4 rounded-xl flex items-start gap-3 text-right">
-                            <Info className="w-5 h-5 text-yellow-500 shrink-0 mt-0.5" />
-                            <div className="space-y-1">
-                              <p className="text-sm text-yellow-500 font-display">أنت تلعب كضيف</p>
-                              <p className="text-[11px] text-game-cream/60 leading-relaxed font-body">يمكنك الاستمتاع باللعب أونلاين، ولكن لن يتم حفظ عملاتك أو تقدمك في السحابة إلا إذا قمت بإنشاء حساب.</p>
-                            </div>
-                          </div>
-                        )}
                         <>
                           {isSearching && (
                             <div
@@ -1904,7 +1923,7 @@ const App = () => {
   }
 
   if (!roomState) return (
-    <div className="h-[100dvh] wood-texture">
+    <div className="fixed inset-0 w-full h-full wood-texture">
       {renderDebugUI()}
     </div>
   );
@@ -1926,7 +1945,7 @@ const App = () => {
   }
 
   if (!myId || !roomState.players[myId]) return (
-    <div className="h-[100dvh] wood-texture">
+    <div className="fixed inset-0 w-full h-full wood-texture">
       {renderDebugUI()}
     </div>
   );
@@ -1937,7 +1956,7 @@ const App = () => {
   const opponentTheme = roomState.isBotRoom ? getTheme('robot') : (opponent?.themeId ? getTheme(opponent.themeId) : getTheme('normal'));
 
   if (!opponent && !roomState.isBotRoom && roomState.gameState !== 'waiting') return (
-    <div className="h-[100dvh] wood-texture">
+    <div className="fixed inset-0 w-full h-full wood-texture">
       {renderDebugUI()}
     </div>
   );
@@ -1948,7 +1967,7 @@ const App = () => {
       <>
         <div 
           dir="rtl" 
-          className="h-[100dvh] wood-texture text-game-cream flex flex-col items-center justify-center p-4 sm:p-6 font-body overflow-hidden select-none"
+          className="fixed inset-0 w-full h-full wood-texture text-game-cream flex flex-col items-center justify-center p-4 sm:p-6 font-body overflow-hidden select-none"
           style={{
             paddingTop: 'env(safe-area-inset-top)',
             paddingBottom: 'env(safe-area-inset-bottom)',
@@ -2026,7 +2045,7 @@ const App = () => {
         {renderErrorToast()}
         <div 
           dir="rtl" 
-          className="h-[100dvh] wood-texture text-game-cream flex flex-col items-center justify-center p-4 sm:p-6 font-body overflow-x-hidden overflow-y-auto select-none"
+          className="fixed inset-0 w-full h-full wood-texture text-game-cream flex flex-col items-center justify-center p-4 sm:p-6 font-body overflow-x-hidden overflow-y-auto select-none"
           style={{
             paddingTop: 'env(safe-area-inset-top)',
             paddingBottom: 'env(safe-area-inset-bottom)',
@@ -2083,7 +2102,7 @@ const App = () => {
       {renderErrorToast()}
       <div 
         dir="rtl" 
-        className="h-[100dvh] wood-texture text-game-cream font-body selection:bg-game-red/30 overflow-hidden flex flex-col select-none"
+        className="fixed inset-0 w-full h-full wood-texture text-game-cream font-body selection:bg-game-red/30 overflow-hidden flex flex-col select-none"
       style={{
         paddingTop: 'env(safe-area-inset-top)',
         paddingBottom: 'env(safe-area-inset-bottom)',
@@ -2120,7 +2139,7 @@ const App = () => {
         </header>
 
         {/* Opponent Area */}
-        <div className="flex-[0.5] flex flex-col-reverse justify-center px-10 pt-4 pb-1 bg-[#F5F5F5]/5">
+        <div className="flex-1 flex flex-col-reverse justify-center px-10 pt-4 pb-1 bg-[#F5F5F5]/5">
           <div className="flex justify-start items-start mt-1">
             <div className="text-right">
               <h2 className="text-white/80 text-[10px] sm:text-xs mb-0.5 flex items-center gap-2 font-display tracking-widest justify-end">
@@ -2138,7 +2157,7 @@ const App = () => {
         </div>
 
         {/* Battle Area */}
-        <div className="h-64 sm:h-80 relative flex items-center justify-center bg-[#F5F5F5]/5 shadow-inner overflow-hidden">
+        <div className="h-56 sm:h-72 relative flex items-center justify-center bg-[#F5F5F5]/5 shadow-inner overflow-hidden shrink-0 my-2 rounded-xl mx-2 border border-white/5">
           {(roomState.gameState === 'playing' || roomState.gameState === 'revealing' || roomState.gameState === 'roundResult') && (
             <div className="flex flex-col items-center w-full px-4 sm:px-6 h-full justify-center">
               <div className="flex items-center gap-3 sm:gap-6 w-full justify-center">

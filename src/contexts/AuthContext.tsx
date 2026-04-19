@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { Capacitor, CapacitorHttp } from '@capacitor/core';
 
 interface UserProfile {
   _id: string;
@@ -23,6 +24,27 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Helper function to force ALL api requests through the NATIVE Android layer when running natively
+const nativeFetch = async (url: string, options: any = {}) => {
+  if (Capacitor.isNativePlatform()) {
+    console.log(`[Native HttpClient] Requesting: ${url}`);
+    const method = options.method || 'GET';
+    const response = await CapacitorHttp.request({
+      url,
+      method,
+      headers: options.headers || {},
+      data: options.body ? JSON.parse(options.body) : undefined,
+    });
+    return {
+      ok: response.status >= 200 && response.status < 300,
+      status: response.status,
+      json: async () => response.data,
+    };
+  } else {
+    return fetch(url, options);
+  }
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -41,7 +63,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchProfile = async (userId: string) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/profile/${userId}`);
+      const response = await nativeFetch(`${API_BASE_URL}/api/profile/${userId}`);
       if (response.ok) {
         const data = await response.json();
         setUser(data);
@@ -58,7 +80,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string) => {
     setError(null);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+      const response = await nativeFetch(`${API_BASE_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -80,7 +102,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const register = async (email: string, password: string, displayName: string) => {
     setError(null);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+      const response = await nativeFetch(`${API_BASE_URL}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, displayName }),
@@ -99,7 +121,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const verifyCode = async (email: string, code: string) => {
     setError(null);
     try {
-      const response = await fetch(`${API_BASE_URL}/api/auth/verify-code`, {
+      const response = await nativeFetch(`${API_BASE_URL}/api/auth/verify-code`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, code }),
@@ -123,7 +145,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const updateProfile = async (data: Partial<UserProfile>) => {
     if (!user) return;
     try {
-      const response = await fetch(`${API_BASE_URL}/api/profile/${user._id}`, {
+      const response = await nativeFetch(`${API_BASE_URL}/api/profile/${user._id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),

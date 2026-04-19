@@ -118,10 +118,10 @@ After ANY change, ensure:
 # 🧩 TASK TRACKING
 
 ## LAST TASK
-Identified `signal=ILL` MongoDB crash due to CPU AVX limits on the local machine. Reverted to Cloud MongoDB (Atlas) to bypass hardware limitations.
+Removed the framer-motion animation wrapper from the authentication window (`appState === 'auth'`) and converted it to a standard `div` to ensure it immediately renders when clicked, providing a much faster UX flow.
 
 ## CURRENT SUBTASK
-Waiting for the user to start the backend with the Cloud DB and test the game connections.
+Waiting for user confirmation on the immediate appearance of the auth screen and ready for further instructions.
 
 ## NEXT STEP
 Review App.tsx for any other forced navigation triggers and ensure consistent behavior across modes.
@@ -129,9 +129,9 @@ Review App.tsx for any other forced navigation triggers and ensure consistent be
 ---
 
 # 🧠 LAST AI SUMMARY
-- The user requested to use a local MongoDB instance rather than the cloud database.
-- Commented out the `MONGODB_URI` out of `backend/.env` to force the application to use `mongodb://localhost:27017`.
-- Provided terminal instructions for Debian/Parrot OS to start (`systemctl start mongodb`) or install the MongoDB service.
+- The user requested that the authentication screen (Login / Register) open instantly without any transition or animation delays.
+- I modified `appState === 'auth'` block in `App.tsx`, replacing the `<motion.div>` wrapper (which had `initial` and `animate` props for fading/sliding in) with a standard HTML `<div>`.
+- This ensures the UI directly blocks on the next render cycle, instantly showing the auth modal with zero delay, making the experience snappier for the fast-paced nature of the app.
 
 ---
 
@@ -152,6 +152,14 @@ Review App.tsx for any other forced navigation triggers and ensure consistent be
 
 # 🧾 CHANGELOG
 
+- [2026-04-19] → Removed intro animations from the Authentication screen for instantaneous rendering.
+- [2026-04-19] → Added a direct, stylized "Login / Register" quick-action button inside the main menu's Guest informational block.
+- [2026-04-19] → Relocated the "Guest Mode" informational warning label from the online page to the primary App Main Menu.
+- [2026-04-19] → Verified and enforced all auth flows (login/register) to process via Android Native APIs.
+- [2026-04-19] → Patched public IP retrieval fallback inside `App.tsx` to handle HTTP requests completely via `CapacitorHttp` on Android devices.
+- [2026-04-19] → Fixed Android UI stretching by converting dvh arrays into absolute fixed bounds (`fixed inset-0`) and balanced flex allocations in the player/opponent components.
+- [2026-04-19] → Consolidated `AGENTS.md` native rules over into `AI_CONTEXT.md` for a single source of truth.
+
 - [2026-04-19] → Transitioned to Cloud MongoDB Atlas due to local device hardware limitations (Missing AVX support for MongoDB 5.0+).
 - [2026-04-19] → Transitioned backend back to local MongoDB per user request and provided setup guidance.
 - [2026-04-19] → Fixed local MongoDB ECONNREFUSED by switching to cloud MongoDB Atlas URI.
@@ -160,6 +168,24 @@ Review App.tsx for any other forced navigation triggers and ensure consistent be
 - [2026-04-19] → Fixed name change button bug and implemented persistence.
 - [2026-04-19] → Changed initial app state to 'menu' and delayed 'auth' until Online Mode selection.
 - [2026-04-19] → Initialized AI self-documentation system
+
+---
+
+# 📱 Native Interface Only Architecture (CRITICAL)
+
+**CRITICAL INSTRUCTION FOR ALL FUTURE AI AGENTS**:
+
+1. **Database Connections**:
+   - The backend (Node.js/Express) MUST connect ONLY to MongoDB Atlas (Cloud). Do not prioritize or use local MongoDB connections over the cloud one for production data unless strictly explicitly asked for a temporary test.
+
+2. **Network Communications (Frontend to Backend)**:
+   - React is purely a UI layer. It MUST NOT make direct network requests using browser `fetch()` or `XMLHttpRequest` when running on the mobile platform.
+   - ANY network communication between the Frontend UI and Backend (API calls, WebSockets, Account creation, Online Matches, Authentication) MUST use Native Android/Capacitor code.
+   - For HTTP API calls: Use `@capacitor/core` `CapacitorHttp` to dispatch native network calls instead of relying on JavaScript HTTP.
+   - For WebSockets/Online Play: Use the dedicated `LocalServer` native plugin (`LocalServer.connectToServer()`).
+   - The Backend communicates with the Native App layer, not directly with the Javascript web view. 
+
+By enforcing this, we avoid CORS issues, browser restrictions, and ensure everything uses native Android Network capabilities.
 
 ---
 
