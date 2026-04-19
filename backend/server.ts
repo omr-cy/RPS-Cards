@@ -27,7 +27,15 @@ const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/rpscar
 
 console.log("[Startup] Connecting to MongoDB at:", MONGODB_URI.includes('srv') ? 'Atlas Cluster' : 'Local Database (Fallback)');
 mongoose.connect(MONGODB_URI)
-  .then(() => console.log('✅ Connected to MongoDB'))
+  .then(async () => {
+    console.log('✅ Connected to MongoDB');
+    try {
+      await mongoose.connection.collection('users').dropIndex('uid_1');
+      console.log('✅ Dropped problematic index: uid_1');
+    } catch (e) {
+      console.log('ℹ️ Index uid_1 not found, skipping drop.');
+    }
+  })
   .catch(err => console.error('❌ MongoDB connection error:', err));
 
 // User Schema
