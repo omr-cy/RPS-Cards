@@ -118,10 +118,10 @@ After ANY change, ensure:
 # 🧩 TASK TRACKING
 
 ## LAST TASK
-The user identified their local MongoDB configuration issue. Reverted `.env` to enforce Local MongoDB connection by default.
+Identified `signal=ILL` MongoDB crash due to CPU AVX limits on the local machine. Reverted to Cloud MongoDB (Atlas) to bypass hardware limitations.
 
 ## CURRENT SUBTASK
-Waiting for the user to confirm the backend stabilizes on `localhost:27017` and the game connects.
+Waiting for the user to start the backend with the Cloud DB and test the game connections.
 
 ## NEXT STEP
 Review App.tsx for any other forced navigation triggers and ensure consistent behavior across modes.
@@ -152,6 +152,7 @@ Review App.tsx for any other forced navigation triggers and ensure consistent be
 
 # 🧾 CHANGELOG
 
+- [2026-04-19] → Transitioned to Cloud MongoDB Atlas due to local device hardware limitations (Missing AVX support for MongoDB 5.0+).
 - [2026-04-19] → Transitioned backend back to local MongoDB per user request and provided setup guidance.
 - [2026-04-19] → Fixed local MongoDB ECONNREFUSED by switching to cloud MongoDB Atlas URI.
 - [2026-04-19] → Implemented 6-digit OTP code verification flow and simplified email template.
