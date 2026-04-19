@@ -118,10 +118,10 @@ After ANY change, ensure:
 # 🧩 TASK TRACKING
 
 ## LAST TASK
-Fixed `ECONNREFUSED` MongoDB error by prioritizing the remote Atlas URI from `.env` instead of forcing a local connection.
+Assisted the user in configuring a local MongoDB setup on Parrot OS and disabled the cloud fallback in `.env`.
 
 ## CURRENT SUBTASK
-Waiting for the user to restart the backend to verify the cloud database connection (`✅ Connected to MongoDB`).
+Waiting for the user to initialize and start the `mongod` service locally to establish the database connection.
 
 ## NEXT STEP
 Review App.tsx for any other forced navigation triggers and ensure consistent behavior across modes.
@@ -129,9 +129,9 @@ Review App.tsx for any other forced navigation triggers and ensure consistent be
 ---
 
 # 🧠 LAST AI SUMMARY
-- Addressed `ECONNREFUSED 127.0.0.1:27017` which indicates the local MongoDB engine (mongod) isn't running.
-- Updated `backend/server.ts` to prioritize `process.env.MONGODB_URI` (the remote MongoDB Atlas cluster pre-defined in `.env`) over the local URI.
-- The server will now automatically connect to the cloud database, removing the need for a local MongoDB process.
+- The user requested to use a local MongoDB instance rather than the cloud database.
+- Commented out the `MONGODB_URI` out of `backend/.env` to force the application to use `mongodb://localhost:27017`.
+- Provided terminal instructions for Debian/Parrot OS to start (`systemctl start mongodb`) or install the MongoDB service.
 
 ---
 
@@ -152,6 +152,7 @@ Review App.tsx for any other forced navigation triggers and ensure consistent be
 
 # 🧾 CHANGELOG
 
+- [2026-04-19] → Transitioned backend back to local MongoDB per user request and provided setup guidance.
 - [2026-04-19] → Fixed local MongoDB ECONNREFUSED by switching to cloud MongoDB Atlas URI.
 - [2026-04-19] → Implemented 6-digit OTP code verification flow and simplified email template.
 - [2026-04-19] → Verified email verification setup and fixed APP_URL in environment configuration.
