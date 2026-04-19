@@ -274,7 +274,7 @@ const StoreView = memo(({ coins, ownedThemes, selectedThemeId, onBack, onBuy, on
   </div>
 ));
 
-const ProfileView = memo(({ playerName, coins, ownedThemes, selectedThemeId, onBack, onSelect, selectedPack, setSelectedPack, onEditName, onLogout, isGuest }: {
+const ProfileView = memo(({ playerName, coins, ownedThemes, selectedThemeId, onBack, onSelect, selectedPack, setSelectedPack, onEditName, onLogout, onLoginClick, isGuest }: {
   playerName: string,
   coins: number,
   ownedThemes: string[],
@@ -285,6 +285,7 @@ const ProfileView = memo(({ playerName, coins, ownedThemes, selectedThemeId, onB
   setSelectedPack: (theme: ThemeConfig | null) => void,
   onEditName: () => void,
   onLogout: () => void,
+  onLoginClick: () => void,
   isGuest?: boolean
 }) => (
   <div 
@@ -311,7 +312,13 @@ const ProfileView = memo(({ playerName, coins, ownedThemes, selectedThemeId, onB
           <LogOut className="w-6 h-6" />
         </button>
       ) : (
-        <div className="w-10" /> // Spacer
+        <button 
+          onClick={onLoginClick}
+          className="flex items-center gap-2 bg-game-teal text-game-dark px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg font-display text-xs sm:text-sm shadow-md hover:bg-emerald-400 transition-all"
+          title="تسجيل الدخول"
+        >
+          <LogIn className="w-4 h-4 sm:w-5 sm:h-5" /> دخول
+        </button>
       )}
     </div>
 
@@ -1345,7 +1352,7 @@ const App = () => {
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="max-w-md w-full bg-game-dark/90 p-8 rounded-2xl border border-white/10 shadow-2xl space-y-6"
+          className="max-w-md w-full bg-game-dark/90 p-5 sm:p-8 rounded-2xl border border-white/10 shadow-2xl space-y-6"
         >
           <div className="text-center space-y-2">
             <h1 className="text-4xl font-display text-game-offwhite">صراع البطاقات</h1>
@@ -1466,7 +1473,7 @@ const App = () => {
         <motion.div 
           initial={{ opacity: 0, scale: 0.9 }} 
           animate={{ opacity: 1, scale: 1 }}
-          className="max-w-md w-full bg-game-dark/95 p-10 rounded-3xl border border-game-teal/30 shadow-2xl text-center space-y-6"
+          className="max-w-md w-full bg-game-dark/95 p-6 sm:p-10 rounded-3xl border border-game-teal/30 shadow-2xl text-center space-y-6"
         >
           <div className="w-20 h-20 bg-game-teal/20 rounded-full flex items-center justify-center mx-auto border-2 border-game-teal/50">
             <Mail className="w-10 h-10 text-game-teal" />
@@ -1557,51 +1564,51 @@ const App = () => {
           <div
             className="max-w-md w-full text-center mx-auto"
           >
-            <h1 className="text-5xl sm:text-6xl font-display mb-12 text-game-offwhite tracking-[0.2em] uppercase">
+            <h1 className="text-4xl sm:text-5xl md:text-6xl font-display mb-10 text-game-offwhite tracking-[0.2em] uppercase leading-tight">
               صراع البطاقات
             </h1>
             
-            <div className="space-y-5">
+            <div className="space-y-4 sm:space-y-5">
               {menuTab === 'main' && (
                 <div
                   key="main"
-                  className="flex flex-col gap-5"
+                  className="flex flex-col gap-4 sm:gap-5"
                 >
                     <motion.button
                       whileTap={{ scale: 0.94 }}
                       onClick={() => setMenuTab('online')}
-                      className="w-[90%] mx-auto py-4 bg-game-teal text-game-dark hover:bg-emerald-400 rounded-lg font-display text-2xl shadow-lg transition-all flex items-center justify-center gap-3"
+                      className="w-full sm:w-[90%] mx-auto py-3 sm:py-4 bg-game-teal text-game-dark hover:bg-emerald-400 rounded-lg font-display text-xl sm:text-2xl shadow-lg transition-all flex items-center justify-center gap-2 sm:gap-3"
                     >
-                      <Globe className="w-6 h-6" /> لعب عبر الإنترنت
+                      <Globe className="w-5 h-5 sm:w-6 sm:h-6" /> لعب عبر الإنترنت
                     </motion.button>
                     <motion.button
                       whileTap={{ scale: 0.94 }}
                       onClick={() => setMenuTab('local')}
-                      className="w-[90%] mx-auto py-4 bg-game-offwhite hover:bg-white text-black rounded-lg font-display text-2xl shadow-lg transition-all flex items-center justify-center gap-3"
+                      className="w-full sm:w-[90%] mx-auto py-3 sm:py-4 bg-game-offwhite hover:bg-white text-black rounded-lg font-display text-xl sm:text-2xl shadow-lg transition-all flex items-center justify-center gap-2 sm:gap-3"
                     >
-                      <Home className="w-6 h-6" /> شبكة محلية (IP)
+                      <Home className="w-5 h-5 sm:w-6 sm:h-6" /> شبكة محلية (IP)
                     </motion.button>
                     <motion.button
                       whileTap={{ scale: 0.94 }}
                       onClick={createBotRoom}
-                      className="w-[90%] mx-auto py-4 bg-game-slate hover:bg-slate-600 text-white rounded-lg font-display text-2xl shadow-lg transition-all flex items-center justify-center gap-3"
+                      className="w-full sm:w-[90%] mx-auto py-3 sm:py-4 bg-game-slate hover:bg-slate-600 text-white rounded-lg font-display text-xl sm:text-2xl shadow-lg transition-all flex items-center justify-center gap-2 sm:gap-3"
                     >
-                      <Bot className="w-6 h-6" /> ضد الكمبيوتر
+                      <Bot className="w-5 h-5 sm:w-6 sm:h-6" /> ضد الكمبيوتر
                     </motion.button>
-                    <div className="flex w-[90%] mx-auto gap-3">
+                    <div className="flex w-full sm:w-[90%] mx-auto gap-3">
                       <motion.button
                         whileTap={{ scale: 0.94 }}
                         onClick={() => setAppState('store')}
-                        className="flex-1 py-3 bg-game-dark/50 hover:bg-game-dark text-game-cream rounded-lg font-display text-xl shadow-lg transition-all flex items-center justify-center gap-2 border border-white/10"
+                        className="flex-1 py-3 bg-game-dark/50 hover:bg-game-dark text-game-cream rounded-lg font-display text-lg sm:text-xl shadow-lg transition-all flex items-center justify-center gap-2 border border-white/10"
                       >
-                        <ShoppingCart className="w-5 h-5" /> المتجر
+                        <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5" /> المتجر
                       </motion.button>
                       <motion.button
                         whileTap={{ scale: 0.94 }}
                         onClick={() => setAppState('profile')}
-                        className="flex-1 py-3 bg-game-dark/50 hover:bg-game-dark text-game-cream rounded-lg font-display text-xl shadow-lg transition-all flex items-center justify-center gap-2 border border-white/10"
+                        className="flex-1 py-3 bg-game-dark/50 hover:bg-game-dark text-game-cream rounded-lg font-display text-lg sm:text-xl shadow-lg transition-all flex items-center justify-center gap-2 border border-white/10"
                       >
-                        <User className="w-5 h-5" /> حسابي
+                        <User className="w-4 h-4 sm:w-5 sm:h-5" /> حسابي
                       </motion.button>
                     </div>
                   </div>
@@ -1886,7 +1893,10 @@ const App = () => {
         }}
         onLogout={() => {
           logout();
+        }}
+        onLoginClick={() => {
           setAppState('auth');
+          setAuthTab('login');
         }}
         isGuest={!user}
       />
