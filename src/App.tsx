@@ -1569,14 +1569,7 @@ const App = () => {
                 >
                     <motion.button
                       whileTap={{ scale: 0.94 }}
-                      onClick={() => {
-                        if (!user) {
-                          setAppState('auth');
-                          setAuthTab('login');
-                        } else {
-                          setMenuTab('online');
-                        }
-                      }}
+                      onClick={() => setMenuTab('online')}
                       className="w-[90%] mx-auto py-4 bg-game-teal text-game-dark hover:bg-emerald-400 rounded-lg font-display text-2xl shadow-lg transition-all flex items-center justify-center gap-3"
                     >
                       <Globe className="w-6 h-6" /> لعب عبر الإنترنت
@@ -1628,6 +1621,15 @@ const App = () => {
                     </button>
                     
                     <div className="relative flex flex-col gap-6">
+                        {!user && (
+                          <div className="bg-yellow-500/10 border border-yellow-500/30 p-4 rounded-xl flex items-start gap-3 text-right">
+                            <Info className="w-5 h-5 text-yellow-500 shrink-0 mt-0.5" />
+                            <div className="space-y-1">
+                              <p className="text-sm text-yellow-500 font-display">أنت تلعب كضيف</p>
+                              <p className="text-[11px] text-game-cream/60 leading-relaxed font-body">يمكنك الاستمتاع باللعب أونلاين، ولكن لن يتم حفظ عملاتك أو تقدمك في السحابة إلا إذا قمت بإنشاء حساب.</p>
+                            </div>
+                          </div>
+                        )}
                         <>
                           {isSearching && (
                             <div

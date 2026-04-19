@@ -118,10 +118,10 @@ After ANY change, ensure:
 # 🧩 TASK TRACKING
 
 ## LAST TASK
-Implemented 6-digit OTP verification with 24-hour expiration and ensured the database schema handles new fields automatically.
+Fixed `ECONNREFUSED` MongoDB error by prioritizing the remote Atlas URI from `.env` instead of forcing a local connection.
 
 ## CURRENT SUBTASK
-Verified that registration now includes `verificationTokenExpires` and the verification endpoint checks for both the code and current time.
+Waiting for the user to restart the backend to verify the cloud database connection (`✅ Connected to MongoDB`).
 
 ## NEXT STEP
 Review App.tsx for any other forced navigation triggers and ensure consistent behavior across modes.
@@ -129,10 +129,9 @@ Review App.tsx for any other forced navigation triggers and ensure consistent be
 ---
 
 # 🧠 LAST AI SUMMARY
-- Added `verificationTokenExpires` field to the User Schema in `backend/server.ts`.
-- Set verification codes to expire after 24 hours.
-- Modified the verification endpoint to validate the timestamp, ensuring enhanced security.
-- Since we use Mongoose, the database will automatically incorporate the new fields into the "rpscards_db" collection upon the next registration.
+- Addressed `ECONNREFUSED 127.0.0.1:27017` which indicates the local MongoDB engine (mongod) isn't running.
+- Updated `backend/server.ts` to prioritize `process.env.MONGODB_URI` (the remote MongoDB Atlas cluster pre-defined in `.env`) over the local URI.
+- The server will now automatically connect to the cloud database, removing the need for a local MongoDB process.
 
 ---
 
@@ -153,6 +152,7 @@ Review App.tsx for any other forced navigation triggers and ensure consistent be
 
 # 🧾 CHANGELOG
 
+- [2026-04-19] → Fixed local MongoDB ECONNREFUSED by switching to cloud MongoDB Atlas URI.
 - [2026-04-19] → Implemented 6-digit OTP code verification flow and simplified email template.
 - [2026-04-19] → Verified email verification setup and fixed APP_URL in environment configuration.
 - [2026-04-19] → Fixed name change button bug and implemented persistence.
