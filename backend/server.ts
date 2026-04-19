@@ -2,16 +2,23 @@ import express from 'express';
 import { createServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load .env from the backend directory specifically
+dotenv.config({ path: path.join(__dirname, '.env') });
+
 import cors from 'cors';
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 import nodemailer from 'nodemailer';
 import crypto from 'crypto';
 
-dotenv.config();
-
 // MongoDB Setup
-const MONGODB_URI = process.env.MONGODB_URI || process.env.MONGODB_URI_LOCAL || 'mongodb://localhost:27017/cardclash';
+const MONGODB_URI = process.env.MONGODB_URI_LOCAL || 'mongodb://localhost:27017/rpscards_db';
 
 mongoose.connect(MONGODB_URI)
   .then(() => console.log('✅ Connected to MongoDB'))
@@ -313,6 +320,9 @@ async function startServer() {
       };
 
       await transporter.sendMail(mailOptions);
+      
+      // Log for debugging (AI Studio Terminal)
+      console.log(`[AUTH] Verification link for ${email}: ${verificationUrl}`);
 
       res.status(201).json({ message: 'تم إنشاء الحساب بنجاح. يرجى مراجعة بريدك الإلكتروني لتأكيد الحساب.' });
     } catch (err) {

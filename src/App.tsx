@@ -274,7 +274,7 @@ const StoreView = memo(({ coins, ownedThemes, selectedThemeId, onBack, onBuy, on
   </div>
 ));
 
-const ProfileView = memo(({ playerName, coins, ownedThemes, selectedThemeId, onBack, onSelect, selectedPack, setSelectedPack, onEditName, onLogout }: {
+const ProfileView = memo(({ playerName, coins, ownedThemes, selectedThemeId, onBack, onSelect, selectedPack, setSelectedPack, onEditName, onLogout, isGuest }: {
   playerName: string,
   coins: number,
   ownedThemes: string[],
@@ -284,7 +284,8 @@ const ProfileView = memo(({ playerName, coins, ownedThemes, selectedThemeId, onB
   selectedPack: ThemeConfig | null,
   setSelectedPack: (theme: ThemeConfig | null) => void,
   onEditName: () => void,
-  onLogout: () => void
+  onLogout: () => void,
+  isGuest?: boolean
 }) => (
   <div 
     dir="rtl" 
@@ -301,13 +302,17 @@ const ProfileView = memo(({ playerName, coins, ownedThemes, selectedThemeId, onB
         <X className="w-6 h-6" />
       </button>
       <h1 className="text-3xl font-display text-game-offwhite tracking-wider">الملف الشخصي</h1>
-      <button 
-        onClick={onLogout}
-        className="p-2 bg-red-900/50 rounded-full text-red-200 hover:bg-red-800 border border-red-500/20 transition-all"
-        title="تسجيل الخروج"
-      >
-        <LogOut className="w-6 h-6" />
-      </button>
+      {!isGuest ? (
+        <button 
+          onClick={onLogout}
+          className="p-2 bg-red-900/50 rounded-full text-red-200 hover:bg-red-800 border border-red-500/20 transition-all"
+          title="تسجيل الخروج"
+        >
+          <LogOut className="w-6 h-6" />
+        </button>
+      ) : (
+        <div className="w-10" /> // Spacer
+      )}
     </div>
 
     <div className="max-w-4xl mx-auto w-full space-y-8 pb-20">
@@ -371,7 +376,7 @@ const App = () => {
   const [menuTab, setMenuTab] = useState<'main' | 'online' | 'local'>('main');
 
   // Player Local State (Syncs with User Profile if logged in)
-  const [playerName, setPlayerNameState] = useState('');
+  const [playerName, setPlayerNameState] = useState(() => localStorage.getItem('cardclash_guestName') || 'محارب');
   const [selectedThemeId, setSelectedThemeIdState] = useState('normal');
   const [ownedThemes, setOwnedThemesState] = useState<string[]>(['normal']);
   const [coins, setCoinsState] = useState(100);
@@ -388,7 +393,7 @@ const App = () => {
       }
     } else if (!user && !authLoading) {
       if (appState === 'loading') {
-        setAppState('auth');
+        setAppState('menu');
       }
     }
   }, [user, authLoading]);
@@ -1413,6 +1418,22 @@ const App = () => {
               {authSubmitting ? <Activity className="w-5 h-5 animate-spin" /> : authTab === 'login' ? <><LogIn className="w-5 h-5" /> دخول المعركة</> : <><UserPlus className="w-5 h-5" /> تسجيل جديد</>}
             </button>
           </form>
+          
+          <div className="relative flex items-center py-2">
+            <div className="flex-grow border-t border-white/10"></div>
+            <span className="flex-shrink-0 mx-4 text-game-offwhite/20 text-xs font-display uppercase tracking-widest">أو</span>
+            <div className="flex-grow border-t border-white/10"></div>
+          </div>
+
+          <button 
+            onClick={() => {
+              if (!playerName) setPlayerNameState('محارب');
+              setAppState('menu');
+            }}
+            className="w-full py-3 bg-white/5 hover:bg-white/10 text-game-offwhite/60 rounded-xl font-display transition-all border border-white/10 active:scale-95 flex items-center justify-center gap-2"
+          >
+            <User className="w-4 h-4 opacity-50" /> المتابعة كضيف (بدون حساب)
+          </button>
         </motion.div>
         {renderDebugUI()}
       </div>
@@ -1500,7 +1521,14 @@ const App = () => {
                 >
                     <motion.button
                       whileTap={{ scale: 0.94 }}
-                      onClick={() => setMenuTab('online')}
+                      onClick={() => {
+                        if (!user) {
+                          setAppState('auth');
+                          setAuthTab('login');
+                        } else {
+                          setMenuTab('online');
+                        }
+                      }}
                       className="w-[90%] mx-auto py-4 bg-game-teal text-game-dark hover:bg-emerald-400 rounded-lg font-display text-2xl shadow-lg transition-all flex items-center justify-center gap-3"
                     >
                       <Globe className="w-6 h-6" /> لعب عبر الإنترنت
@@ -1790,16 +1818,27 @@ const App = () => {
         }}
         selectedPack={selectedPack}
         setSelectedPack={setSelectedPack}
-        onEditName={() => {
+        onEditName={async () => {
           const newName = prompt('أدخل اسمك الجديد:', playerName);
           if (newName && newName.trim().length >= 2) {
-             setPlayerName(newName.trim());
+             const trimmedName = newName.trim();
+             if (user) {
+               try {
+                 await updateProfile({ displayName: trimmedName });
+               } catch (err) {
+                 setErrorMsg('فشل في تحديث الاسم على السيرفر');
+               }
+             } else {
+               setPlayerNameState(trimmedName);
+               localStorage.setItem('cardclash_guestName', trimmedName);
+             }
           }
         }}
         onLogout={() => {
           logout();
           setAppState('auth');
         }}
+        isGuest={!user}
       />
     );
   }
