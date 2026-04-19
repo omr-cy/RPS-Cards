@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useRef, memo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Bot, Globe, Home, Trophy, XCircle, Minus, Copy, Edit2, Bug, X, Wifi, ShieldCheck, Activity, ShoppingCart, User, LogIn, LogOut, Swords, PlusCircle } from 'lucide-react';
+import { Bot, Globe, Home, Trophy, XCircle, Minus, Copy, Edit2, Bug, X, Wifi, ShieldCheck, Activity, ShoppingCart, User, LogIn, LogOut, Swords, PlusCircle, Mail, Lock, UserPlus, Info } from 'lucide-react';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { SplashScreen } from '@capacitor/splash-screen';
 import { Network } from '@capacitor/network';
 import { registerPlugin, Capacitor } from '@capacitor/core';
-import { useAuth } from './contexts/AuthContext';
-
 import config from './config.json';
+import { useAuth } from './contexts/AuthContext';
 
 export interface LocalServerPlugin {
   startServer(options: { port: number }): Promise<{ status: string; port: number }>;
@@ -275,7 +274,7 @@ const StoreView = memo(({ coins, ownedThemes, selectedThemeId, onBack, onBuy, on
   </div>
 ));
 
-const ProfileView = memo(({ playerName, coins, ownedThemes, selectedThemeId, onBack, onSelect, selectedPack, setSelectedPack, onEditName, onLogout, onLogin, user }: {
+const ProfileView = memo(({ playerName, coins, ownedThemes, selectedThemeId, onBack, onSelect, selectedPack, setSelectedPack, onEditName, onLogout }: {
   playerName: string,
   coins: number,
   ownedThemes: string[],
@@ -285,9 +284,7 @@ const ProfileView = memo(({ playerName, coins, ownedThemes, selectedThemeId, onB
   selectedPack: ThemeConfig | null,
   setSelectedPack: (theme: ThemeConfig | null) => void,
   onEditName: () => void,
-  onLogout?: () => void,
-  onLogin?: () => void,
-  user?: any
+  onLogout: () => void
 }) => (
   <div 
     dir="rtl" 
@@ -304,35 +301,19 @@ const ProfileView = memo(({ playerName, coins, ownedThemes, selectedThemeId, onB
         <X className="w-6 h-6" />
       </button>
       <h1 className="text-3xl font-display text-game-offwhite tracking-wider">الملف الشخصي</h1>
-      <div className="w-10" />
+      <button 
+        onClick={onLogout}
+        className="p-2 bg-red-900/50 rounded-full text-red-200 hover:bg-red-800 border border-red-500/20 transition-all"
+        title="تسجيل الخروج"
+      >
+        <LogOut className="w-6 h-6" />
+      </button>
     </div>
 
     <div className="max-w-4xl mx-auto w-full space-y-8 pb-20">
       <div className="bg-gradient-to-br from-game-dark/95 to-game-dark/80 p-8 rounded-2xl border border-white/10 flex flex-col sm:flex-row items-center gap-6 relative shadow-2xl">
-        {user && onLogout && !user.isGuest && (
-          <button 
-            onClick={onLogout}
-            className="absolute top-4 left-4 p-2 bg-game-red/10 text-game-red hover:bg-game-red/20 rounded-lg text-sm font-display transition-colors flex items-center gap-2"
-          >
-            <LogOut className="w-4 h-4" /> خروج
-          </button>
-        )}
-        
-        {user?.isGuest && onLogin && (
-          <button 
-            onClick={onLogin}
-            className="absolute top-4 left-4 p-2 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 rounded-lg text-sm font-display transition-colors flex items-center gap-2 border border-blue-500/20"
-          >
-            <LogIn className="w-4 h-4" /> تسجيل بجوجل
-          </button>
-        )}
-
         <div className="w-24 h-24 rounded-full bg-game-bg border-4 border-game-offwhite/5 flex items-center justify-center overflow-hidden shadow-inner">
-          {user?.photoURL ? (
-            <img src={user.photoURL} className="w-full h-full object-cover" alt="Avatar" referrerPolicy="no-referrer" />
-          ) : (
-            <User className="w-12 h-12 text-game-offwhite/20" />
-          )}
+          <User className="w-12 h-12 text-game-offwhite/20" />
         </div>
         <div className="flex-1 flex flex-col items-center sm:items-start text-center sm:text-right gap-3">
           <div className="flex items-center gap-3">
@@ -384,75 +365,86 @@ const ProfileView = memo(({ playerName, coins, ownedThemes, selectedThemeId, onB
 ));
 
 const App = () => {
-  useEffect(() => {
-    // Lock orientation
-    const orientation = screen.orientation as any;
-    if (orientation && orientation.lock) {
-      orientation.lock('portrait').catch((e: any) => console.log('Orientation lock failed:', e));
-    }
-  }, []);
-
-  const { user, profile, loading, login, logout, updateUserProfile, mergeAccounts } = useAuth();
-  const [appState, setAppState] = useState<'nameEntry' | 'menu' | 'inRoom' | 'store' | 'profile'>(() => {
-    return localStorage.getItem('cardClashPlayerName') ? 'menu' : 'nameEntry';
-  });
+  const { user, login, register, logout, updateProfile, loading: authLoading, error: authError } = useAuth();
+  const [appState, setAppState] = useState<'loading' | 'auth' | 'menu' | 'store' | 'profile' | 'matchmaking' | 'game' | 'gameOver' | 'inRoom' | 'verifySent'>('loading');
+  const [authTab, setAuthTab] = useState<'login' | 'register'>('login');
   const [menuTab, setMenuTab] = useState<'main' | 'online' | 'local'>('main');
-  const [showMergeDialog, setShowMergeDialog] = useState(false);
-  const [pendingGuestUid, setPendingGuestUid] = useState<string | null>(null);
 
-  const [localPlayerName, setLocalPlayerName] = useState(() => localStorage.getItem('cardClashPlayerName') || '');
-  const [localSelectedThemeId, setLocalSelectedThemeId] = useState(() => localStorage.getItem('cardClashTheme') || 'normal');
-  const [localOwnedThemes, setLocalOwnedThemes] = useState<string[]>(() => {
-    const saved = localStorage.getItem('cardClashOwnedThemes');
-    return saved ? JSON.parse(saved) : ['normal'];
-  });
-  const [localCoins, setLocalCoins] = useState(() => parseInt(localStorage.getItem('cardClashCoins') || '100'));
+  // Player Local State (Syncs with User Profile if logged in)
+  const [playerName, setPlayerNameState] = useState('');
+  const [selectedThemeId, setSelectedThemeIdState] = useState('normal');
+  const [ownedThemes, setOwnedThemesState] = useState<string[]>(['normal']);
+  const [coins, setCoinsState] = useState(100);
 
-  const playerName = user && profile?.displayName ? profile.displayName : localPlayerName;
-  const selectedThemeId = user && profile?.equippedTheme ? profile.equippedTheme : localSelectedThemeId;
-  const ownedThemes = user && profile?.purchasedThemes ? profile.purchasedThemes : localOwnedThemes;
-  const coins = user && profile?.coins !== undefined ? profile.coins : localCoins;
-
+  // Sync state with auth user
   useEffect(() => {
-    const handleLoginSuccess = (event: MessageEvent) => {
-      if (event.data?.type === 'OAUTH_AUTH_SUCCESS' && event.data.user) {
-        const guestUid = localStorage.getItem('cardClashDeviceId');
-        // If the logged in user was a guest with some progress, check for merge
-        if (guestUid && guestUid.startsWith('guest_')) {
-          const guestCoins = parseInt(localStorage.getItem('cardClashCoins') || '100');
-          // If guest has coins or themes, we might want to merge
-          if (guestCoins > 100 || localOwnedThemes.length > 1) {
-            setPendingGuestUid(guestUid);
-            setShowMergeDialog(true);
-          }
-        }
+    if (user && !authLoading) {
+      setPlayerNameState(user.displayName);
+      setCoinsState(user.coins);
+      setOwnedThemesState(user.purchasedThemes);
+      setSelectedThemeIdState(user.equippedTheme);
+      if (appState === 'loading' || appState === 'auth') {
+        setAppState('menu');
       }
-    };
-    window.addEventListener('message', handleLoginSuccess);
-    return () => window.removeEventListener('message', handleLoginSuccess);
-  }, [localOwnedThemes]);
+    } else if (!user && !authLoading) {
+      if (appState === 'loading') {
+        setAppState('auth');
+      }
+    }
+  }, [user, authLoading]);
+
+  // Auth View Local State
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPass, setAuthPass] = useState('');
+  const [authName, setAuthName] = useState('');
+  const [authSubmitting, setAuthSubmitting] = useState(false);
+  const [authSuccessMsg, setAuthSuccessMsg] = useState<string | null>(null);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthSubmitting(true);
+    setErrorMsg(null);
+    try {
+      await login(authEmail, authPass);
+    } catch (err: any) {
+      setErrorMsg(err.message);
+    } finally {
+      setAuthSubmitting(false);
+    }
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthSubmitting(true);
+    setErrorMsg(null);
+    try {
+      await register(authEmail, authPass, authName);
+      setAppState('verifySent');
+    } catch (err: any) {
+      setErrorMsg(err.message);
+    } finally {
+      setAuthSubmitting(false);
+    }
+  };
 
   const setPlayerName = (name: string) => {
-    setLocalPlayerName(name);
-    localStorage.setItem('cardClashPlayerName', name);
-    if (user) updateUserProfile({ displayName: name });
+    setPlayerNameState(name);
+    updateProfile({ displayName: name });
   };
   const setSelectedThemeId = (id: string) => {
-    setLocalSelectedThemeId(id);
-    localStorage.setItem('cardClashTheme', id);
-    if (user) updateUserProfile({ equippedTheme: id });
+    setSelectedThemeIdState(id);
+    updateProfile({ equippedTheme: id });
   };
   const setOwnedThemes = (themes: string[]) => {
-    setLocalOwnedThemes(themes);
-    localStorage.setItem('cardClashOwnedThemes', JSON.stringify(themes));
-    if (user) updateUserProfile({ purchasedThemes: themes });
+    setOwnedThemesState(themes);
+    updateProfile({ purchasedThemes: themes });
   };
   const setCoins = (newCoins: number | ((prev: number) => number)) => {
-    const currentVal = user && profile?.coins !== undefined ? profile.coins : localCoins;
-    const val = typeof newCoins === 'function' ? newCoins(currentVal) : newCoins;
-    setLocalCoins(val);
-    localStorage.setItem('cardClashCoins', val.toString());
-    if (user) updateUserProfile({ coins: val });
+    setCoinsState(prev => {
+      const val = typeof newCoins === 'function' ? newCoins(prev) : newCoins;
+      updateProfile({ coins: val });
+      return val;
+    });
   };
 
   const [ipInput, setIpInput] = useState('');
@@ -708,11 +700,12 @@ const App = () => {
 
   useEffect(() => {
     const initCapacitor = async () => {
+      if (!isPreloaded) return; // Wait for assets
+      
       addLog('Initializing Capacitor...', 'info');
       try {
         if (Capacitor.isNativePlatform()) {
-          await StatusBar.setStyle({ style: Style.Dark });
-          await StatusBar.setBackgroundColor({ color: '#0f0f0f' });
+          await StatusBar.hide();
         }
         await SplashScreen.hide();
         addLog('Capacitor initialized successfully', 'success');
@@ -906,7 +899,7 @@ const App = () => {
 
   const connectToOnline = (action?: any): Promise<WebSocket | void> => {
     return new Promise(async (resolve, reject) => {
-      let serverUrl = config.ONLINE_SERVER_URL;
+      let serverUrl = import.meta.env.VITE_BACKEND_URL || config.ONLINE_SERVER_URL;
       
       if (Capacitor.isNativePlatform()) {
         try {
@@ -1221,13 +1214,6 @@ const App = () => {
     }
   };
 
-  const validateName = (name: string) => {
-    const trimmed = name.trim();
-    if (trimmed.length < 2) return 'الاسم يجب أن يكون حرفين على الأقل';
-    if (!/^[a-zA-Z0-9\u0600-\u06FF\s]+$/.test(trimmed)) return 'الاسم يجب أن يحتوي على حروف وأرقام فقط';
-    return null;
-  };
-
   const buyTheme = (theme: ThemeConfig) => {
     if (ownedThemes.includes(theme.id)) return;
     if (coins >= theme.price) {
@@ -1235,33 +1221,13 @@ const App = () => {
       const newOwned = [...ownedThemes, theme.id];
       setCoins(newCoins);
       setOwnedThemes(newOwned);
-      localStorage.setItem('cardClashCoins', newCoins.toString());
-      localStorage.setItem('cardClashOwnedThemes', JSON.stringify(newOwned));
       addLog(`تم شراء ثيم ${theme.name}`, 'success');
     } else {
       setErrorMsg('عملات غير كافية!');
     }
   };
 
-  const selectTheme = (themeId: string) => {
-    if (ownedThemes.includes(themeId)) {
-      setSelectedThemeId(themeId);
-      localStorage.setItem('cardClashTheme', themeId);
-    }
-  };
-
   const currentTheme = getTheme(selectedThemeId);
-
-  const saveName = () => {
-    const error = validateName(playerName);
-    if (error) {
-      setErrorMsg(error);
-      return;
-    }
-    localStorage.setItem('cardClashPlayerName', playerName.trim());
-    setAppState('menu');
-    setErrorMsg(null);
-  };
 
   const renderErrorToast = () => (
     <AnimatePresence>
@@ -1348,128 +1314,136 @@ const App = () => {
     </>
   );
 
-  const renderMergeDialog = () => (
-    <AnimatePresence>
-      {showMergeDialog && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-            onClick={() => setShowMergeDialog(false)}
-          />
-          <motion.div 
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.9, opacity: 0 }}
-            className="bg-game-dark border-2 border-game-offwhite/20 p-8 rounded-2xl w-full max-w-md relative z-10 font-body text-center"
-            dir="rtl"
-          >
-            <h2 className="text-3xl font-display text-game-offwhite mb-4">دمج الحسابات</h2>
-            <p className="text-game-cream/80 mb-8 leading-relaxed">
-              هل تريد دمج عملاتك ومقتنياتك الحالية (كضيف) في حسابك المسجل بجوجل؟
-              <br /><br />
-              <span className="text-yellow-500 font-bold">دمج:</span> سيتم إضافة كوينز الضيف الحالية لحساب جوجل.
-              <br />
-              <span className="text-game-offwhite font-bold">استعادة:</span> ستحافظ على بيانات جوجل القديمة فقط وسيفقد تقدم الضيف الحالي.
-            </p>
-            
-            <div className="flex flex-col gap-4">
-              <button 
-                onClick={async () => {
-                  if (pendingGuestUid && user?.uid) {
-                    await mergeAccounts(pendingGuestUid, user.uid);
-                    setShowMergeDialog(false);
-                    setPendingGuestUid(null);
-                  }
-                }}
-                className="w-full py-4 bg-yellow-600 hover:bg-yellow-500 text-white rounded-xl font-display text-xl transition-all shadow-lg active:scale-95"
-              >
-                نعم، دمج البيانات
-              </button>
-              <button 
-                onClick={() => {
-                  setShowMergeDialog(false);
-                  setPendingGuestUid(null);
-                }}
-                className="w-full py-4 bg-white/10 hover:bg-white/20 text-game-cream rounded-xl font-display text-xl transition-all"
-              >
-                استعادة الحساب القديم فقط
-              </button>
-            </div>
-          </motion.div>
-        </div>
-      )}
-    </AnimatePresence>
-  );
-
-  if (loading && user) {
+  if (appState === 'auth') {
     return (
-      <div className="w-full h-[100dvh] wood-texture flex items-center justify-center text-game-offwhite font-display flex-col gap-4">
-        <Activity className="w-12 h-12 animate-spin text-game-teal" />
-        <p className="text-xl">جاري التحميل...</p>
+      <div 
+        dir="rtl" 
+        className="h-[100dvh] wood-texture text-game-cream flex flex-col items-center justify-center p-4 sm:p-6 font-body overflow-hidden select-none"
+      >
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="max-w-md w-full bg-game-dark/90 p-8 rounded-2xl border border-white/10 shadow-2xl space-y-6"
+        >
+          <div className="text-center space-y-2">
+            <h1 className="text-4xl font-display text-game-offwhite">صراع البطاقات</h1>
+            <p className="text-game-offwhite/50">{authTab === 'login' ? 'سجل دخولك للمنافسة' : 'أنشئ حسابك الجديد'}</p>
+          </div>
+
+          <div className="flex bg-black/40 p-1 rounded-xl border border-white/5">
+            <button 
+              onClick={() => { setAuthTab('login'); setErrorMsg(null); }}
+              className={`flex-1 py-2 rounded-lg font-display transition-all ${authTab === 'login' ? 'bg-game-teal text-game-dark shadow-lg' : 'text-game-offwhite/40 hover:text-game-offwhite'}`}
+            >
+              تسجيل دخول
+            </button>
+            <button 
+              onClick={() => { setAuthTab('register'); setErrorMsg(null); }}
+              className={`flex-1 py-2 rounded-lg font-display transition-all ${authTab === 'register' ? 'bg-game-teal text-game-dark shadow-lg' : 'text-game-offwhite/40 hover:text-game-offwhite'}`}
+            >
+              إنشاء حساب
+            </button>
+          </div>
+
+          <form onSubmit={authTab === 'login' ? handleLogin : handleRegister} className="space-y-4">
+            {authTab === 'register' && (
+              <div className="space-y-1">
+                <label className="text-xs text-game-offwhite/40 mr-2 uppercase tracking-widest">الاسم المستعار</label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-game-teal/40" />
+                  <input 
+                    type="text" 
+                    value={authName}
+                    onChange={(e) => setAuthName(e.target.value)}
+                    required
+                    placeholder="اسم المحارب"
+                    className="w-full bg-black/30 border border-white/10 rounded-xl py-3 px-10 text-game-offwhite focus:outline-none focus:border-game-teal transition-all placeholder:text-white/10"
+                  />
+                </div>
+              </div>
+            )}
+            
+            <div className="space-y-1">
+              <label className="text-xs text-game-offwhite/40 mr-2 uppercase tracking-widest">البريد الإلكتروني</label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-game-teal/40" />
+                <input 
+                  type="email" 
+                  value={authEmail}
+                  onChange={(e) => setAuthEmail(e.target.value)}
+                  required
+                  placeholder="name@example.com"
+                  className="w-full bg-black/30 border border-white/10 rounded-xl py-3 px-10 text-game-offwhite focus:outline-none focus:border-game-teal transition-all placeholder:text-white/10"
+                  dir="ltr"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs text-game-offwhite/40 mr-2 uppercase tracking-widest">كلمة المرور</label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-game-teal/40" />
+                <input 
+                  type="password" 
+                  value={authPass}
+                  onChange={(e) => setAuthPass(e.target.value)}
+                  required
+                  placeholder="••••••••"
+                  className="w-full bg-black/30 border border-white/10 rounded-xl py-3 px-10 text-game-offwhite focus:outline-none focus:border-game-teal transition-all placeholder:text-white/10"
+                  dir="ltr"
+                />
+              </div>
+            </div>
+
+            {errorMsg && (
+              <motion.div 
+                initial={{ opacity: 0, x: -10 }} 
+                animate={{ opacity: 1, x: 0 }}
+                className="bg-red-500/10 border border-red-500/20 p-3 rounded-lg text-red-500 text-sm text-center flex items-center justify-center gap-2"
+              >
+                <Info className="w-4 h-4" /> {errorMsg}
+              </motion.div>
+            )}
+
+            <button 
+              type="submit"
+              disabled={authSubmitting}
+              className="w-full py-4 bg-game-offwhite hover:bg-white text-black rounded-xl font-display text-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2"
+            >
+              {authSubmitting ? <Activity className="w-5 h-5 animate-spin" /> : authTab === 'login' ? <><LogIn className="w-5 h-5" /> دخول المعركة</> : <><UserPlus className="w-5 h-5" /> تسجيل جديد</>}
+            </button>
+          </form>
+        </motion.div>
+        {renderDebugUI()}
       </div>
     );
   }
 
-  if (appState === 'nameEntry') {
+  if (appState === 'verifySent') {
     return (
-      <>
-        {renderErrorToast()}
-        <div 
-          dir="rtl" 
-          className="h-[100dvh] wood-texture text-game-cream flex flex-col items-center justify-center p-4 sm:p-6 font-body overflow-hidden select-none"
-          style={{
-            paddingTop: 'env(safe-area-inset-top)',
-            paddingBottom: 'env(safe-area-inset-bottom)',
-          }}
+      <div 
+        dir="rtl" 
+        className="h-[100dvh] wood-texture text-game-cream flex flex-col items-center justify-center p-4 sm:p-6 font-body overflow-hidden select-none"
+      >
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }} 
+          animate={{ opacity: 1, scale: 1 }}
+          className="max-w-md w-full bg-game-dark/95 p-10 rounded-3xl border border-game-teal/30 shadow-2xl text-center space-y-6"
         >
-          <div
-            className="max-w-sm w-full bg-game-dark/80 p-8 rounded-xl border border-white/10 shadow-2xl"
-          >
-            <div className="mb-8 flex justify-center gap-4">
-            </div>
-
-            <h2 className="text-3xl font-display mb-6 text-center text-game-offwhite tracking-wider">مرحباً بك أيها المحارب!</h2>
-            <p className="text-game-offwhite/60 text-center mb-8 font-body italic">ما هو الاسم الذي تود أن يعرفك به خصومك؟</p>
-            
-            <div className="space-y-8">
-              <input
-                type="text"
-                placeholder="أدخل اسمك هنا..."
-                value={localPlayerName}
-                onChange={(e) => setLocalPlayerName(e.target.value)}
-                autoFocus
-                className="w-full bg-transparent border-0 border-b-2 border-white/30 rounded-none py-3 px-2 text-center text-xl font-bold text-game-offwhite focus:outline-none focus:border-white transition-all placeholder:text-white/10"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && localPlayerName.trim().length >= 2) {
-                     setPlayerName(localPlayerName.trim());
-                     setAppState('menu');
-                  }
-                }}
-              />
-              
-              <button
-                onClick={() => {
-                  if (localPlayerName.trim().length >= 2) {
-                    setPlayerName(localPlayerName.trim());
-                    setAppState('menu');
-                  } else {
-                    setErrorMsg('الاسم يجب أن يتكون من حرفين على الأقل');
-                  }
-                }}
-                disabled={localPlayerName.trim().length < 2}
-                className={`w-full py-4 bg-game-offwhite hover:bg-white text-black rounded-lg font-display text-2xl shadow-lg transition-all active:scale-95 ${localPlayerName.trim().length < 2 ? 'opacity-50 cursor-not-allowed' : ''}`}
-              >
-                تأكيد الاسم
-              </button>
-            </div>
+          <div className="w-20 h-20 bg-game-teal/20 rounded-full flex items-center justify-center mx-auto border-2 border-game-teal/50">
+            <Mail className="w-10 h-10 text-game-teal" />
           </div>
-        </div>
-        {renderDebugUI()}
-        {renderMergeDialog()}
-      </>
+          <h2 className="text-3xl font-display text-game-offwhite">تفقد بريدك!</h2>
+          <p className="text-game-offwhite/70 leading-relaxed text-lg">لقد أرسلنا رابط التأكيد إلى <br /><span className="text-game-teal font-bold">{authEmail}</span></p>
+          <p className="text-game-offwhite/40 text-sm italic">يرجى الضغط على الرابط في الرسالة لتفعيل حسابك والبدء في اللعب.</p>
+          <button 
+            onClick={() => { setAppState('auth'); setAuthTab('login'); }}
+            className="w-full py-3 bg-white/5 hover:bg-white/10 text-game-offwhite rounded-xl font-display transition-all border border-white/10"
+          >
+            العودة لتسجيل الدخول
+          </button>
+        </motion.div>
+      </div>
     );
   }
 
@@ -1479,7 +1453,7 @@ const App = () => {
         {renderErrorToast()}
         <div 
           dir="rtl" 
-          className="h-[100dvh] wood-texture text-game-cream flex flex-col items-center justify-center p-4 sm:p-6 font-body overflow-x-hidden overflow-y-auto select-none"
+          className="h-[100dvh] wood-texture text-game-cream flex flex-col p-4 sm:p-6 font-body overflow-x-hidden overflow-y-auto select-none"
           style={{
             paddingTop: 'env(safe-area-inset-top)',
             paddingBottom: 'env(safe-area-inset-bottom)',
@@ -1487,8 +1461,32 @@ const App = () => {
             paddingRight: 'env(safe-area-inset-right)'
           }}
         >
+          {/* Top Profile Bar */}
+          <div className="w-full max-w-md mx-auto mb-8 flex justify-between items-center bg-game-dark/60 p-4 rounded-2xl border border-white/5 backdrop-blur-sm">
+            <button 
+              onClick={() => setAppState('profile')}
+              className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+            >
+              <div className="w-10 h-10 rounded-full bg-game-teal/20 border border-game-teal/30 flex items-center justify-center">
+                <User className="w-5 h-5 text-game-teal" />
+              </div>
+              <div className="text-right">
+                <div className="text-sm text-game-offwhite/40 leading-none mb-1 uppercase tracking-tighter">المحارب</div>
+                <div className="text-lg font-display text-game-offwhite leading-none">{playerName}</div>
+              </div>
+            </button>
+            <button 
+              onClick={() => setAppState('store')}
+              className="flex items-center gap-2 bg-black/20 px-3 py-1.5 rounded-full border border-white/5 hover:bg-black/40 transition-all"
+            >
+              <span className="text-lg font-display text-yellow-500">{coins}</span>
+              <span className="text-sm">🪙</span>
+              <PlusCircle className="w-4 h-4 text-game-teal ml-1" />
+            </button>
+          </div>
+
           <div
-            className="max-w-md w-full text-center"
+            className="max-w-md w-full text-center mx-auto"
           >
             <h1 className="text-5xl sm:text-6xl font-display mb-12 text-game-offwhite tracking-[0.2em] uppercase">
               صراع البطاقات
@@ -1756,7 +1754,6 @@ const App = () => {
           </div>
         </div>
         {renderDebugUI()}
-        {renderMergeDialog()}
       </>
     );
   }
@@ -1770,7 +1767,7 @@ const App = () => {
         onBack={() => setAppState('menu')}
         onBuy={buyTheme}
         onSelect={(id) => {
-          selectTheme(id);
+          setSelectedThemeId(id);
           setSelectedPack(null);
         }}
         selectedPack={selectedPack}
@@ -1782,14 +1779,13 @@ const App = () => {
   if (appState === 'profile') {
     return (
       <ProfileView 
-        user={user}
         playerName={playerName}
         coins={coins}
         ownedThemes={ownedThemes}
         selectedThemeId={selectedThemeId}
         onBack={() => setAppState('menu')}
         onSelect={(id) => {
-          selectTheme(id);
+          setSelectedThemeId(id);
           setSelectedPack(null);
         }}
         selectedPack={selectedPack}
@@ -1800,8 +1796,10 @@ const App = () => {
              setPlayerName(newName.trim());
           }
         }}
-        onLogout={logout}
-        onLogin={login}
+        onLogout={() => {
+          logout();
+          setAppState('auth');
+        }}
       />
     );
   }
@@ -2144,7 +2142,6 @@ const App = () => {
       </div>
 
       {renderDebugUI()}
-      {renderMergeDialog()}
     </div>
     </>
   );

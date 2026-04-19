@@ -1,35 +1,48 @@
 import express from 'express';
 import { createServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
-import mongoose from 'mongoose';
 import dotenv from 'dotenv';
-import { OAuth2Client } from 'google-auth-library';
+import cors from 'cors';
+import mongoose from 'mongoose';
+import bcrypt from 'bcryptjs';
+import nodemailer from 'nodemailer';
+import crypto from 'crypto';
 
 dotenv.config();
 
-// Mongoose Schema for User Profile
+// MongoDB Setup
+const MONGODB_URI = process.env.MONGODB_URI || process.env.MONGODB_URI_LOCAL || 'mongodb://localhost:27017/cardclash';
+
+mongoose.connect(MONGODB_URI)
+  .then(() => console.log('✅ Connected to MongoDB'))
+  .catch(err => console.error('❌ MongoDB connection error:', err));
+
+// User Schema
 const userSchema = new mongoose.Schema({
-  uid: { type: String, required: true, unique: true },
-  email: { type: String, sparse: true },
-  googleId: String,
-  displayName: String,
+  email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+  password: { type: String, required: true },
+  displayName: { type: String, required: true },
   coins: { type: Number, default: 100 },
   purchasedThemes: { type: [String], default: ['normal'] },
   equippedTheme: { type: String, default: 'normal' },
-  isGuest: { type: Boolean, default: true },
+  isVerified: { type: Boolean, default: false },
+  verificationToken: String,
+  resetPasswordToken: String,
+  resetPasswordExpires: Date,
   createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now }
+  lastLogin: Date
 });
 
-const User = mongoose.models.User || mongoose.model('User', userSchema);
+const User = mongoose.model('User', userSchema);
 
-const oauthClient = new OAuth2Client(
-  process.env.GOOGLE_CLIENT_ID,
-  process.env.GOOGLE_CLIENT_SECRET
-);
-
-// In-memory profile storage (fallback if no MongoDB)
-const profileStore = new Map<string, any>();
+// Email Setup
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.GAME_EMAIL_USER,
+    pass: process.env.GAME_EMAIL_PASS
+  }
+});
 
 type CardType = 'rock' | 'paper' | 'scissors';
 
@@ -91,8 +104,6 @@ function getWinner(choice1: CardType, choice2: CardType): 1 | 2 | 0 {
 const cleanPlayerForBroadcast = (player: Player) => {
   const { ws, choice, deck, ...safePlayer } = player;
   
-  // Make a copy of the deck. If the player has already chosen a card, 
-  // we add it back to the broadcasted deck so the opponent doesn't see which card count decreased.
   const maskedDeck = { ...deck };
   if (choice) {
     maskedDeck[choice] += 1;
@@ -187,7 +198,7 @@ function handleReveal(roomId: string) {
 
   setTimeout(() => {
     resolveRound(roomId);
-  }, 1200); // Wait 1.2s for reveal animation
+  }, 1200); 
 }
 
 function resolveRound(roomId: string) {
@@ -200,7 +211,7 @@ function resolveRound(roomId: string) {
   const p1 = players[0];
   const p2 = players[1];
 
-  let winner = 0; // 0 = draw, 1 = p1, 2 = p2
+  let winner = 0; 
   if (p1.choice && p2.choice) {
      winner = getWinner(p1.choice, p2.choice);
   }
@@ -225,7 +236,7 @@ function resolveRound(roomId: string) {
 
   setTimeout(() => {
     startNextRound(roomId);
-  }, 3000); // 3 seconds before next round begins (like LAN mode)
+  }, 3000); 
 }
 
 function startNextRound(roomId: string) {
@@ -255,203 +266,150 @@ async function startServer() {
   const PORT = process.env.PORT || 3000;
   const httpServer = createServer(app);
 
-  const mongodbUri = process.env.MONGODB_URI;
-  let useMongo = false;
-
-  if (mongodbUri) {
-    try {
-      await mongoose.connect(mongodbUri);
-      console.log('✅ Connected to MongoDB');
-      useMongo = true;
-    } catch (err) {
-      console.error('❌ MongoDB connection error:', err);
-      console.log('⚠️ Falling back to in-memory storage');
-    }
-  } else {
-    console.log('ℹ️ No MONGODB_URI found, using in-memory storage');
-  }
-  
-  // This matches your App.tsx path
   const wss = new WebSocketServer({ server: httpServer, path: '/game-socket' });
 
+  app.use(cors());
   app.use(express.json());
-
-  // CORS middleware for API endpoints
-  app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
-    next();
-  });
 
   app.get('/api/health', (req, res) => res.json({ status: 'ok', activeRooms: Object.keys(rooms).length }));
 
-  // Google OAuth Endpoints
-  app.get('/api/auth/google/url', (req, res) => {
-    const redirectUri = `${req.protocol}://${req.get('host')}/auth/callback`;
-    const url = oauthClient.generateAuthUrl({
-      access_type: 'offline',
-      scope: ['https://www.googleapis.com/auth/userinfo.profile', 'https://www.googleapis.com/auth/userinfo.email'],
-      redirect_uri: redirectUri
-    });
-    res.json({ url });
-  });
-
-  app.get('/auth/callback', async (req, res) => {
-    const code = req.query.code as string;
-    const redirectUri = `${req.protocol}://${req.get('host')}/auth/callback`;
-
+  // Auth Routes
+  app.post('/api/auth/register', async (req, res) => {
     try {
-      const { tokens } = await oauthClient.getToken({ code, redirect_uri: redirectUri });
-      const ticket = await oauthClient.verifyIdToken({
-        idToken: tokens.id_token!,
-        audience: process.env.GOOGLE_CLIENT_ID,
-      });
-      const payload = ticket.getPayload();
+      const { email, password, displayName } = req.body;
       
-      if (payload && useMongo) {
-        let user = await User.findOne({ email: payload.email });
-        
-        if (!user) {
-          user = await User.create({
-            uid: `google_${payload.sub}`,
-            email: payload.email,
-            googleId: payload.sub,
-            displayName: payload.name,
-            isGuest: false,
-            coins: 100,
-            purchasedThemes: ['normal'],
-            equippedTheme: 'normal'
-          });
-        }
-
-        // Return a script that posts the user info back to the game window
-        res.send(`
-          <html>
-            <body>
-              <script>
-                if (window.opener) {
-                  window.opener.postMessage({ 
-                    type: 'OAUTH_AUTH_SUCCESS', 
-                    user: ${JSON.stringify(user)} 
-                  }, '*');
-                  window.close();
-                } else {
-                  window.location.href = '/';
-                }
-              </script>
-            </body>
-          </html>
-        `);
+      const existingUser = await User.findOne({ email });
+      if (existingUser) {
+        return res.status(400).json({ error: 'البريد الإلكتروني مسجل بالفعل' });
       }
+
+      const hashedPassword = await bcrypt.hash(password, 10);
+      const verificationToken = crypto.randomBytes(20).toString('hex');
+
+      const user = new User({
+        email,
+        password: hashedPassword,
+        displayName,
+        verificationToken
+      });
+
+      await user.save();
+
+      // Send Verification Email
+      const verificationUrl = `${process.env.APP_URL || 'http://localhost:3000'}/api/auth/verify?token=${verificationToken}`;
+      
+      const mailOptions = {
+        from: process.env.GAME_EMAIL_USER,
+        to: email,
+        subject: 'تأكيد حساب Card Clash',
+        html: `
+          <div dir="rtl" style="font-family: Arial, sans-serif; text-align: center; background-color: #1a1a1a; color: #f5f5dc; padding: 40px; border-radius: 10px;">
+            <h1 style="color: #008080;">أهلاً بك في Card Clash!</h1>
+            <p style="font-size: 18px;">شكراً لتسجيلك في اللعبة. يرجى الضغط على الزر أدناه لتأكيد بريدك الإلكتروني:</p>
+            <a href="${verificationUrl}" style="display: inline-block; background-color: #008080; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; margin-top: 20px;">تأكيد الحساب</a>
+            <p style="margin-top: 30px; font-size: 14px; opacity: 0.8;">إذا لم تقم بإنشاء هذا الحساب، يرجى تجاهل هذا البريد.</p>
+          </div>
+        `
+      };
+
+      await transporter.sendMail(mailOptions);
+
+      res.status(201).json({ message: 'تم إنشاء الحساب بنجاح. يرجى مراجعة بريدك الإلكتروني لتأكيد الحساب.' });
     } catch (err) {
-      console.error('OAuth Error:', err);
-      res.status(500).send('Authentication failed');
+      console.error(err);
+      res.status(500).json({ error: 'حدث خطأ أثناء إنشاء الحساب' });
     }
   });
 
-  app.post('/api/profile/merge', async (req, res) => {
-    if (!useMongo) return res.status(400).json({ error: 'MongoDB required for merge' });
-    
+  app.post('/api/auth/login', async (req, res) => {
     try {
-      const { guestUid, targetUid } = req.body;
-      const guest = await User.findOne({ uid: guestUid });
-      const target = await User.findOne({ uid: targetUid });
+      const { email, password } = req.body;
       
-      if (!guest || !target) return res.status(404).json({ error: 'User not found' });
-      
-      // Merge: Take guest's coins and themes into the target account
-      target.coins = (target.coins || 0) + (guest.coins || 0);
-      const guestThemes = guest.purchasedThemes || [];
-      const targetThemes = target.purchasedThemes || [];
-      target.purchasedThemes = Array.from(new Set([...targetThemes, ...guestThemes]));
-      target.updatedAt = new Date();
-      
-      await target.save();
-      
-      // Optionally delete or mark guest as merged
-      await User.deleteOne({ uid: guestUid });
-      
-      res.json(target);
-    } catch (e) {
-      console.error(e);
-      res.status(500).json({ error: 'Merge failed' });
+      const user = await User.findOne({ email });
+      if (!user) {
+        return res.status(400).json({ error: 'البريد الإلكتروني أو كلمة المرور غير صحيحة' });
+      }
+
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) {
+        return res.status(400).json({ error: 'البريد الإلكتروني أو كلمة المرور غير صحيحة' });
+      }
+
+      if (!user.isVerified) {
+        return res.status(403).json({ error: 'يرجى تأكيد بريدك الإلكتروني أولاً' });
+      }
+
+      user.lastLogin = new Date();
+      await user.save();
+
+      // Return user without password
+      const userResponse = user.toObject();
+      delete userResponse.password;
+      delete userResponse.verificationToken;
+
+      res.json(userResponse);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'حدث خطأ أثناء تسجيل الدخول' });
+    }
+  });
+
+  app.get('/api/auth/verify', async (req, res) => {
+    try {
+      const { token } = req.query;
+      const user = await User.findOne({ verificationToken: token });
+
+      if (!user) {
+        return res.status(400).send('رابط التأكيد غير صالح أو منتهي الصلاحية');
+      }
+
+      user.isVerified = true;
+      user.verificationToken = undefined;
+      await user.save();
+
+      res.send(`
+        <div dir="rtl" style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+          <h1 style="color: green;">تم تأكيد الحساب بنجاح!</h1>
+          <p>يمكنك الآن تسجيل الدخول في اللعبة والبدء في المنافسة.</p>
+          <a href="/" style="color: blue; text-decoration: underline;">العودة للعبة</a>
+        </div>
+      `);
+    } catch (err) {
+      console.error(err);
+      res.status(500).send('حدث خطأ أثناء تأكيد الحساب');
     }
   });
 
   app.get('/api/profile/:id', async (req, res) => {
     try {
-      const userId = req.params.id;
+      const user = await User.findById(req.params.id);
+      if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
       
-      if (useMongo) {
-        let user = await User.findOne({ uid: userId });
-        if (!user) {
-          user = await User.create({
-            uid: userId,
-            displayName: 'لاعب',
-            coins: 100,
-            purchasedThemes: ['normal'],
-            equippedTheme: 'normal'
-          });
-        }
-        return res.json(user);
-      }
-
-      let user = profileStore.get(userId);
-      if (!user) {
-        user = {
-          uid: userId,
-          displayName: 'لاعب',
-          coins: 100,
-          purchasedThemes: ['normal'],
-          equippedTheme: 'normal',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        };
-        profileStore.set(userId, user);
-      }
-      res.json(user);
-    } catch (e) {
-      console.error(e);
-      res.status(500).json({ error: 'Failed to load profile' });
+      const userResponse = user.toObject();
+      delete userResponse.password;
+      res.json(userResponse);
+    } catch (err) {
+      res.status(500).json({ error: 'حدث خطأ أثناء جلب الملف الشخصي' });
     }
   });
 
   app.post('/api/profile/:id', async (req, res) => {
     try {
-      const userId = req.params.id;
+      const { displayName, themeId, coins } = req.body;
+      const user = await User.findById(req.params.id);
+      if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
+
+      if (displayName) user.displayName = displayName;
+      if (themeId) user.equippedTheme = themeId;
+      if (coins !== undefined) user.coins = coins;
+
+      await user.save();
       
-      if (useMongo) {
-        const updateData = {
-          ...req.body,
-          updatedAt: Date.now()
-        };
-        const user = await User.findOneAndUpdate(
-          { uid: userId },
-          { $set: updateData },
-          { new: true, upsert: true }
-        );
-        return res.json(user);
-      }
-
-      const existing = profileStore.get(userId);
-      const updateData = {
-        ...(existing || {
-          uid: userId,
-          displayName: 'لاعب',
-          coins: 100,
-          purchasedThemes: ['normal'],
-          equippedTheme: 'normal',
-          createdAt: new Date().toISOString()
-        }),
-        ...req.body,
-        updatedAt: new Date().toISOString()
-      };
-
-      profileStore.set(userId, updateData);
-      res.json(updateData);
-    } catch (e) {
-      console.error(e);
-      res.status(500).json({ error: 'Failed to save profile' });
+      const userResponse = user.toObject();
+      delete userResponse.password;
+      res.json(userResponse);
+    } catch (err) {
+      res.status(500).json({ error: 'حدث خطأ أثناء تحديث الملف الشخصي' });
     }
   });
 
@@ -469,7 +427,6 @@ async function startServer() {
         
         if (message.type === 'PONG') return;
 
-        // --- 1. Create Room via Code ---
         if (message.type === 'create_room') {
           const roomId = generateRoomCode();
           rooms[roomId] = {
@@ -485,7 +442,6 @@ async function startServer() {
           broadcastToRoom(roomId, { type: 'room_state', state: rooms[roomId] });
         }
 
-        // --- 2. Join via Code ---
         if (message.type === 'join_room_by_code') {
           const code = (message.roomCode || '').toUpperCase().trim();
           const room = rooms[code];
@@ -506,7 +462,6 @@ async function startServer() {
           broadcastToRoom(code, { type: 'room_state', state: room });
         }
 
-        // --- 3. Random Matchmaking ---
         if (message.type === 'quick_match') {
           if (matchmakingQueue.find(p => p.id === socketId)) return;
 
@@ -547,7 +502,6 @@ async function startServer() {
           if (idx !== -1) matchmakingQueue.splice(idx, 1);
         }
 
-        // --- 4. Game Actions ---
         if (message.type === 'play_card') {
           const { roomId, choice } = message;
           const room = rooms[roomId];
@@ -632,7 +586,7 @@ async function startServer() {
 
   httpServer.listen(parseInt(PORT as string, 10), '0.0.0.0', () => {
     console.log(`=========================================`);
-    console.log(`ٌ* Game Server Running!`);
+    console.log(`* Game Server Running!`);
     console.log(`* Port: ${PORT}`);
     console.log(`* Path: /game-socket`);
     console.log(`=========================================`);

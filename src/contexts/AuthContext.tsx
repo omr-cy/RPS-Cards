@@ -1,149 +1,125 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import config from '../config.json';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 
-export interface UserProfile {
-  uid: string;
-  displayName?: string;
+interface UserProfile {
+  _id: string;
+  email: string;
+  displayName: string;
   coins: number;
   purchasedThemes: string[];
   equippedTheme: string;
+  isVerified: boolean;
 }
 
 interface AuthContextType {
-  user: { uid: string, photoURL?: string, email?: string, isGuest?: boolean } | null;
-  profile: UserProfile | null;
+  user: UserProfile | null;
   loading: boolean;
-  login: () => Promise<void>;
-  logout: () => Promise<void>;
-  mergeAccounts: (guestUid: string, targetUid: string) => Promise<void>;
-  updateUserProfile: (data: Partial<UserProfile>) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string, displayName: string) => Promise<void>;
+  logout: () => void;
+  updateProfile: (data: Partial<UserProfile>) => Promise<void>;
+  error: string | null;
 }
 
-const AuthContext = createContext<AuthContextType | null>(null);
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }) => {
-  const [user, setUser] = useState<{ uid: string, photoURL?: string, email?: string, isGuest?: boolean } | null>(null);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const fetchProfile = async (uid: string) => {
-    try {
-      const apiBase = config.ONLINE_API_BASE_URL;
-      const res = await fetch(`${apiBase}/api/profile/${uid}`);
-      if (res.ok) {
-        const data = await res.json();
-        setProfile(data);
-        return data;
-      }
-    } catch (e) {
-      console.error('Failed to fetch profile:', e);
-    }
-    return null;
-  };
+  const API_BASE_URL = import.meta.env.VITE_API_URL || window.location.origin;
 
   useEffect(() => {
-    const initAuth = async () => {
-      let deviceId = localStorage.getItem('cardClashDeviceId');
-      let googleUser = localStorage.getItem('cardClashGoogleUser');
-
-      if (googleUser) {
-        const parsed = JSON.parse(googleUser);
-        setUser(parsed);
-        await fetchProfile(parsed.uid);
-      } else {
-        if (!deviceId) {
-          deviceId = 'guest_' + Math.random().toString(36).substring(2, 15);
-          localStorage.setItem('cardClashDeviceId', deviceId);
-        }
-        setUser({ uid: deviceId, isGuest: true });
-        await fetchProfile(deviceId);
-      }
+    const storedUserId = localStorage.getItem('cardclash_userId');
+    if (storedUserId) {
+      fetchProfile(storedUserId);
+    } else {
       setLoading(false);
-    };
-
-    initAuth();
-
-    const handleMessage = (event: MessageEvent) => {
-      if (event.data?.type === 'OAUTH_AUTH_SUCCESS' && event.data.user) {
-        const loggedUser = {
-          uid: event.data.user.uid,
-          email: event.data.user.email,
-          displayName: event.data.user.displayName,
-          isGuest: false
-        };
-        localStorage.setItem('cardClashGoogleUser', JSON.stringify(loggedUser));
-        setUser(loggedUser);
-        setProfile(event.data.user);
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
+    }
   }, []);
 
-  const login = async () => {
-    const popup = window.open('about:blank', 'Google Login', 'width=500,height=600');
+  const fetchProfile = async (userId: string) => {
     try {
-      const apiBase = config.ONLINE_API_BASE_URL;
-      const res = await fetch(`${apiBase}/api/auth/google/url`);
-      const { url } = await res.json();
-      if (popup) {
-        popup.location.href = url;
+      const response = await fetch(`${API_BASE_URL}/api/profile/${userId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setUser(data);
       } else {
-        window.location.href = url; // Fallback
+        localStorage.removeItem('cardclash_userId');
       }
-    } catch (e) {
-      if (popup) popup.close();
-      console.error('Login failed:', e);
+    } catch (err) {
+      console.error('Failed to fetch profile:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const logout = async () => {
-    localStorage.removeItem('cardClashGoogleUser');
-    const deviceId = localStorage.getItem('cardClashDeviceId') || 'guest_' + Math.random().toString(36).substring(2, 15);
-    localStorage.setItem('cardClashDeviceId', deviceId);
-    setUser({ uid: deviceId, isGuest: true });
-    await fetchProfile(deviceId);
-  };
-
-  const mergeAccounts = async (guestUid: string, targetUid: string) => {
+  const login = async (email: string, password: string) => {
+    setError(null);
     try {
-      const apiBase = config.ONLINE_API_BASE_URL;
-      const res = await fetch(`${apiBase}/api/profile/merge`, {
+      const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ guestUid, targetUid })
+        body: JSON.stringify({ email, password }),
       });
-      if (res.ok) {
-        const mergedProfile = await res.json();
-        setProfile(mergedProfile);
-        // Clear guest ID since it's merged
-        localStorage.removeItem('cardClashDeviceId');
+
+      const data = await response.json();
+      if (response.ok) {
+        setUser(data);
+        localStorage.setItem('cardclash_userId', data._id);
+      } else {
+        throw new Error(data.error || 'فشل تسجيل الدخول');
       }
-    } catch (e) {
-      console.error('Merge failed:', e);
+    } catch (err: any) {
+      setError(err.message);
+      throw err;
     }
   };
 
-  const updateUserProfile = async (data: Partial<UserProfile>) => {
-    if (!user) return;
-    setProfile(prev => prev ? { ...prev, ...data } : null);
+  const register = async (email: string, password: string, displayName: string) => {
+    setError(null);
     try {
-        const apiBase = config.ONLINE_API_BASE_URL;
-        await fetch(`${apiBase}/api/profile/${user.uid}`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(data)
-        }).catch(() => {});
-    } catch (e) {
-        // Silent failure if offline
+      const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, displayName }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'فشل إنشاء الحساب');
+      }
+    } catch (err: any) {
+      setError(err.message);
+      throw err;
+    }
+  };
+
+  const logout = () => {
+    setUser(null);
+    localStorage.removeItem('cardclash_userId');
+  };
+
+  const updateProfile = async (data: Partial<UserProfile>) => {
+    if (!user) return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/profile/${user._id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      if (response.ok) {
+        const updatedUser = await response.json();
+        setUser(updatedUser);
+      }
+    } catch (err) {
+      console.error('Failed to update profile:', err);
     }
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, login, logout, updateUserProfile }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, updateProfile, error }}>
       {children}
     </AuthContext.Provider>
   );
@@ -151,6 +127,8 @@ export const AuthProvider: React.FC<{children: React.ReactNode}> = ({ children }
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) throw new Error('useAuth must be used within an AuthProvider');
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
   return context;
 };
