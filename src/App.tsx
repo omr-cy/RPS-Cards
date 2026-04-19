@@ -7,6 +7,7 @@ import { Network } from '@capacitor/network';
 import { registerPlugin, Capacitor, CapacitorHttp } from '@capacitor/core';
 import config from './config.json';
 import { useAuth } from './contexts/AuthContext';
+import { useDebug, LogEntry } from './contexts/DebugContext';
 
 export interface LocalServerPlugin {
   startServer(options: { port: number }): Promise<{ status: string; port: number }>;
@@ -62,12 +63,7 @@ const CARD_NAMES: Record<CardType, string> = {
 const OFFLINE_BOT_ID = 'OFFLINE_BOT';
 const INITIAL_DECK: Deck = { rock: 3, paper: 3, scissors: 3 };
 
-interface LogEntry {
-  id: number;
-  time: string;
-  msg: string;
-  type: 'info' | 'error' | 'success';
-}
+// Removed local LogEntry interface
 
 const FloatingCard = memo(({ theme, type, idx }: { theme: ThemeConfig, type: CardType, idx: number }) => {
   return (
@@ -489,8 +485,7 @@ const App = () => {
   const [role, setRole] = useState<'HOST' | 'CLIENT' | 'NONE' | 'ONLINE'>('NONE');
   const [clientCount, setClientCount] = useState(0);
   
-  // Debug State
-  const [logs, setLogs] = useState<LogEntry[]>([]);
+  const { addLog, logs, clearLogs } = useDebug();
   const [showDebug, setShowDebug] = useState(false);
   const [isPreloaded, setIsPreloaded] = useState(true);
   const [isRevealingLocal, setIsRevealingLocal] = useState(false);
@@ -614,12 +609,6 @@ const App = () => {
       return () => clearTimeout(timer);
     }
   }, [roomState?.gameState, roomState?.round, roomState?.id]);
-
-  const addLog = (msg: string, type: 'info' | 'error' | 'success' = 'info') => {
-    const newLog: LogEntry = { id: Date.now() + Math.random(), time: new Date().toLocaleTimeString(), msg, type };
-    setLogs(prev => [newLog, ...prev].slice(0, 50));
-    console.log(`[${type.toUpperCase()}] ${msg}`);
-  };
 
   // Native Bridge Setup
   useEffect(() => {
@@ -939,7 +928,9 @@ const App = () => {
   const connectToOnline = (action?: any): Promise<WebSocket | void> => {
     return new Promise(async (resolve, reject) => {
       let serverUrl = import.meta.env.VITE_BACKEND_URL || config.ONLINE_SERVER_URL;
-      if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      
+      // Fix: Don't force localhost if we are on Android Native, otherwise it breaks DuckDNS/External links
+      if (!Capacitor.isNativePlatform() && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
           serverUrl = `ws://${window.location.host}/game-socket`;
       }
       
@@ -1328,7 +1319,7 @@ const App = () => {
               <h3 className="text-game-cream font-display text-2xl tracking-widest" dir="rtl">سجل الأخطاء والاتصال</h3>
               <div className="flex gap-2">
                 <button 
-                  onClick={() => setLogs([])}
+                  onClick={() => clearLogs()}
                   className="px-3 py-1 bg-game-red hover:bg-red-800 text-game-cream text-[10px] rounded-md font-display tracking-widest transition-colors"
                   dir="rtl"
                 >
@@ -1340,6 +1331,23 @@ const App = () => {
               </div>
             </div>
             <div className="flex-1 overflow-y-auto space-y-2 flex flex-col-reverse">
+              <button 
+                onClick={async () => {
+                   addLog(`Testing Native Ping to: ${API_BASE_URL}/api/health`, 'info');
+                   try {
+                     const res = await CapacitorHttp.request({
+                       url: `${API_BASE_URL}/api/health`,
+                       method: 'GET'
+                     });
+                     addLog(`Ping Result: ${res.status}`, res.status === 200 ? 'success' : 'error');
+                   } catch (e: any) {
+                     addLog(`Ping Failed: ${e.message}`, 'error');
+                   }
+                }}
+                className="p-3 bg-game-teal text-game-dark font-bold border-2 border-game-teal/50 rounded shadow-md"
+              >
+                Ping Server (Native)
+              </button>
               {logs.length === 0 && (
                 <div className="text-game-cream/40 text-center py-4 font-display italic tracking-widest" dir="rtl">لا يوجد سجلات حتى الآن</div>
               )}

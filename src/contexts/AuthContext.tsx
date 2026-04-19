@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Capacitor, CapacitorHttp } from '@capacitor/core';
+import { useDebug } from './DebugContext';
+import config from '../config.json';
 
 interface UserProfile {
   _id: string;
@@ -24,35 +26,86 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Helper function to force ALL api requests through the NATIVE Android layer when running natively
-const nativeFetch = async (url: string, options: any = {}) => {
-  if (Capacitor.isNativePlatform()) {
-    console.log(`[Native HttpClient] Requesting: ${url}`);
-    const method = options.method || 'GET';
-    const response = await CapacitorHttp.request({
-      url,
-      method,
-      headers: options.headers || {},
-      data: options.body ? JSON.parse(options.body) : undefined,
-    });
-    return {
-      ok: response.status >= 200 && response.status < 300,
-      status: response.status,
-      json: async () => response.data,
-    };
-  } else {
-    return fetch(url, options);
-  }
-};
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { addLog } = useDebug();
 
-  const API_BASE_URL = import.meta.env.VITE_API_URL || window.location.origin;
+  // URL Logic: Check for VITE_API_URL or VITE_BACKEND_URL
+  const getBaseApiUrl = () => {
+    // Debug helper: log all possible sources
+    const vApi = import.meta.env.VITE_API_URL;
+    const vBack = import.meta.env.VITE_BACKEND_URL;
+    const sConfig = config.ONLINE_API_BASE_URL;
+
+    // Priority 1: Direct API URL
+    if (vApi) return vApi;
+    
+    // Priority 2: Derived from Backend WebSocket URL (replacing wss/ws with https/http)
+    if (vBack) {
+      // If it starts with wss://rpscards... , replace wss with https
+      return vBack.replace(/^ws(s)?:\/\//, 'http$1://').replace(/\/$/, '');
+    }
+
+    // Priority 3: JSON Config fallback
+    if (sConfig) return sConfig;
+
+    // Fallback: Origin
+    return window.location.origin;
+  };
+
+  const API_BASE_URL = getBaseApiUrl();
+
+  // Helper function to force ALL api requests through the NATIVE Android layer when running natively
+  const nativeFetch = async (url: string, options: any = {}) => {
+    addLog(`[API Request] ${options.method || 'GET'} ${url}`, 'info');
+    if (Capacitor.isNativePlatform()) {
+      try {
+        const method = options.method || 'GET';
+        const response = await CapacitorHttp.request({
+          url,
+          method,
+          headers: options.headers || {},
+          data: (options.body && typeof options.body === 'string') ? JSON.parse(options.body) : options.body,
+        });
+        
+        if (response.status >= 200 && response.status < 300) {
+          addLog(`[API Success] ${url}`, 'success');
+        } else {
+          addLog(`[API Error ${response.status}] ${url} - ${JSON.stringify(response.data)}`, 'error');
+        }
+
+        return {
+          ok: response.status >= 200 && response.status < 300,
+          status: response.status,
+          json: async () => response.data,
+        };
+      } catch (err: any) {
+        addLog(`[Native API Fail] ${err.message}`, 'error');
+        throw err;
+      }
+    } else {
+      try {
+        const res = await fetch(url, options);
+        if (res.ok) {
+          addLog(`[API Success] ${url}`, 'success');
+        } else {
+          addLog(`[API Error ${res.status}] ${url}`, 'error');
+        }
+        return res;
+      } catch (err: any) {
+        addLog(`[Web API Fail] ${err.message}`, 'error');
+        throw err;
+      }
+    }
+  };
 
   useEffect(() => {
+    addLog(`Auth Init. Base API URL: ${API_BASE_URL}`, 'info');
+    addLog(`ENV Detection - VITE_API_URL: ${import.meta.env.VITE_API_URL ? 'FOUND' : 'MISSING'}`, 'info');
+    addLog(`ENV Detection - VITE_BACKEND_URL: ${import.meta.env.VITE_BACKEND_URL ? 'FOUND' : 'MISSING'}`, 'info');
+    addLog(`Config Detection - ONLINE_API_BASE_URL: ${config.ONLINE_API_BASE_URL ? 'FOUND' : 'MISSING'}`, 'info');
     const storedUserId = localStorage.getItem('cardclash_userId');
     if (storedUserId) {
       fetchProfile(storedUserId);
