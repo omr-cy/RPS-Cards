@@ -4,10 +4,23 @@ import { Bot, Globe, Home, Trophy, XCircle, Minus, Copy, Edit2, Bug, X, Wifi, Sh
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { SplashScreen } from '@capacitor/splash-screen';
 import { Network } from '@capacitor/network';
+import { App as CapApp } from '@capacitor/app';
 import { registerPlugin, Capacitor, CapacitorHttp } from '@capacitor/core';
 import config from './config.json';
 import { useAuth } from './contexts/AuthContext';
 import { useDebug, LogEntry } from './contexts/DebugContext';
+
+// Standardized API Base URL logic
+const getBaseApiUrl = () => {
+  const vApi = import.meta.env.VITE_API_URL;
+  const vBack = import.meta.env.VITE_BACKEND_URL;
+  const sConfig = config.ONLINE_API_BASE_URL;
+  if (vApi) return vApi;
+  if (vBack) return vBack.replace(/^ws(s)?:\/\//, 'http$1://').replace(/\/$/, '');
+  if (sConfig) return sConfig;
+  return typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+};
+const API_BASE_URL = getBaseApiUrl();
 
 export interface LocalServerPlugin {
   startServer(options: { port: number }): Promise<{ status: string; port: number }>;
@@ -600,6 +613,71 @@ const App = () => {
       setAppState('menu');
     }
   }, []);
+
+  // Handle Hardware Back Button on Mobile
+  useEffect(() => {
+    const handleBackButton = async () => {
+      const listener = await CapApp.addListener('backButton', (data) => {
+        // 1. Priority: Close UI Modals/Overlays
+        if (selectedPack) {
+          setSelectedPack(null);
+          return;
+        }
+        if (showDebug) {
+          setShowDebug(false);
+          return;
+        }
+
+        // 2. Priority: Secondary Screens -> Menu
+        const secondaryStates = ['store', 'profile', 'matchmaking', 'verifySent', 'gameOver'];
+        if (secondaryStates.includes(appState)) {
+          setAppState('menu');
+          setMenuTab('main');
+          return;
+        }
+
+        // 3. Priority: Game/Room -> Menu (and handle exit)
+        if (appState === 'game' || appState === 'inRoom') {
+          // Typically we should show a confirmation, but for now we'll just go to menu
+          // which should trigger existing cleanup logic
+          setAppState('menu');
+          setMenuTab('main');
+          return;
+        }
+
+        // 4. Priority: Auth Tabs
+        if (appState === 'auth') {
+          if (authTab === 'register') {
+            setAuthTab('login');
+          } else {
+            CapApp.exitApp();
+          }
+          return;
+        }
+
+        // 5. Priority: Menu Navigation
+        if (appState === 'menu') {
+          if (menuTab !== 'main') {
+            setMenuTab('main');
+          } else {
+            CapApp.exitApp();
+          }
+          return;
+        }
+
+        // Default or fallthrough
+        if (!data.canGoBack) {
+          CapApp.exitApp();
+        }
+      });
+      return listener;
+    };
+
+    const listenerPromise = handleBackButton();
+    return () => {
+      listenerPromise.then(l => l.remove());
+    };
+  }, [appState, selectedPack, showDebug, authTab, menuTab]);
 
   // Bot independent thinking logic
   useEffect(() => {
