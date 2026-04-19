@@ -118,10 +118,10 @@ After ANY change, ensure:
 # 🧩 TASK TRACKING
 
 ## LAST TASK
-Fixed name change button by correcting setter function name and adding persistence (localStorage for guests, MongoDB for users).
+Implemented 6-digit OTP verification with 24-hour expiration and ensured the database schema handles new fields automatically.
 
 ## CURRENT SUBTASK
-Verified that guest names persist across refreshes and authenticated users correctly update their remote profile.
+Verified that registration now includes `verificationTokenExpires` and the verification endpoint checks for both the code and current time.
 
 ## NEXT STEP
 Review App.tsx for any other forced navigation triggers and ensure consistent behavior across modes.
@@ -129,9 +129,10 @@ Review App.tsx for any other forced navigation triggers and ensure consistent be
 ---
 
 # 🧠 LAST AI SUMMARY
-- Fixed a bug where the name change button was calling an incorrect function name.
-- Implemented `localStorage` persistence for guest names so they don't disappear after a refresh.
-- Guaranteed that authenticated users the update their `displayName` on the server when changing names through the UI.
+- Added `verificationTokenExpires` field to the User Schema in `backend/server.ts`.
+- Set verification codes to expire after 24 hours.
+- Modified the verification endpoint to validate the timestamp, ensuring enhanced security.
+- Since we use Mongoose, the database will automatically incorporate the new fields into the "rpscards_db" collection upon the next registration.
 
 ---
 
@@ -152,6 +153,8 @@ Review App.tsx for any other forced navigation triggers and ensure consistent be
 
 # 🧾 CHANGELOG
 
+- [2026-04-19] → Implemented 6-digit OTP code verification flow and simplified email template.
+- [2026-04-19] → Verified email verification setup and fixed APP_URL in environment configuration.
 - [2026-04-19] → Fixed name change button bug and implemented persistence.
 - [2026-04-19] → Changed initial app state to 'menu' and delayed 'auth' until Online Mode selection.
 - [2026-04-19] → Initialized AI self-documentation system

@@ -370,7 +370,7 @@ const ProfileView = memo(({ playerName, coins, ownedThemes, selectedThemeId, onB
 ));
 
 const App = () => {
-  const { user, login, register, logout, updateProfile, loading: authLoading, error: authError } = useAuth();
+  const { user, login, register, verifyCode, logout, updateProfile, loading: authLoading, error: authError } = useAuth();
   const [appState, setAppState] = useState<'loading' | 'auth' | 'menu' | 'store' | 'profile' | 'matchmaking' | 'game' | 'gameOver' | 'inRoom' | 'verifySent'>('loading');
   const [authTab, setAuthTab] = useState<'login' | 'register'>('login');
   const [menuTab, setMenuTab] = useState<'main' | 'online' | 'local'>('main');
@@ -402,6 +402,7 @@ const App = () => {
   const [authEmail, setAuthEmail] = useState('');
   const [authPass, setAuthPass] = useState('');
   const [authName, setAuthName] = useState('');
+  const [authVerifyCode, setAuthVerifyCode] = useState('');
   const [authSubmitting, setAuthSubmitting] = useState(false);
   const [authSuccessMsg, setAuthSuccessMsg] = useState<string | null>(null);
 
@@ -425,6 +426,22 @@ const App = () => {
     try {
       await register(authEmail, authPass, authName);
       setAppState('verifySent');
+    } catch (err: any) {
+      setErrorMsg(err.message);
+    } finally {
+      setAuthSubmitting(false);
+    }
+  };
+
+  const handleVerifyCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthSubmitting(true);
+    setErrorMsg(null);
+    try {
+      await verifyCode(authEmail, authVerifyCode);
+      setAuthSuccessMsg('تم تأكيد الحساب بنجاح! يمكنك الآن تسجيل الدخول.');
+      setAuthTab('login');
+      setAppState('auth');
     } catch (err: any) {
       setErrorMsg(err.message);
     } finally {
@@ -1454,12 +1471,43 @@ const App = () => {
           <div className="w-20 h-20 bg-game-teal/20 rounded-full flex items-center justify-center mx-auto border-2 border-game-teal/50">
             <Mail className="w-10 h-10 text-game-teal" />
           </div>
-          <h2 className="text-3xl font-display text-game-offwhite">تفقد بريدك!</h2>
-          <p className="text-game-offwhite/70 leading-relaxed text-lg">لقد أرسلنا رابط التأكيد إلى <br /><span className="text-game-teal font-bold">{authEmail}</span></p>
-          <p className="text-game-offwhite/40 text-sm italic">يرجى الضغط على الرابط في الرسالة لتفعيل حسابك والبدء في اللعب.</p>
+          <h2 className="text-3xl font-display text-game-offwhite">أدخل كود التأكيد</h2>
+          <p className="text-game-offwhite/70 leading-relaxed text-lg">لقد أرسلنا كود التأكيد إلى <br /><span className="text-game-teal font-bold">{authEmail}</span></p>
+          
+          <div className="bg-game-teal/5 border border-game-teal/20 p-3 rounded-xl flex items-center gap-3 text-right">
+            <Info className="w-5 h-5 text-game-teal shrink-0" />
+            <p className="text-sm text-game-offwhite/60">إذا لم تجد الرسالة في صندوق الوارد، جرب إلقاء نظرة ودية على مجلد الرسائل غير المرغوب فيها (Spam) 📧✨</p>
+          </div>
+
+          <form onSubmit={handleVerifyCode} className="space-y-4">
+            <div className="relative">
+              <input 
+                type="text" 
+                value={authVerifyCode}
+                onChange={(e) => setAuthVerifyCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                required
+                placeholder="000000"
+                maxLength={6}
+                className="w-full bg-black/30 border border-white/10 rounded-xl py-4 text-center text-4xl font-display tracking-[10px] text-game-teal focus:outline-none focus:border-game-teal transition-all placeholder:text-white/5"
+              />
+            </div>
+            
+            {errorMsg && (
+              <div className="text-red-500 text-sm">{errorMsg}</div>
+            )}
+
+            <button 
+              type="submit"
+              disabled={authSubmitting || authVerifyCode.length !== 6}
+              className="w-full py-4 bg-game-teal text-game-dark rounded-xl font-display text-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {authSubmitting ? <Activity className="w-5 h-5 animate-spin" /> : 'تأكيد الحساب'}
+            </button>
+          </form>
+
           <button 
             onClick={() => { setAppState('auth'); setAuthTab('login'); }}
-            className="w-full py-3 bg-white/5 hover:bg-white/10 text-game-offwhite rounded-xl font-display transition-all border border-white/10"
+            className="w-full py-3 bg-white/5 hover:bg-white/10 text-game-offwhite/40 rounded-xl font-display transition-all border border-white/10 text-sm"
           >
             العودة لتسجيل الدخول
           </button>

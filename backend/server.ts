@@ -34,6 +34,7 @@ const userSchema = new mongoose.Schema({
   equippedTheme: { type: String, default: 'normal' },
   isVerified: { type: Boolean, default: false },
   verificationToken: String,
+  verificationTokenExpires: Date,
   resetPasswordToken: String,
   resetPasswordExpires: Date,
   createdAt: { type: Date, default: Date.now },
@@ -291,40 +292,41 @@ async function startServer() {
       }
 
       const hashedPassword = await bcrypt.hash(password, 10);
-      const verificationToken = crypto.randomBytes(20).toString('hex');
+      const verificationToken = Math.floor(100000 + Math.random() * 900000).toString();
+      const verificationTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours expiry
 
       const user = new User({
         email,
         password: hashedPassword,
         displayName,
-        verificationToken
+        verificationToken,
+        verificationTokenExpires
       });
 
       await user.save();
 
-      // Send Verification Email
-      const verificationUrl = `${process.env.APP_URL || 'http://localhost:3000'}/api/auth/verify?token=${verificationToken}`;
-      
       const mailOptions = {
         from: process.env.GAME_EMAIL_USER,
         to: email,
-        subject: 'تأكيد حساب Card Clash',
+        subject: 'كود تأكيد حساب صراع البطاقات',
         html: `
           <div dir="rtl" style="font-family: Arial, sans-serif; text-align: center; background-color: #1a1a1a; color: #f5f5dc; padding: 40px; border-radius: 10px;">
-            <h1 style="color: #008080;">أهلاً بك في Card Clash!</h1>
-            <p style="font-size: 18px;">شكراً لتسجيلك في اللعبة. يرجى الضغط على الزر أدناه لتأكيد بريدك الإلكتروني:</p>
-            <a href="${verificationUrl}" style="display: inline-block; background-color: #008080; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; margin-top: 20px;">تأكيد الحساب</a>
-            <p style="margin-top: 30px; font-size: 14px; opacity: 0.8;">إذا لم تقم بإنشاء هذا الحساب، يرجى تجاهل هذا البريد.</p>
+            <h1 style="color: #008080;">صراع البطاقات</h1>
+            <p style="font-size: 18px;">كود تأكيد حسابك هو:</p>
+            <div style="display: inline-block; background-color: #333; color: #008080; padding: 15px 30px; font-size: 32px; font-weight: bold; border-radius: 10px; letter-spacing: 10px; margin: 20px 0; border: 2px solid #008080;">
+              ${verificationToken}
+            </div>
+            <p style="margin-top: 30px; font-size: 14px; opacity: 0.8;">أدخل هذا الكود في اللعبة لتفعيل حسابك.</p>
           </div>
         `
       };
 
       await transporter.sendMail(mailOptions);
       
-      // Log for debugging (AI Studio Terminal)
-      console.log(`[AUTH] Verification link for ${email}: ${verificationUrl}`);
+      // Log for debugging
+      console.log(`[AUTH] Verification code for ${email}: ${verificationToken}`);
 
-      res.status(201).json({ message: 'تم إنشاء الحساب بنجاح. يرجى مراجعة بريدك الإلكتروني لتأكيد الحساب.' });
+      res.status(201).json({ message: 'تم إنشاء الحساب بنجاح. يرجى مراجعة بريدك الإلكتروني للحصول على كود التأكيد.' });
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: 'حدث خطأ أثناء إنشاء الحساب' });
@@ -361,6 +363,31 @@ async function startServer() {
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: 'حدث خطأ أثناء تسجيل الدخول' });
+    }
+  });
+
+  app.post('/api/auth/verify-code', async (req, res) => {
+    try {
+      const { email, code } = req.body;
+      const user = await User.findOne({ 
+        email, 
+        verificationToken: code,
+        verificationTokenExpires: { $gt: new Date() } 
+      });
+
+      if (!user) {
+        return res.status(400).json({ error: 'كود التأكيد غير صحيح أو انتهت صلاحيته' });
+      }
+
+      user.isVerified = true;
+      user.verificationToken = undefined;
+      user.verificationTokenExpires = undefined;
+      await user.save();
+
+      res.json({ message: 'تم تأكيد الحساب بنجاح! يمكنك الآن تسجيل الدخول.' });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'حدث خطأ أثناء التأكيد' });
     }
   });
 
