@@ -373,7 +373,7 @@ const ProfileView = memo(({ playerName, coins, ownedThemes, selectedThemeId, onB
 ));
 
 const App = () => {
-  const { user, login, register, verifyCode, logout, updateProfile, loading: authLoading, error: authError } = useAuth();
+  const { user, login, register, verifyCode, resendCode, logout, updateProfile, loading: authLoading, error: authError, pendingVerificationEmail, setPendingVerificationEmail } = useAuth();
   const [appState, setAppState] = useState<'loading' | 'auth' | 'menu' | 'store' | 'profile' | 'matchmaking' | 'game' | 'gameOver' | 'inRoom' | 'verifySent'>('loading');
   const [authTab, setAuthTab] = useState<'login' | 'register'>('login');
   const [menuTab, setMenuTab] = useState<'main' | 'online' | 'local'>('main');
@@ -400,6 +400,13 @@ const App = () => {
       }
     }
   }, [user, authLoading]);
+
+  // Auto-redirect to verification if pending
+  useEffect(() => {
+    if (pendingVerificationEmail) {
+      setAppState('verifySent');
+    }
+  }, [pendingVerificationEmail]);
 
   // Auth View Local State
   const [authEmail, setAuthEmail] = useState('');
@@ -441,14 +448,28 @@ const App = () => {
     setAuthSubmitting(true);
     setErrorMsg(null);
     try {
-      await verifyCode(authEmail, authVerifyCode);
+      await verifyCode(pendingVerificationEmail || authEmail, authVerifyCode);
       setAuthSuccessMsg('تم تأكيد الحساب بنجاح! يمكنك الآن تسجيل الدخول.');
       setAuthTab('login');
       setAppState('auth');
+      setPendingVerificationEmail(null);
     } catch (err: any) {
       setErrorMsg(err.message);
     } finally {
       setAuthSubmitting(false);
+    }
+  };
+
+  const handleResendCode = async () => {
+    setIsResending(true);
+    setErrorMsg(null);
+    try {
+      const message = await resendCode(pendingVerificationEmail || authEmail);
+      setAuthSuccessMsg(message);
+    } catch (err: any) {
+      setErrorMsg(err.message);
+    } finally {
+      setIsResending(false);
     }
   };
 
@@ -477,6 +498,7 @@ const App = () => {
   const [roomId, setRoomId] = useState<string | null>(null);
   const [roomState, setRoomState] = useState<Room | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [isResending, setIsResending] = useState(false);
   const [userIp, setUserIp] = useState<string>('جاري التحميل...');
   const [isSearching, setIsSearching] = useState(false);
   
@@ -1247,14 +1269,30 @@ const App = () => {
     }
   };
 
-  const buyTheme = (theme: ThemeConfig) => {
+  const buyTheme = async (theme: ThemeConfig) => {
     if (ownedThemes.includes(theme.id)) return;
     if (coins >= theme.price) {
       const newCoins = coins - theme.price;
       const newOwned = [...ownedThemes, theme.id];
+      
+      // تحديث الحالة المحلية
       setCoins(newCoins);
       setOwnedThemes(newOwned);
-      addLog(`تم شراء ثيم ${theme.name}`, 'success');
+      
+      // مزامنة مع السيرفر إذا كان المستخدم مسجلاً
+      if (user) {
+        try {
+          await updateProfile({ coins: newCoins, purchasedThemes: newOwned });
+          addLog(`تم شراء وحفظ ثيم ${theme.name}`, 'success');
+        } catch (err) {
+          addLog(`خطأ في مزامنة الشراء: ${err}`, 'error');
+          // استعادة الحالة في حال الفشل
+          setCoins(coins);
+          setOwnedThemes(ownedThemes);
+        }
+      } else {
+        addLog(`تم شراء ثيم ${theme.name} (محلياً)`, 'success');
+      }
     } else {
       setErrorMsg('عملات غير كافية!');
     }
@@ -1504,6 +1542,15 @@ const App = () => {
             <Info className="w-5 h-5 text-game-teal shrink-0" />
             <p className="text-sm text-game-offwhite/60">إذا لم تجد الرسالة في صندوق الوارد، جرب إلقاء نظرة ودية على مجلد الرسائل غير المرغوب فيها (Spam) 📧✨</p>
           </div>
+
+          <button 
+            type="button" 
+            onClick={handleResendCode}
+            disabled={isResending}
+            className="text-xs text-game-teal hover:underline font-display tracking-widest"
+          >
+            {isResending ? 'جاري الإرسال...' : 'إعادة إرسال الكود؟'}
+          </button>
 
           <form onSubmit={handleVerifyCode} className="space-y-4">
             <div className="relative">

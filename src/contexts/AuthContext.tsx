@@ -19,9 +19,12 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, displayName: string) => Promise<void>;
   verifyCode: (email: string, code: string) => Promise<void>;
+  resendCode: (email: string) => Promise<void>;
   logout: () => void;
   updateProfile: (data: Partial<UserProfile>) => Promise<void>;
   error: string | null;
+  pendingVerificationEmail: string | null;
+  setPendingVerificationEmail: (email: string | null) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -30,6 +33,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pendingVerificationEmail, setPendingVerificationEmail] = useState<string | null>(null);
   const { addLog } = useDebug();
 
   // URL Logic: Check for VITE_API_URL or VITE_BACKEND_URL
@@ -143,7 +147,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (response.ok) {
         setUser(data);
         localStorage.setItem('cardclash_userId', data._id);
+        setPendingVerificationEmail(null);
       } else {
+        if (response.status === 403) {
+          setPendingVerificationEmail(email);
+        }
         throw new Error(data.error || 'فشل تسجيل الدخول');
       }
     } catch (err: any) {
@@ -165,6 +173,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!response.ok) {
         throw new Error(data.error || 'فشل إنشاء الحساب');
       }
+    } catch (err: any) {
+      setError(err.message);
+      throw err;
+    }
+  };
+
+  const resendCode = async (email: string) => {
+    setError(null);
+    try {
+      const response = await nativeFetch(`${API_BASE_URL}/api/auth/resend-code`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'فشل إعادة إرسال الكود');
+      }
+      return data.message;
     } catch (err: any) {
       setError(err.message);
       throw err;
@@ -214,7 +242,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, verifyCode, logout, updateProfile, error }}>
+    <AuthContext.Provider value={{ user, loading, login, register, verifyCode, resendCode, logout, updateProfile, error, pendingVerificationEmail, setPendingVerificationEmail }}>
       {children}
     </AuthContext.Provider>
   );

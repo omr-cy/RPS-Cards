@@ -380,6 +380,49 @@ async function startServer() {
     }
   });
 
+  app.post('/api/auth/resend-code', async (req, res) => {
+    try {
+      const { email } = req.body;
+      const user = await User.findOne({ email });
+
+      if (!user) {
+        return res.status(404).json({ error: 'المستخدم غير موجود' });
+      }
+
+      if (user.isVerified) {
+        return res.status(400).json({ error: 'الحساب مؤكد بالفعل' });
+      }
+
+      const verificationToken = Math.floor(100000 + Math.random() * 900000).toString();
+      const verificationTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+      user.verificationToken = verificationToken;
+      user.verificationTokenExpires = verificationTokenExpires;
+      await user.save();
+
+      const mailOptions = {
+        from: process.env.GAME_EMAIL_USER,
+        to: email,
+        subject: 'كود تأكيد حساب صراع البطاقات الجديد',
+        html: `
+          <div dir="rtl" style="font-family: Arial, sans-serif; text-align: center; background-color: #1a1a1a; color: #f5f5dc; padding: 40px; border-radius: 10px;">
+            <h1 style="color: #008080;">صراع البطاقات</h1>
+            <p style="font-size: 18px;">كود تأكيد حسابك الجديد هو:</p>
+            <div style="display: inline-block; background-color: #333; color: #008080; padding: 15px 30px; font-size: 32px; font-weight: bold; border-radius: 10px; letter-spacing: 10px; margin: 20px 0; border: 2px solid #008080;">
+              ${verificationToken}
+            </div>
+          </div>
+        `
+      };
+
+      await transporter.sendMail(mailOptions);
+      res.json({ message: 'تم إرسال كود تأكيد جديد لبريدك الإلكتروني.' });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'حدث خطأ أثناء إعادة إرسال الكود' });
+    }
+  });
+
   app.post('/api/auth/verify-code', async (req, res) => {
     try {
       const { email, code } = req.body;
