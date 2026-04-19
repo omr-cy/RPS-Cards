@@ -1,12 +1,19 @@
 import express from 'express';
 import { createServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
-import dotenv from 'dotenv';
 import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
 
-// Load .env relative to the current working directory
-dotenv.config();
-console.log("Loading .env, MONGODB_URI is:", process.env.MONGODB_URI ? "Found" : "MISSING!");
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const envPath = path.join(__dirname, '.env');
+
+import * as dotenv from 'dotenv';
+dotenv.config({ path: envPath });
+
+console.log("[Startup] Loading from:", envPath);
+console.log("[Startup] MONGODB_URI is:", process.env.MONGODB_URI ? "Found" : "MISSING!");
 
 import cors from 'cors';
 import mongoose from 'mongoose';
