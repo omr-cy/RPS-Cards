@@ -125,10 +125,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const data = await response.json();
         setUser(data);
       } else {
-        localStorage.removeItem('cardclash_userId');
+        if (response.status === 401 || response.status === 404) {
+          localStorage.removeItem('cardclash_userId');
+        } else {
+          console.error('Server error on fetch profile, not deleting token. Status:', response.status);
+        }
       }
     } catch (err) {
-      console.error('Failed to fetch profile:', err);
+      console.error('Failed to fetch profile (Network error, etc.):', err);
     } finally {
       setLoading(false);
     }

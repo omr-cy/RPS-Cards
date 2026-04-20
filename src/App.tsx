@@ -598,26 +598,41 @@ const App = () => {
     localStorage.setItem('cardclash_playerId', newId);
     return newId;
   });
-  const [selectedThemeId, setSelectedThemeIdState] = useState('normal');
-  const [ownedThemes, setOwnedThemesState] = useState<string[]>(['normal']);
-  const [coins, setCoinsState] = useState(100);
+  const [selectedThemeId, setSelectedThemeIdState] = useState(() => localStorage.getItem('cardclash_selectedThemeId') || 'normal');
+  const [ownedThemes, setOwnedThemesState] = useState<string[]>(() => {
+    const stored = localStorage.getItem('cardclash_ownedThemes');
+    return stored ? JSON.parse(stored) : ['normal'];
+  });
+  const [coins, setCoinsState] = useState(() => {
+    const stored = localStorage.getItem('cardclash_coins');
+    return stored ? parseInt(stored, 10) : 100;
+  });
 
-  // Sync state with auth user + Background Persistence
+  // Persist local state whenever it changes
   useEffect(() => {
-    if (user && !authLoading) {
+    localStorage.setItem('cardclash_guestName', playerName);
+    localStorage.setItem('cardclash_selectedThemeId', selectedThemeId);
+    localStorage.setItem('cardclash_ownedThemes', JSON.stringify(ownedThemes));
+    localStorage.setItem('cardclash_coins', coins.toString());
+  }, [playerName, selectedThemeId, ownedThemes, coins]);
+
+  // Sync state with auth user (Initial load only)
+  const isProfileInitialized = useRef(false);
+
+  useEffect(() => {
+    if (user && !authLoading && !isProfileInitialized.current) {
       setPlayerNameState(user.displayName);
       setPlayerId(user._id);
-      
-      // Merge logic: If local state exists and server is behind, we might need a sync-up
-      // For simplicity, we trust server on initial load, but buyTheme will handle offline writes
       setCoinsState(user.coins);
       setOwnedThemesState(user.purchasedThemes);
       setSelectedThemeIdState(user.equippedTheme);
+      isProfileInitialized.current = true;
 
       if (appState === 'loading' || appState === 'auth') {
         setAppState('menu');
       }
     } else if (!user && !authLoading) {
+      isProfileInitialized.current = false;
       if (appState === 'loading') {
         const hasSeenAuth = localStorage.getItem('cardclash_hasSeenAuth');
         if (hasSeenAuth) {
@@ -633,6 +648,7 @@ const App = () => {
   // Background Sync Effect: Whenever we are online and local state differs from user profile, push updates
   useEffect(() => {
     if (user && isOnline && !authLoading) {
+      const needsNameSync = playerName !== user.displayName;
       const needsCoinsSync = coins !== user.coins;
       
       // Comparison logic for themes
@@ -643,17 +659,23 @@ const App = () => {
       // Equipped theme sync check (backend now supports equippedTheme)
       const needsEquippedSync = selectedThemeId !== user.equippedTheme;
 
-      if (needsCoinsSync || needsThemesSync || needsEquippedSync) {
+      if (needsNameSync || needsCoinsSync || needsThemesSync || needsEquippedSync) {
         // We only sync if there is a real difference to avoid loops
-        console.log('Background Sync: Pushing local updates to server...', { needsCoinsSync, needsThemesSync, needsEquippedSync });
-        updateProfile({ 
-          coins, 
-          purchasedThemes: ownedThemes, 
-          equippedTheme: selectedThemeId 
-        });
+        console.log('Background Sync: Pushing local updates to server...', { needsNameSync, needsCoinsSync, needsThemesSync, needsEquippedSync });
+        
+        // Debounce sync slightly to avoid rapid-fire updates
+        const timeout = setTimeout(() => {
+          updateProfile({ 
+            displayName: playerName,
+            coins, 
+            purchasedThemes: ownedThemes, 
+            equippedTheme: selectedThemeId 
+          });
+        }, 500);
+        return () => clearTimeout(timeout);
       }
     }
-  }, [isOnline, coins, ownedThemes, selectedThemeId, user, authLoading]);
+  }, [isOnline, playerName, coins, ownedThemes, selectedThemeId, user, authLoading, updateProfile]);
 
   // Auto-redirect to verification if pending
   useEffect(() => {
@@ -729,22 +751,15 @@ const App = () => {
 
   const setPlayerName = (name: string) => {
     setPlayerNameState(name);
-    updateProfile({ displayName: name });
   };
   const setSelectedThemeId = (id: string) => {
     setSelectedThemeIdState(id);
-    updateProfile({ equippedTheme: id });
   };
   const setOwnedThemes = (themes: string[]) => {
     setOwnedThemesState(themes);
-    updateProfile({ purchasedThemes: themes });
   };
   const setCoins = (newCoins: number | ((prev: number) => number)) => {
-    setCoinsState(prev => {
-      const val = typeof newCoins === 'function' ? newCoins(prev) : newCoins;
-      updateProfile({ coins: val });
-      return val;
-    });
+    setCoinsState(newCoins);
   };
 
   const [ipInput, setIpInput] = useState('');
@@ -1652,17 +1667,7 @@ const App = () => {
     setSuccessMsg(`تم شراء مجموعة ${theme.name} بنجاح!`);
     setTimeout(() => setSuccessMsg(null), 4000);
     
-    // محاولة المزامنة فوراً (بدون تراجع في حالة الفشل)
-    if (user) {
-      // Background sync will pick up these changes automatically
-      updateProfile({ coins: newCoins, purchasedThemes: newOwned }).then(() => {
-        addLog(`تم شراء ومزامنة ثيم ${theme.name}`, 'success');
-      }).catch(err => {
-        addLog(`تم الشراء محلياً (أوفلاين). سيتم المزامنة لاحقاً.`, 'info');
-      });
-    } else {
-      addLog(`تم شراء ثيم ${theme.name} (محلياً)`, 'success');
-    }
+    addLog(`تم شراء ثيم ${theme.name} (محلياً وسيتم المزامنة تلقائياً)`, 'success');
   };
 
   const currentTheme = getTheme(selectedThemeId);
@@ -2046,33 +2051,25 @@ const App = () => {
                   key="main"
                   className="flex flex-col gap-4 sm:gap-5 w-full"
                 >
-                  <AnimatePresence>
-                    {!user && (
-                      <motion.div
-                        key="guest-alert"
-                        initial={{ opacity: 0, height: 0, marginBottom: 0 }}
-                        animate={{ opacity: 1, height: 'auto', marginBottom: 8 }}
-                        exit={{ opacity: 0, height: 0, marginBottom: 0 }}
-                        className="overflow-hidden w-full"
-                      >
-                        <div className="bg-yellow-500/10 border border-yellow-500/30 p-3 sm:p-4 rounded-xl flex items-start gap-3 w-full sm:w-[90%] mx-auto text-right transition-all">
-                          <Info className="w-5 h-5 text-yellow-500 shrink-0 mt-0.5" />
-                          <div className="space-y-2.5 w-full">
-                            <div>
-                              <p className="text-sm text-yellow-500 font-display">تلعب الآن كضيف</p>
-                              <p className="text-[11px] text-game-cream/60 leading-relaxed font-body">يمكنك الاستمتاع باللعب بكافة الميزات، لكن لن يُحفظ تقدمك أو عملاتك بالسحابة ما لم تسجل دخولك.</p>
-                            </div>
-                            <button 
-                              onClick={() => setAppState('auth')}
-                              className="w-full sm:w-fit px-4 py-2 bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-500 active:scale-95 border border-yellow-500/50 rounded-lg text-xs font-display flex items-center justify-center gap-2 transition-all"
-                            >
-                              <User className="w-3.5 h-3.5" /> تسجيل الدخول أو إنشاء حساب
-                            </button>
+                  {!user && (
+                    <div className="w-full mb-2">
+                      <div className="bg-yellow-500/10 border border-yellow-500/30 p-3 sm:p-4 rounded-xl flex items-start gap-3 w-full sm:w-[90%] mx-auto text-right">
+                        <Info className="w-5 h-5 text-yellow-500 shrink-0 mt-0.5" />
+                        <div className="space-y-2.5 w-full">
+                          <div>
+                            <p className="text-sm text-yellow-500 font-display">تلعب الآن كضيف</p>
+                            <p className="text-[11px] text-game-cream/60 leading-relaxed font-body">يمكنك الاستمتاع باللعب بكافة الميزات، لكن لن يُحفظ تقدمك أو عملاتك بالسحابة ما لم تسجل دخولك.</p>
                           </div>
+                          <button 
+                            onClick={() => setAppState('auth')}
+                            className="w-full sm:w-fit px-4 py-2 bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-500 active:scale-95 border border-yellow-500/50 rounded-lg text-xs font-display flex items-center justify-center gap-2 transition-all"
+                          >
+                            <User className="w-3.5 h-3.5" /> تسجيل الدخول أو إنشاء حساب
+                          </button>
                         </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                      </div>
+                    </div>
+                  )}
                     <motion.button
                       whileTap={{ scale: 0.94 }}
                       onClick={() => setMenuTab('online')}
