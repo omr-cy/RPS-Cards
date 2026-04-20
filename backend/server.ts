@@ -322,10 +322,10 @@ async function startServer() {
       const mailOptions = {
         from: process.env.GAME_EMAIL_USER,
         to: email,
-        subject: 'كود تأكيد حساب صراع البطاقات',
+        subject: 'كود تأكيد حساب بطاقات حجر ورقة مقص',
         html: `
           <div dir="rtl" style="font-family: Arial, sans-serif; text-align: center; background-color: #1a1a1a; color: #f5f5dc; padding: 40px; border-radius: 10px;">
-            <h1 style="color: #008080;">صراع البطاقات</h1>
+            <h1 style="color: #008080;">بطاقات حجر ورقة مقص</h1>
             <p style="font-size: 18px;">كود تأكيد حسابك هو:</p>
             <div style="display: inline-block; background-color: #333; color: #008080; padding: 15px 30px; font-size: 32px; font-weight: bold; border-radius: 10px; letter-spacing: 10px; margin: 20px 0; border: 2px solid #008080;">
               ${verificationToken}
@@ -403,10 +403,10 @@ async function startServer() {
       const mailOptions = {
         from: process.env.GAME_EMAIL_USER,
         to: email,
-        subject: 'كود تأكيد حساب صراع البطاقات الجديد',
+        subject: 'كود تأكيد حساب بطاقات حجر ورقة مقص الجديد',
         html: `
           <div dir="rtl" style="font-family: Arial, sans-serif; text-align: center; background-color: #1a1a1a; color: #f5f5dc; padding: 40px; border-radius: 10px;">
-            <h1 style="color: #008080;">صراع البطاقات</h1>
+            <h1 style="color: #008080;">بطاقات حجر ورقة مقص</h1>
             <p style="font-size: 18px;">كود تأكيد حسابك الجديد هو:</p>
             <div style="display: inline-block; background-color: #333; color: #008080; padding: 15px 30px; font-size: 32px; font-weight: bold; border-radius: 10px; letter-spacing: 10px; margin: 20px 0; border: 2px solid #008080;">
               ${verificationToken}
@@ -477,7 +477,7 @@ async function startServer() {
   app.get('/api/profile/:id', async (req, res) => {
     try {
       const user = await User.findById(req.params.id);
-      if (!user || !user.save) return res.status(404).json({ error: 'المستخدم غير موجود' });
+      if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
       
       const userResponse = user.toObject();
       delete userResponse.password;
@@ -489,26 +489,38 @@ async function startServer() {
 
   app.post('/api/profile/:id', async (req, res) => {
     try {
-      const { displayName, themeId, coins, purchasedThemes } = req.body;
+      const { displayName, themeId, equippedTheme, coins, purchasedThemes } = req.body;
+      console.log(`[Profile Update] User: ${req.params.id}`, req.body);
+      
       const user = await User.findById(req.params.id);
-      if (!user || !user.save) return res.status(404).json({ error: 'المستخدم غير موجود' });
+      if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
 
+      // Support both themeId and equippedTheme for transition/compatibility
       if (displayName) user.displayName = displayName;
-      if (themeId) user.equippedTheme = themeId;
-      if (coins !== undefined) user.coins = coins;
-      if (purchasedThemes) {
-        // Ensure we don't duplicate themes and keep 'normal'
-        const existingThemes: string[] = user.purchasedThemes || ['normal'];
-        const combined = Array.from(new Set([...existingThemes, ...purchasedThemes]));
+      
+      const finalThemeId = equippedTheme || themeId;
+      if (finalThemeId) {
+        user.equippedTheme = finalThemeId;
+      }
+
+      if (coins !== undefined) {
+        user.coins = coins;
+      }
+
+      if (purchasedThemes && Array.isArray(purchasedThemes)) {
+        // Just trust the client's current set of themes, but always ensure 'normal' exists
+        const combined = Array.from(new Set(['normal', ...purchasedThemes]));
         user.purchasedThemes = combined;
       }
 
       await user.save();
+      console.log(`[Profile Update Success] User: ${user.email} - Coins: ${user.coins} - Themes: ${user.purchasedThemes.length}`);
       
       const userResponse = user.toObject();
       delete userResponse.password;
       res.json(userResponse);
     } catch (err) {
+      console.error('[Profile Update Error]:', err);
       res.status(500).json({ error: 'حدث خطأ أثناء تحديث الملف الشخصي' });
     }
   });

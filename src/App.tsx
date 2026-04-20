@@ -321,7 +321,7 @@ const StoreView = memo(({ coins, ownedThemes, selectedThemeId, onBuy, onSelect, 
 }) => (
   <div 
     dir="rtl" 
-    className="w-full h-full flex flex-col font-body overflow-x-hidden overflow-y-auto select-none relative pb-10"
+    className="w-full h-full flex flex-col font-body overflow-x-hidden overflow-y-auto smooth-scroll select-none relative pb-10"
   >
     <div className="grid grid-cols-2 gap-y-10 gap-x-4 max-w-md mx-auto w-full px-4 sm:px-6 pt-20">
       {THEMES.map(theme => (
@@ -362,7 +362,7 @@ const ProfileView = memo(({ playerName, coins, ownedThemes, selectedThemeId, onS
 }) => (
   <div 
     dir="rtl" 
-    className="w-full h-full flex flex-col font-body overflow-x-hidden overflow-y-auto select-none pb-10"
+    className="w-full h-full flex flex-col font-body overflow-x-hidden overflow-y-auto smooth-scroll select-none pb-10"
   >
     <div className="max-w-md mx-auto w-full space-y-6 px-4 sm:px-6 pt-20">
       <div className="bg-gradient-to-br from-game-dark/95 to-game-dark/80 p-6 rounded-2xl border border-white/10 flex flex-col sm:flex-row items-center gap-4 relative shadow-2xl">
@@ -531,7 +531,7 @@ const DashboardViewPager = ({ appState, setAppState, onVisibleTabChange, childre
     <div 
       ref={scrollRef}
       onScroll={handleScroll}
-      className={`fixed inset-0 w-full h-full flex overflow-x-auto overflow-y-hidden snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] z-0 wood-texture text-game-cream font-body transition-opacity duration-300 ${isReady ? 'opacity-100' : 'opacity-0'}`}
+      className={`fixed inset-0 w-full h-full flex overflow-x-auto overflow-y-hidden snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] z-0 wood-texture text-game-cream font-body smooth-scroll`}
       dir="rtl"
     >
       {React.Children.toArray(children).map((child, idx) => (
@@ -627,11 +627,18 @@ const App = () => {
   useEffect(() => {
     if (user && isOnline && !authLoading) {
       const needsCoinsSync = coins !== user.coins;
-      const needsThemesSync = JSON.stringify(ownedThemes) !== JSON.stringify(user.purchasedThemes);
+      
+      // Comparison logic for themes
+      const localThemes = [...ownedThemes].sort();
+      const serverThemes = [...(user.purchasedThemes || [])].sort();
+      const needsThemesSync = JSON.stringify(localThemes) !== JSON.stringify(serverThemes);
+      
+      // Equipped theme sync check (backend now supports equippedTheme)
       const needsEquippedSync = selectedThemeId !== user.equippedTheme;
 
       if (needsCoinsSync || needsThemesSync || needsEquippedSync) {
-        console.log('Background Sync: Pushing local updates to server...');
+        // We only sync if there is a real difference to avoid loops
+        console.log('Background Sync: Pushing local updates to server...', { needsCoinsSync, needsThemesSync, needsEquippedSync });
         updateProfile({ 
           coins, 
           purchasedThemes: ownedThemes, 
@@ -1612,6 +1619,7 @@ const App = () => {
     
     // محاولة المزامنة فوراً (بدون تراجع في حالة الفشل)
     if (user) {
+      // Background sync will pick up these changes automatically
       updateProfile({ coins: newCoins, purchasedThemes: newOwned }).then(() => {
         addLog(`تم شراء ومزامنة ثيم ${theme.name}`, 'success');
       }).catch(err => {
@@ -1695,8 +1703,8 @@ const App = () => {
 
   const renderNameEditDialog = () => (
     <div 
-      className={`fixed inset-0 z-[250] flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm ${showEditNameDialog ? '' : 'hidden'}`} onClick={() => setShowEditNameDialog(false)}>
-      <div className="w-full max-w-md bg-game-dark/90 p-6 sm:p-8 rounded-2xl border border-white/10 shadow-2xl space-y-6" onClick={e => e.stopPropagation()}>
+      className={`fixed inset-0 z-[250] flex sm:items-center items-start justify-center p-6 bg-black/80 backdrop-blur-sm overflow-y-auto smooth-scroll ${showEditNameDialog ? '' : 'hidden'}`} onClick={() => setShowEditNameDialog(false)}>
+      <div className="w-full max-w-md bg-game-dark/90 p-5 sm:p-8 rounded-2xl border border-white/10 shadow-2xl space-y-6 mt-12 sm:mt-0 mb-12" onClick={e => e.stopPropagation()}>
         <div className="text-center space-y-2">
           <h3 className="text-xl font-display text-game-offwhite">ادخل الأسم</h3>
         </div>
@@ -1756,10 +1764,10 @@ const App = () => {
     return (
       <div 
         dir="rtl" 
-        className="fixed inset-0 w-full h-full wood-texture text-game-cream flex flex-col items-center justify-center p-4 sm:p-6 font-body overflow-hidden select-none"
+        className="fixed inset-0 w-full h-full wood-texture text-game-cream flex flex-col sm:items-center items-start justify-center p-4 sm:p-6 font-body overflow-y-auto smooth-scroll select-none"
       >
         <div 
-          className="relative max-w-md w-full bg-game-dark/90 p-5 sm:p-8 rounded-2xl border border-white/10 shadow-2xl space-y-6"
+          className="relative max-w-md w-full bg-game-dark/90 p-5 sm:p-8 rounded-2xl border border-white/10 shadow-2xl space-y-6 my-auto"
         >
           <button 
             onClick={() => setAppState('menu')}
@@ -1990,36 +1998,46 @@ const App = () => {
           />
           <div 
             dir="rtl" 
-            className="w-full h-full flex flex-col font-body overflow-x-hidden overflow-y-auto select-none"
+            className="w-full h-full flex flex-col font-body overflow-x-hidden overflow-y-auto smooth-scroll select-none"
           >
             <div
               className="max-w-md w-full text-center mx-auto py-8 px-6 pt-24 min-h-screen flex flex-col justify-center items-center"
             >
               <div className="mb-8"></div>
             
-            <div className="space-y-4 sm:space-y-5">
+            <div className="space-y-4 sm:space-y-5 w-full">
               {menuTab === 'main' && (
                 <div
                   key="main"
-                  className="flex flex-col gap-4 sm:gap-5"
+                  className="flex flex-col gap-4 sm:gap-5 w-full"
                 >
-                  {!user && (
-                    <div className="bg-yellow-500/10 border border-yellow-500/30 p-3 sm:p-4 rounded-xl flex items-start gap-3 w-full sm:w-[90%] mx-auto text-right mb-2 transition-all">
-                      <Info className="w-5 h-5 text-yellow-500 shrink-0 mt-0.5" />
-                      <div className="space-y-2.5 w-full">
-                        <div>
-                          <p className="text-sm text-yellow-500 font-display">تلعب الآن كضيف</p>
-                          <p className="text-[11px] text-game-cream/60 leading-relaxed font-body">يمكنك الاستمتاع باللعب بكافة الميزات، لكن لن يُحفظ تقدمك أو عملاتك بالسحابة ما لم تسجل دخولك.</p>
+                  <AnimatePresence>
+                    {!user && (
+                      <motion.div
+                        key="guest-alert"
+                        initial={{ opacity: 0, height: 0, marginBottom: 0 }}
+                        animate={{ opacity: 1, height: 'auto', marginBottom: 8 }}
+                        exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+                        className="overflow-hidden w-full"
+                      >
+                        <div className="bg-yellow-500/10 border border-yellow-500/30 p-3 sm:p-4 rounded-xl flex items-start gap-3 w-full sm:w-[90%] mx-auto text-right transition-all">
+                          <Info className="w-5 h-5 text-yellow-500 shrink-0 mt-0.5" />
+                          <div className="space-y-2.5 w-full">
+                            <div>
+                              <p className="text-sm text-yellow-500 font-display">تلعب الآن كضيف</p>
+                              <p className="text-[11px] text-game-cream/60 leading-relaxed font-body">يمكنك الاستمتاع باللعب بكافة الميزات، لكن لن يُحفظ تقدمك أو عملاتك بالسحابة ما لم تسجل دخولك.</p>
+                            </div>
+                            <button 
+                              onClick={() => setAppState('auth')}
+                              className="w-full sm:w-fit px-4 py-2 bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-500 active:scale-95 border border-yellow-500/50 rounded-lg text-xs font-display flex items-center justify-center gap-2 transition-all"
+                            >
+                              <User className="w-3.5 h-3.5" /> تسجيل الدخول أو إنشاء حساب
+                            </button>
+                          </div>
                         </div>
-                        <button 
-                          onClick={() => setAppState('auth')}
-                          className="w-full sm:w-fit px-4 py-2 bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-500 active:scale-95 border border-yellow-500/50 rounded-lg text-xs font-display flex items-center justify-center gap-2 transition-all"
-                        >
-                          <User className="w-3.5 h-3.5" /> تسجيل الدخول أو إنشاء حساب
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                     <motion.button
                       whileTap={{ scale: 0.94 }}
                       onClick={() => setMenuTab('online')}
