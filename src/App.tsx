@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef, memo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, memo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Bot, Globe, Home, Trophy, XCircle, Minus, Copy, Edit2, Bug, X, Wifi, ShieldCheck, Activity, ShoppingCart, User, LogIn, LogOut, Swords, PlusCircle, Mail, Lock, UserPlus, Info, ArrowRight, ArrowLeft, ChevronRight, ChevronLeft } from 'lucide-react';
+import { Bot, Globe, Home, Trophy, XCircle, CheckCircle2, Minus, Copy, Edit2, Bug, X, Wifi, ShieldCheck, Activity, ShoppingCart, User, LogIn, LogOut, Users, UserSearch, PlusCircle, Mail, Lock, UserPlus, Info, ArrowRight, ArrowLeft, ChevronRight, ChevronLeft, Network as NetworkIcon, PlugZap } from 'lucide-react';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { SplashScreen } from '@capacitor/splash-screen';
 import { Network } from '@capacitor/network';
@@ -183,7 +183,7 @@ const PackPreviewModal = memo(({ selectedPack, ownedThemes, selectedThemeId, onB
       onClick={onClose}
     >
       <div 
-        className="w-full max-w-md bg-[var(--color-game-charcoal)] p-6 sm:p-8 rounded-2xl shadow-2xl relative"
+        className="w-full max-w-md bg-game-dark/40 backdrop-blur-3xl p-6 sm:p-8 rounded-2xl shadow-2xl relative border border-white/10"
         onClick={e => e.stopPropagation()}
       >
               <div className="relative z-10 flex flex-col items-center">
@@ -199,10 +199,10 @@ const PackPreviewModal = memo(({ selectedPack, ownedThemes, selectedThemeId, onB
               <button 
                 onClick={() => onSelect(selectedPack.id)}
                 disabled={selectedThemeId === selectedPack.id}
-                className={`w-full py-3.5 rounded-xl font-display text-xl transition-all shadow-lg ${
+                className={`w-full py-3.5 rounded-xl font-display text-xl transition-all outline-none backdrop-blur-sm transform-gpu ${
                   selectedThemeId === selectedPack.id 
                   ? 'bg-game-teal/20 text-game-teal cursor-default border border-game-teal/30' 
-                  : 'bg-game-teal hover:bg-slate-600 text-white active:scale-95'
+                  : 'bg-game-teal hover:bg-emerald-400 text-game-dark active:scale-95'
                 }`}
               >
                 {selectedThemeId === selectedPack.id ? 'مفعل حالياً' : 'تفعيل الثيم'}
@@ -214,9 +214,9 @@ const PackPreviewModal = memo(({ selectedPack, ownedThemes, selectedThemeId, onB
             ) : (
               <button 
                 onClick={() => onBuy(selectedPack)}
-                className="w-full py-3.5 bg-game-offwhite hover:bg-white text-black rounded-xl font-display text-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-3"
+                className="w-full py-3.5 bg-white/15 backdrop-blur-md border border-white/20 hover:bg-white/20 text-white rounded-xl font-display text-xl transition-all active:scale-95 flex items-center justify-center gap-3 outline-none transform-gpu"
               >
-                شراء المجموعة <span className="text-yellow-600">{selectedPack.price} 🪙</span>
+                شراء المجموعة <span className="text-yellow-400">{selectedPack.price} 🪙</span>
               </button>
             )}
             <button 
@@ -243,12 +243,12 @@ const GlobalNavbar = memo(({ activeTab, setAppState, coins, playerName, isGuest,
       <div className="relative w-full h-12">
         {/* --- STORE NAVBAR --- */}
         <div className={`absolute inset-0 flex justify-between items-center px-6 sm:px-8 transition-opacity duration-300 ${activeTab === 'store' ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
-          <button onClick={() => setAppState('menu')} className="p-1.5 bg-game-dark/50 rounded-full text-game-cream hover:bg-game-dark border border-white/10 transition-all">
+          <button onClick={() => setAppState('menu')} className="p-1.5 bg-white/5 backdrop-blur-sm rounded-full text-game-cream hover:bg-white/10 border border-white/10 transition-all transform-gpu">
             <ChevronLeft className="w-5 h-5" />
           </button>
           <h1 className="text-lg sm:text-xl font-display text-game-offwhite tracking-wider">متجر الثيمات</h1>
-          <div className="flex items-center gap-1.5 bg-black/30 px-2.5 py-1 rounded-full border border-white/10 shadow-inner">
-            <span className="text-sm sm:text-base font-display text-game-offwhite">{coins}</span>
+          <div className="flex items-center gap-1.5 bg-white/5 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/10 shadow-inner">
+            <span className="text-sm sm:text-base font-display text-game-offwhite font-medium">{coins}</span>
             <span className="text-yellow-500 text-xs">🪙</span>
           </div>
         </div>
@@ -271,18 +271,18 @@ const GlobalNavbar = memo(({ activeTab, setAppState, coins, playerName, isGuest,
           <div>
             <button 
               onClick={() => setAppState('store')}
-              className="flex items-center gap-1 bg-black/30 px-2.5 py-1 rounded-full border border-white/10 hover:bg-black/50 transition-all shadow-inner"
+              className="flex items-center gap-1 bg-white/5 backdrop-blur-sm px-2.5 py-1 rounded-full border border-white/10 hover:bg-white/10 transition-all group transform-gpu"
             >
-              <span className="text-sm sm:text-base font-display text-yellow-500">{coins}</span>
+              <span className="text-sm sm:text-base font-display text-yellow-500 font-medium group-hover:scale-105 transition-transform">{coins}</span>
               <span className="text-xs">🪙</span>
-              <PlusCircle className="w-3 h-3 text-game-teal ml-0.5" />
+              <PlusCircle className="w-3 h-3 text-game-teal ml-0.5 group-hover:rotate-90 transition-transform" />
             </button>
           </div>
         </div>
 
         {/* --- PROFILE NAVBAR --- */}
         <div className={`absolute inset-0 flex justify-between items-center px-6 sm:px-8 transition-opacity duration-300 ${activeTab === 'profile' ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
-          <button onClick={() => setAppState('menu')} className="p-1.5 bg-game-dark/50 rounded-full text-game-cream hover:bg-game-dark border border-white/10 transition-all">
+          <button onClick={() => setAppState('menu')} className="p-1.5 bg-white/5 backdrop-blur-sm rounded-full text-game-cream hover:bg-white/10 border border-white/10 transition-all transform-gpu">
             <ChevronRight className="w-5 h-5" />
           </button>
           <h1 className="text-lg sm:text-xl font-display text-game-offwhite tracking-wider">الملف الشخصي</h1>
@@ -338,7 +338,7 @@ const StoreView = memo(({ coins, ownedThemes, selectedThemeId, onBuy, onSelect, 
 
       <div className={selectedPack ? 'block' : 'hidden'}>
         <PackPreviewModal 
-          selectedPack={selectedPack as any} 
+          selectedPack={selectedPack} 
           ownedThemes={ownedThemes} 
           selectedThemeId={selectedThemeId} 
           onBuy={onBuy} 
@@ -349,12 +349,13 @@ const StoreView = memo(({ coins, ownedThemes, selectedThemeId, onBuy, onSelect, 
   </div>
 ));
 
-const ProfileView = memo(({ playerName, coins, ownedThemes, selectedThemeId, onSelect, selectedPack, setSelectedPack, onEditName }: {
+const ProfileView = memo(({ playerName, coins, ownedThemes, selectedThemeId, onSelect, onBuy, selectedPack, setSelectedPack, onEditName }: {
   playerName: string,
   coins: number,
   ownedThemes: string[],
   selectedThemeId: string,
   onSelect: (id: string) => void,
+  onBuy: (theme: ThemeConfig) => void,
   selectedPack: ThemeConfig | null,
   setSelectedPack: (theme: ThemeConfig | null) => void,
   onEditName: () => void,
@@ -409,7 +410,7 @@ const ProfileView = memo(({ playerName, coins, ownedThemes, selectedThemeId, onS
           selectedPack={selectedPack}
           ownedThemes={ownedThemes}
           selectedThemeId={selectedThemeId}
-          onBuy={() => {}}
+          onBuy={onBuy}
           onSelect={onSelect}
           onClose={() => setSelectedPack(null)}
         />
@@ -422,9 +423,23 @@ const DashboardViewPager = ({ appState, setAppState, onVisibleTabChange, childre
   const scrollTimeout = useRef<number | null>(null);
   const uiTimeout = useRef<number | null>(null);
   const isProgrammaticScroll = useRef(false);
+  const [isReady, setIsReady] = useState(false);
+
+  // Immediate Initial Scroll to Menu (Index 1) on Mount
+  useLayoutEffect(() => {
+    const container = scrollRef.current;
+    if (container && container.children[1]) {
+      // Force immediate non-smooth jump to middle child
+      container.children[1].scrollIntoView({ behavior: 'auto', inline: 'center', block: 'nearest' });
+      // Short delay to ensure browser processed the scroll before showing
+      setTimeout(() => setIsReady(true), 50);
+    }
+  }, []);
 
   // Sync React State -> Scroll Position (only if needed)
   useEffect(() => {
+    if (!isReady) return; // Wait for initial mount scroll
+    
     // If we're loading, default to the main menu (index 1) to avoid flash of store
     const idx = appState === 'store' ? 0 : (appState === 'menu' || appState === 'loading') ? 1 : 2;
     const container = scrollRef.current;
@@ -438,22 +453,24 @@ const DashboardViewPager = ({ appState, setAppState, onVisibleTabChange, childre
     const childCenter = rect.left + rect.width / 2;
 
     // Use a tolerance (e.g., 50px) to determine if it's already centered
-    // This strictly prevents the React effect from fighting the native scroll-snap
-    // Increased to 100px to make it deeply tolerant of minor swipe releases
-    if (Math.abs(childCenter - containerCenter) > 100) {
+    if (Math.abs(childCenter - containerCenter) > 20) {
       isProgrammaticScroll.current = true;
-      child.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+      child.scrollIntoView({ 
+        behavior: 'smooth', 
+        inline: 'center', 
+        block: 'nearest' 
+      });
       
       // Lock scroll tracking while the smooth scroll animation happens
-      // Increased to 1500ms for extreme insensitivity on tap
       setTimeout(() => {
         isProgrammaticScroll.current = false;
-      }, 1500); 
+      }, 1000); 
     }
-  }, [appState]);
+  }, [appState, isReady]);
 
   // Sync Native Scroll Position -> React State (debounced)
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    if (!isReady) return;
     // If the scroll was triggered by our own buttons, ignore it to prevent loops
     if (isProgrammaticScroll.current) return;
 
@@ -514,7 +531,7 @@ const DashboardViewPager = ({ appState, setAppState, onVisibleTabChange, childre
     <div 
       ref={scrollRef}
       onScroll={handleScroll}
-      className="fixed inset-0 w-full h-full flex overflow-x-auto overflow-y-hidden snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] z-0 wood-texture text-game-cream font-body"
+      className={`fixed inset-0 w-full h-full flex overflow-x-auto overflow-y-hidden snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] z-0 wood-texture text-game-cream font-body transition-opacity duration-300 ${isReady ? 'opacity-100' : 'opacity-0'}`}
       dir="rtl"
     >
       {React.Children.toArray(children).map((child, idx) => (
@@ -552,6 +569,19 @@ const App = () => {
   const [editNameInput, setEditNameInput] = useState('');
   const [showEditNameDialog, setShowEditNameDialog] = useState(false);
   const [visibleTab, setVisibleTab] = useState<'store'|'menu'|'profile'>('menu');
+  const [isOnline, setIsOnline] = useState(true);
+
+  // Network Status Listener
+  useEffect(() => {
+    Network.getStatus().then(status => setIsOnline(status.connected));
+    const handlePromise = Network.addListener('networkStatusChange', status => {
+      setIsOnline(status.connected);
+      addLog(`حالة الشبكة: ${status.connected ? 'متصل' : 'منقطع'}`, status.connected ? 'success' : 'error');
+    });
+    return () => {
+      handlePromise.then(h => h.remove());
+    };
+  }, []);
 
   // Player Local State (Syncs with User Profile if logged in)
 
@@ -566,22 +596,50 @@ const App = () => {
   const [ownedThemes, setOwnedThemesState] = useState<string[]>(['normal']);
   const [coins, setCoinsState] = useState(100);
 
-  // Sync state with auth user
+  // Sync state with auth user + Background Persistence
   useEffect(() => {
     if (user && !authLoading) {
       setPlayerNameState(user.displayName);
+      
+      // Merge logic: If local state exists and server is behind, we might need a sync-up
+      // For simplicity, we trust server on initial load, but buyTheme will handle offline writes
       setCoinsState(user.coins);
       setOwnedThemesState(user.purchasedThemes);
       setSelectedThemeIdState(user.equippedTheme);
+
       if (appState === 'loading' || appState === 'auth') {
         setAppState('menu');
       }
     } else if (!user && !authLoading) {
       if (appState === 'loading') {
-        setAppState('menu');
+        const hasSeenAuth = localStorage.getItem('cardclash_hasSeenAuth');
+        if (hasSeenAuth) {
+          setAppState('menu');
+        } else {
+          setAppState('auth');
+          localStorage.setItem('cardclash_hasSeenAuth', 'true');
+        }
       }
     }
   }, [user, authLoading]);
+
+  // Background Sync Effect: Whenever we are online and local state differs from user profile, push updates
+  useEffect(() => {
+    if (user && isOnline && !authLoading) {
+      const needsCoinsSync = coins !== user.coins;
+      const needsThemesSync = JSON.stringify(ownedThemes) !== JSON.stringify(user.purchasedThemes);
+      const needsEquippedSync = selectedThemeId !== user.equippedTheme;
+
+      if (needsCoinsSync || needsThemesSync || needsEquippedSync) {
+        console.log('Background Sync: Pushing local updates to server...');
+        updateProfile({ 
+          coins, 
+          purchasedThemes: ownedThemes, 
+          equippedTheme: selectedThemeId 
+        });
+      }
+    }
+  }, [isOnline, coins, ownedThemes, selectedThemeId, user, authLoading]);
 
   // Auto-redirect to verification if pending
   useEffect(() => {
@@ -680,6 +738,7 @@ const App = () => {
   const [roomId, setRoomId] = useState<string | null>(null);
   const [roomState, setRoomState] = useState<Room | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [isResending, setIsResending] = useState(false);
   const [userIp, setUserIp] = useState<string>('جاري التحميل...');
   const [isSearching, setIsSearching] = useState(false);
@@ -1533,36 +1592,33 @@ const App = () => {
   const buyTheme = async (theme: ThemeConfig) => {
     console.log('Attempting to buy:', theme, 'Coins:', coins);
     if (ownedThemes.includes(theme.id)) {
-      console.log('Already owned');
+      setErrorMsg('أنت تمتلك هذه المجموعة بالفعل');
       return;
     }
-    if (coins >= theme.price) {
-      console.log('Sufficient coins, processing purchase');
-      const newCoins = coins - theme.price;
-      const newOwned = [...ownedThemes, theme.id];
-      
-      // تحديث الحالة المحلية فقط
-      setCoinsState(newCoins);
-      setOwnedThemesState(newOwned);
-      
-      // مزامنة مع السيرفر إذا كان المستخدم مسجلاً (عملية واحدة مجمعة)
-      if (user) {
-        try {
-          // Send a single combined atomic update request to the backend
-          await updateProfile({ coins: newCoins, purchasedThemes: newOwned });
-          addLog(`تم شراء وحفظ ثيم ${theme.name}`, 'success');
-        } catch (err) {
-          addLog(`خطأ في مزامنة الشراء: ${err}`, 'error');
-          // استعادة الحالة في حال الفشل
-          setCoinsState(coins);
-          setOwnedThemesState(ownedThemes);
-        }
-      } else {
-        addLog(`تم شراء ثيم ${theme.name} (محلياً)`, 'success');
-      }
+    if (coins < theme.price) {
+      setErrorMsg('ليس لديك عملات كافية لشراء هذه المجموعة');
+      return;
+    }
+
+    console.log('Sufficient coins, processing purchase');
+    const newCoins = coins - theme.price;
+    const newOwned = [...ownedThemes, theme.id];
+    
+    // تحديث الحالة المحلية فوراً لتجربة مستخدم سريعة (تعمل أوفلاين)
+    setCoinsState(newCoins);
+    setOwnedThemesState(newOwned);
+    setSuccessMsg(`تم شراء مجموعة ${theme.name} بنجاح!`);
+    setTimeout(() => setSuccessMsg(null), 4000);
+    
+    // محاولة المزامنة فوراً (بدون تراجع في حالة الفشل)
+    if (user) {
+      updateProfile({ coins: newCoins, purchasedThemes: newOwned }).then(() => {
+        addLog(`تم شراء ومزامنة ثيم ${theme.name}`, 'success');
+      }).catch(err => {
+        addLog(`تم الشراء محلياً (أوفلاين). سيتم المزامنة لاحقاً.`, 'info');
+      });
     } else {
-      console.log('Insufficient coins');
-      setErrorMsg('عملات غير كافية!');
+      addLog(`تم شراء ثيم ${theme.name} (محلياً)`, 'success');
     }
   };
 
@@ -1572,10 +1628,9 @@ const App = () => {
     <AnimatePresence>
       {errorMsg && (
         <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.95 }}
-          transition={{ duration: 0.1, ease: 'easeOut' }}
+          initial={{ opacity: 0, scale: 0.95, y: -20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: -20 }}
           className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] w-[90%] max-w-md"
         >
           <div className="bg-game-red text-game-cream px-4 py-3 rounded-lg shadow-2xl flex items-center justify-between gap-3 border-4 border-game-dark">
@@ -1585,10 +1640,27 @@ const App = () => {
               </div>
               <p className="text-sm font-display tracking-widest leading-tight text-right">{errorMsg}</p>
             </div>
-            <button 
-              onClick={() => setErrorMsg(null)}
-              className="p-1.5 hover:bg-game-dark/20 rounded-md transition-colors flex-shrink-0"
-            >
+            <button onClick={() => setErrorMsg(null)} className="p-1.5 hover:bg-game-dark/20 rounded-md">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </motion.div>
+      )}
+      {successMsg && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: -20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: -20 }}
+          className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] w-[90%] max-w-md"
+        >
+          <div className="bg-game-teal text-game-dark px-4 py-3 rounded-lg shadow-2xl flex items-center justify-between gap-3 border-4 border-game-dark">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-black/20 flex items-center justify-center flex-shrink-0 border border-game-dark/20">
+                <CheckCircle2 className="w-5 h-5" />
+              </div>
+              <p className="text-sm font-display tracking-widest leading-tight text-right">{successMsg}</p>
+            </div>
+            <button onClick={() => setSuccessMsg(null)} className="p-1.5 hover:bg-black/10 rounded-md">
               <X className="w-5 h-5" />
             </button>
           </div>
@@ -1612,16 +1684,21 @@ const App = () => {
     } else {
       setPlayerNameState(trimmedName);
       localStorage.setItem('cardclash_guestName', trimmedName);
+      localStorage.setItem('cardclash_hasSetGuestName', 'true');
       setShowEditNameDialog(false);
+      // If we were in auth screen (first time guest), move to menu
+      if (appState === 'auth') {
+        setAppState('menu');
+      }
     }
   };
 
   const renderNameEditDialog = () => (
     <div 
       className={`fixed inset-0 z-[250] flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm ${showEditNameDialog ? '' : 'hidden'}`} onClick={() => setShowEditNameDialog(false)}>
-      <div className="w-full max-w-md bg-stone-900 p-6 sm:p-8 rounded-2xl border border-white/5 shadow-2xl space-y-6" onClick={e => e.stopPropagation()}>
+      <div className="w-full max-w-md bg-game-dark/90 p-6 sm:p-8 rounded-2xl border border-white/10 shadow-2xl space-y-6" onClick={e => e.stopPropagation()}>
         <div className="text-center space-y-2">
-          <h3 className="text-xl font-display text-game-offwhite">تغيير الاسم</h3>
+          <h3 className="text-xl font-display text-game-offwhite">ادخل الأسم</h3>
         </div>
         <input 
           type="text" 
@@ -1634,13 +1711,13 @@ const App = () => {
         <div className="flex flex-col gap-3">
           <button 
             onClick={handleUpdateName}
-            className="w-full py-3 bg-game-teal text-white hover:bg-emerald-500 rounded-xl font-display text-lg transition-all active:scale-95 shadow-lg"
+            className="w-full py-3 bg-white/15 backdrop-blur-md border border-white/20 text-game-offwhite hover:bg-white/20 hover:border-white/30 rounded-xl font-display text-lg transition-all active:scale-95 outline-none transform-gpu"
           >
             حفظ التغييرات
           </button>
           <button 
             onClick={() => setShowEditNameDialog(false)}
-            className="w-full py-3 bg-white/5 hover:bg-white/10 text-game-offwhite/60 rounded-xl font-display text-lg transition-all"
+            className="w-full py-3 bg-white/5 backdrop-blur-sm hover:bg-white/10 text-game-offwhite/60 rounded-xl font-display text-lg transition-all border border-white/10 outline-none transform-gpu"
           >
             إلغاء
           </button>
@@ -1698,13 +1775,13 @@ const App = () => {
           <div className="flex bg-black/40 p-1 rounded-xl border border-white/5">
             <button 
               onClick={() => { setAuthTab('login'); setErrorMsg(null); }}
-              className={`flex-1 py-2 rounded-lg font-display transition-all ${authTab === 'login' ? 'bg-game-teal text-game-dark shadow-lg' : 'text-game-offwhite/40 hover:text-game-offwhite'}`}
+              className={`flex-1 py-2 rounded-lg font-display transition-all transform-gpu ${authTab === 'login' ? 'bg-game-teal text-game-dark' : 'text-game-offwhite/40 hover:text-game-offwhite hover:bg-white/5'}`}
             >
               تسجيل دخول
             </button>
             <button 
               onClick={() => { setAuthTab('register'); setErrorMsg(null); }}
-              className={`flex-1 py-2 rounded-lg font-display transition-all ${authTab === 'register' ? 'bg-game-teal text-game-dark shadow-lg' : 'text-game-offwhite/40 hover:text-game-offwhite'}`}
+              className={`flex-1 py-2 rounded-lg font-display transition-all transform-gpu ${authTab === 'register' ? 'bg-game-teal text-game-dark' : 'text-game-offwhite/40 hover:text-game-offwhite hover:bg-white/5'}`}
             >
               إنشاء حساب
             </button>
@@ -1773,9 +1850,9 @@ const App = () => {
             <button 
               type="submit"
               disabled={authSubmitting}
-              className="w-full py-4 bg-game-offwhite hover:bg-white text-black rounded-xl font-display text-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2"
+              className="w-full py-4 bg-white/15 backdrop-blur-md border border-white/20 text-game-offwhite hover:bg-white/20 hover:border-white/30 rounded-xl font-display text-xl transition-all active:scale-95 flex items-center justify-center gap-2 outline-none transform-gpu"
             >
-              {authSubmitting ? <Activity className="w-5 h-5 animate-spin" /> : authTab === 'login' ? <><LogIn className="w-5 h-5" /> دخول المعركة</> : <><UserPlus className="w-5 h-5" /> تسجيل جديد</>}
+              {authSubmitting ? <Activity className="w-5 h-5 animate-spin" /> : authTab === 'login' ? <><LogIn className="w-5 h-5" /> تسجيل الدخول</> : <><UserPlus className="w-5 h-5" /> تسجيل جديد</>}
             </button>
           </form>
           
@@ -1787,10 +1864,16 @@ const App = () => {
 
           <button 
             onClick={() => {
-              if (!playerName) setPlayerNameState('محارب');
-              setAppState('menu');
+              const hasSetGuestName = localStorage.getItem('cardclash_hasSetGuestName');
+              if (!hasSetGuestName) {
+                setEditNameInput('');
+                setShowEditNameDialog(true);
+                // We don't set appState('menu') here yet, we wait for handleUpdateName
+              } else {
+                setAppState('menu');
+              }
             }}
-            className="w-full py-3 bg-white/5 hover:bg-white/10 text-game-offwhite/60 rounded-xl font-display transition-all border border-white/10 active:scale-95 flex items-center justify-center gap-2"
+            className="w-full py-3 bg-white/5 backdrop-blur-sm hover:bg-white/10 text-game-offwhite/60 rounded-xl font-display transition-all border border-white/10 active:scale-95 flex items-center justify-center gap-2 transform-gpu outline-none"
           >
             <User className="w-4 h-4 opacity-50" /> المتابعة كضيف (بدون حساب)
           </button>
@@ -1910,9 +1993,9 @@ const App = () => {
             className="w-full h-full flex flex-col font-body overflow-x-hidden overflow-y-auto select-none"
           >
             <div
-              className="max-w-xs w-full text-center mx-auto py-4 px-4 sm:px-6 pt-16"
+              className="max-w-md w-full text-center mx-auto py-8 px-6 pt-24 min-h-screen flex flex-col justify-center items-center"
             >
-            <div className="mb-6"></div>
+              <div className="mb-8"></div>
             
             <div className="space-y-4 sm:space-y-5">
               {menuTab === 'main' && (
@@ -1940,21 +2023,21 @@ const App = () => {
                     <motion.button
                       whileTap={{ scale: 0.94 }}
                       onClick={() => setMenuTab('online')}
-                      className="w-full sm:w-[90%] mx-auto py-3 sm:py-4 bg-game-teal text-game-dark hover:bg-emerald-400 rounded-lg font-display text-xl sm:text-2xl shadow-lg transition-all flex items-center justify-center gap-2 sm:gap-3"
+                      className="w-full sm:w-[90%] mx-auto py-3 sm:py-4 bg-white/15 backdrop-blur-md border border-white/20 text-game-offwhite hover:bg-white/20 hover:border-white/30 focus:bg-game-teal/20 focus:border-game-teal/50 focus:text-game-teal rounded-lg font-display text-xl sm:text-2xl transition-all flex items-center justify-center gap-2 sm:gap-3 outline-none transform-gpu"
                     >
                       <Globe className="w-5 h-5 sm:w-6 sm:h-6" /> لعب عبر الإنترنت
                     </motion.button>
                     <motion.button
                       whileTap={{ scale: 0.94 }}
                       onClick={() => setMenuTab('local')}
-                      className="w-full sm:w-[90%] mx-auto py-3 sm:py-4 bg-game-offwhite hover:bg-white text-black rounded-lg font-display text-xl sm:text-2xl shadow-lg transition-all flex items-center justify-center gap-2 sm:gap-3"
+                      className="w-full sm:w-[90%] mx-auto py-3 sm:py-4 bg-white/15 backdrop-blur-md border border-white/20 text-game-offwhite hover:bg-white/20 hover:border-white/30 focus:bg-white/20 focus:border-white/50 rounded-lg font-display text-xl sm:text-2xl transition-all flex items-center justify-center gap-2 sm:gap-3 outline-none transform-gpu"
                     >
                       <Home className="w-5 h-5 sm:w-6 sm:h-6" /> شبكة محلية (IP)
                     </motion.button>
                     <motion.button
                       whileTap={{ scale: 0.94 }}
                       onClick={createBotRoom}
-                      className="w-full sm:w-[90%] mx-auto py-3 sm:py-4 bg-game-slate hover:bg-slate-600 text-white rounded-lg font-display text-xl sm:text-2xl shadow-lg transition-all flex items-center justify-center gap-2 sm:gap-3"
+                      className="w-full sm:w-[90%] mx-auto py-3 sm:py-4 bg-white/10 backdrop-blur-md border border-white/10 text-game-offwhite/80 hover:bg-white/15 hover:border-white/20 hover:text-white focus:bg-white/15 focus:border-white/40 focus:text-white rounded-lg font-display text-xl sm:text-2xl transition-all flex items-center justify-center gap-2 sm:gap-3 outline-none transform-gpu"
                     >
                       <Bot className="w-5 h-5 sm:w-6 sm:h-6" /> ضد الكمبيوتر
                     </motion.button>
@@ -1962,14 +2045,14 @@ const App = () => {
                       <motion.button
                         whileTap={{ scale: 0.94 }}
                         onClick={() => setAppState('store')}
-                        className="flex-1 py-3 bg-game-dark/50 hover:bg-game-dark text-game-cream rounded-lg font-display text-lg sm:text-xl shadow-lg transition-all flex items-center justify-center gap-2 border border-white/10"
+                        className="flex-1 py-3 bg-white/5 backdrop-blur-md border border-white/10 text-game-cream/80 hover:bg-white/10 hover:text-white hover:border-white/20 rounded-lg font-display text-lg sm:text-xl transition-all flex items-center justify-center gap-2 outline-none transform-gpu"
                       >
                         <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5" /> المتجر
                       </motion.button>
                       <motion.button
                         whileTap={{ scale: 0.94 }}
                         onClick={() => setAppState('profile')}
-                        className="flex-1 py-3 bg-game-dark/50 hover:bg-game-dark text-game-cream rounded-lg font-display text-lg sm:text-xl shadow-lg transition-all flex items-center justify-center gap-2 border border-white/10"
+                        className="flex-1 py-3 bg-white/5 backdrop-blur-md border border-white/10 text-game-cream/80 hover:bg-white/10 hover:text-white hover:border-white/20 rounded-lg font-display text-lg sm:text-xl transition-all flex items-center justify-center gap-2 outline-none transform-gpu"
                       >
                         <User className="w-4 h-4 sm:w-5 sm:h-5" /> حسابي
                       </motion.button>
@@ -2011,7 +2094,7 @@ const App = () => {
                           <div className="bg-game-dark/90 border border-white/10 p-6 rounded-xl shadow-xl">
                             <div className="flex items-center gap-3 mb-5">
                               <div className="p-2 bg-white/5 rounded-lg border border-game-teal/20">
-                                <Swords className="w-6 h-6 text-game-teal" />
+                                <UserSearch className="w-6 h-6 text-game-teal" />
                               </div>
                               <div className="text-right">
                                 <h3 className="text-game-cream font-display text-lg tracking-widest">بحث عشوائي</h3>
@@ -2021,7 +2104,7 @@ const App = () => {
                             <button
                                onClick={startQuickMatch}
                                disabled={isSearching}
-                               className="w-full py-4 bg-game-teal hover:bg-emerald-400 text-game-dark rounded-xl font-display text-2xl shadow-lg transition-all active:scale-95 disabled:opacity-50"
+                               className="w-full py-3 bg-white/15 backdrop-blur-md border border-white/20 text-game-offwhite hover:bg-white/20 hover:border-white/30 rounded-xl font-display text-2xl transition-all active:scale-95 disabled:opacity-50 outline-none transform-gpu"
                             >
                               مباراة سريعة
                             </button>
@@ -2030,7 +2113,7 @@ const App = () => {
                           <div className="bg-game-dark/90 border border-white/10 p-6 rounded-xl shadow-xl">
                             <div className="flex items-center gap-3 mb-5">
                               <div className="p-2 bg-white/5 rounded-lg border border-white/10">
-                                <Globe className="w-6 h-6 text-game-offwhite" />
+                                <Users className="w-6 h-6 text-game-offwhite" />
                               </div>
                               <div className="text-right">
                                 <h3 className="text-game-cream font-display text-lg tracking-widest">غرفة خاصة</h3>
@@ -2041,7 +2124,7 @@ const App = () => {
                             <button
                                onClick={createOnlineRoom}
                                disabled={isSearching}
-                               className="w-full py-3 mb-6 bg-game-slate hover:bg-slate-600 text-white rounded-lg font-display text-lg transition-all active:scale-95 flex items-center justify-center gap-2 border border-white/10 disabled:opacity-50"
+                               className="w-full py-3 mb-6 bg-white/15 backdrop-blur-md border border-white/20 text-game-offwhite hover:bg-white/20 hover:border-white/30 rounded-lg font-display text-lg transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 outline-none transform-gpu"
                             >
                               <PlusCircle className="w-5 h-5" /> إنشاء غرفة جديدة
                             </button>
@@ -2071,7 +2154,7 @@ const App = () => {
                                     exit={{ opacity: 0, height: 0, marginTop: 0 }}
                                     onClick={joinOnlineRoom}
                                     disabled={isSearching}
-                                    className="w-full py-4 bg-game-teal hover:bg-emerald-400 text-game-dark rounded-xl font-display text-xl shadow-lg transition-all active:scale-95 overflow-hidden"
+                                    className="w-full py-4 bg-white/15 backdrop-blur-md border border-white/20 text-game-offwhite hover:bg-white/20 hover:border-white/30 rounded-xl font-display text-xl transition-all active:scale-95 overflow-hidden outline-none transform-gpu"
                                   >
                                     دخول
                                   </motion.button>
@@ -2122,7 +2205,7 @@ const App = () => {
                       <div className="flex items-center justify-between mb-5">
                         <div className="flex items-center gap-3">
                           <div className="p-2 bg-white/5 rounded-lg border border-white/10">
-                            <Globe className="w-5 h-5 text-game-offwhite" />
+                            <NetworkIcon className="w-5 h-5 text-game-offwhite" />
                           </div>
                           <div className="text-right">
                             <h3 className="text-game-cream font-display text-lg tracking-widest">استضافة لعبة</h3>
@@ -2140,9 +2223,9 @@ const App = () => {
                       
                       <button
                         onClick={hostGame}
-                        className="w-full py-3.5 bg-game-slate hover:bg-slate-600 text-white rounded-lg font-display text-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2"
+                        className="w-full py-3.5 bg-white/15 backdrop-blur-md border border-white/20 text-game-offwhite hover:bg-white/20 hover:border-white/30 rounded-lg font-display text-xl transition-all active:scale-95 flex items-center justify-center gap-2 outline-none transform-gpu"
                       >
-                        بدء الاستضافة (Host)
+                        بدء الاستضافة
                       </button>
                       
                       <p className="text-[10px] text-game-cream/40 text-center mt-3 px-2 leading-relaxed opacity-70 font-body italic">
@@ -2154,7 +2237,7 @@ const App = () => {
                     <div className="bg-game-dark/90 border border-white/10 p-6 rounded-xl shadow-2xl">
                       <div className="flex items-center gap-3 mb-5">
                         <div className="p-2 bg-white/5 rounded-lg border border-white/10">
-                          <Bot className="w-5 h-5 text-game-offwhite" />
+                          <PlugZap className="w-5 h-5 text-game-offwhite" />
                         </div>
                         <div className="text-right">
                           <h3 className="text-game-cream font-display text-lg tracking-widest">انضمام لصديق</h3>
@@ -2178,7 +2261,7 @@ const App = () => {
                           >
                             <button
                               onClick={joinGame}
-                              className="w-full py-3 bg-game-teal hover:bg-emerald-400 text-game-dark rounded-lg font-display text-xl shadow-lg transition-all active:scale-95"
+                              className="w-full py-3 bg-white/15 backdrop-blur-md border border-white/20 text-game-offwhite hover:bg-white/20 hover:border-white/30 rounded-lg font-display text-xl transition-all active:scale-95 outline-none transform-gpu"
                             >
                               اتصال
                             </button>
@@ -2197,7 +2280,8 @@ const App = () => {
               coins={coins}
               ownedThemes={ownedThemes}
               selectedThemeId={selectedThemeId}
-              onSelect={(id) => {
+              onBuy={buyTheme}
+              onSelect={(id: string) => {
                 setSelectedThemeId(id);
                 setSelectedPack(null);
               }}
