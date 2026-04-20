@@ -118,13 +118,13 @@ After ANY change, ensure:
 # 🧩 TASK TRACKING
 
 ## LAST TASK
-Refactored the App.tsx background sync `useEffect` by implementing a `lastSyncPayload` reference lock block. This permanently stops duplicate JSON payloads from firing simultaneously as a result of React lifecycle multi-rendering while an API POST request is pending execution.
+Implemented a custom `iconScale` property for themes. This allows manual control over the visual size of card icons (Rock, Paper, Scissors) on a per-theme basis to ensure visual balance across different icon sets.
 
 ## CURRENT SUBTASK
-Waiting for user confirmation that changing themes only logs 1 server `POST` profile update instead of 2.
+Waiting for user to test and adjust scale values in `src/themes.ts`.
 
 ## NEXT STEP
-Review frontend logic to guarantee real-time websocket matches process connections smoothly with the stable identities now available.
+Finalize visual adjustments for any small icons in the library.
 
 ---
 
@@ -175,6 +175,7 @@ Review frontend logic to guarantee real-time websocket matches process connectio
 - [2026-04-20] → Patched CRITICAL Database Race Condition in `buyTheme`. Raw state setters (`setCoinsState`, `setOwnedThemesState`) replace wrapped helper methods to prevent parallel simultaneous `post` requests that triggered MongoDB write conflicts and desynchronized user purchases.
 - [2026-04-20] → Implemented Guest Sandbox Reset on logout to prevent state leakage and ensure subsequent guest sessions start fresh without retaining previous authenticated stats.
 - [2026-04-20] → Patched Background Sync "Duplicate API Request" bug by implementing a `lastSyncPayload` stringified lock guard preventing React Effect cascade loops on minor UI interactions.
+- [2026-04-20] → Added `iconScale` property to `ThemeConfig` and updated `App.tsx` components to dynamically scale card icons based on theme settings.
 
 ---
 

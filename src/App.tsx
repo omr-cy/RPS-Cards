@@ -105,6 +105,7 @@ const FloatingCard = memo(({ theme, type, idx }: { theme: ThemeConfig, type: Car
         src={getCardImagePath(theme, type)} 
         alt={type} 
         className="w-full h-full object-contain relative z-10 drop-shadow-lg" 
+        style={{ transform: `scale(${(theme.iconScale || 100) / 100})` }}
         referrerPolicy="no-referrer" 
       />
     </div>
@@ -136,7 +137,13 @@ const CardPack = memo(({ theme, isOwned, isSelected, onClick, onSelect }: {
     <div className="relative w-24 sm:w-32 aspect-[3/4] mb-4">
       <div className={`absolute inset-0 rounded-xl shadow-sm transform -rotate-3 translate-x-[-4%] translate-y-[2%] opacity-20 ${theme.frontColor} border border-white/5`} />
       <div className={`absolute inset-0 rounded-xl shadow-md flex flex-col items-center justify-center p-2 ${theme.frontColor} border-2 ${isSelected ? 'border-game-slate ring-2 ring-game-slate/20' : 'border-white/20'} z-10 overflow-hidden`}>
-        <img src={getCardImagePath(theme, 'rock')} alt="rock" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+        <img 
+          src={getCardImagePath(theme, 'rock')} 
+          alt="rock" 
+          className="w-full h-full object-contain" 
+          style={{ transform: `scale(${(theme.iconScale || 100) / 100})` }}
+          referrerPolicy="no-referrer" 
+        />
         {isOwned && (
           <div 
             onClick={(e) => { e.stopPropagation(); onSelect(); }}
@@ -2766,7 +2773,13 @@ const CardCount = memo(({ type, count, theme }: { type: CardType, count: number,
         transition={{ duration: 0.05, ease: "linear" }}
         className={`w-full max-w-[4.5rem] aspect-[3/4] rounded-lg flex items-center justify-center gpu-accelerated overflow-hidden ${isAvailable ? `${theme.frontColor}` : 'bg-game-dark'}`}
       >
-        <img src={getCardImagePath(theme, type)} alt={CARD_NAMES[type]} className="w-2/3 h-2/3 object-contain" referrerPolicy="no-referrer" />
+        <img 
+          src={getCardImagePath(theme, type)} 
+          alt={CARD_NAMES[type]} 
+          className="w-2/3 h-2/3 object-contain" 
+          style={{ transform: `scale(${(theme.iconScale || 100) / 100})` }}
+          referrerPolicy="no-referrer" 
+        />
       </motion.div>
       <motion.div 
         animate={{ 
@@ -2811,7 +2824,13 @@ const PlayableCard = memo(({ type, count, onClick, disabled, theme }: { type: Ca
         {count}
       </div>
       <div className={`w-full max-w-[7.5rem] aspect-[3/4] rounded-lg flex items-center justify-center overflow-hidden ${isAvailable && !disabled ? `${theme.frontColor}` : 'bg-game-dark'}`}>
-        <img src={getCardImagePath(theme, type)} alt={CARD_NAMES[type]} className="w-2/3 h-2/3 object-contain" referrerPolicy="no-referrer" />
+        <img 
+          src={getCardImagePath(theme, type)} 
+          alt={CARD_NAMES[type]} 
+          className="w-2/3 h-2/3 object-contain" 
+          style={{ transform: `scale(${(theme.iconScale || 100) / 100})` }}
+          referrerPolicy="no-referrer" 
+        />
       </div>
       <span className="text-[10px] sm:text-xs font-display text-game-cream tracking-wider uppercase opacity-80">{CARD_NAMES[type]}</span>
     </motion.button>
@@ -2870,7 +2889,13 @@ const PlayedCard = memo(({ type, isPlayer, winner, faceDown = false, theme }: { 
         }}
       >
         <span className="relative z-10">
-          <img src={getCardImagePath(theme, type)} alt={CARD_NAMES[type]} className="w-10 h-10 sm:w-16 sm:h-16 object-contain drop-shadow-2xl" referrerPolicy="no-referrer" />
+          <img 
+            src={getCardImagePath(theme, type)} 
+            alt={CARD_NAMES[type]} 
+            className="w-10 h-10 sm:w-16 sm:h-16 object-contain drop-shadow-2xl" 
+            style={{ transform: `scale(${(theme.iconScale || 100) / 100})` }}
+            referrerPolicy="no-referrer" 
+          />
         </span>
       </div>
 

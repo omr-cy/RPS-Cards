@@ -14,6 +14,7 @@ export interface ThemeConfig {
   counterTextColor: string;
   extension?: 'svg' | 'png' | 'jpg';
   isDefault?: boolean;
+  iconScale?: number; // percentage, e.g. 100 for 100%
 }
 
 export const THEMES: ThemeConfig[] = [
@@ -29,7 +30,8 @@ export const THEMES: ThemeConfig[] = [
     backIcon: 'default',
     counterBgColor: 'bg-[#6F5C57]',
     counterTextColor: 'text-[#F5F5F5]',
-    extension: 'svg'
+    extension: 'svg',
+    iconScale: 125
   },
   {
     id: 'bone',
@@ -41,7 +43,8 @@ export const THEMES: ThemeConfig[] = [
     backIcon: 'default',
     counterBgColor: 'bg-[#121212]',
     counterTextColor: 'text-[#F5F5F5]',
-    extension: 'svg'
+    extension: 'svg',
+    iconScale: 100
   },
   {
     id: 'robot',
@@ -52,7 +55,8 @@ export const THEMES: ThemeConfig[] = [
     backColor: 'bg-[#0E65A4]',
     backIcon: 'default',
     counterBgColor: 'bg-[#0E65A4]',
-    counterTextColor: 'text-[#F5F5F5]'
+    counterTextColor: 'text-[#F5F5F5]',
+    iconScale: 100
   },
   {
     id: 'toyes',
@@ -63,7 +67,8 @@ export const THEMES: ThemeConfig[] = [
     backColor: 'bg-[#BC4A00]',
     backIcon: 'default',
     counterBgColor: 'bg-[#BC4A00]',
-    counterTextColor: 'text-[#F5F5F5]'
+    counterTextColor: 'text-[#F5F5F5]',
+    iconScale: 100
   },
   {
     id: 'cats',
@@ -74,7 +79,8 @@ export const THEMES: ThemeConfig[] = [
     backColor: 'bg-[#C87874]',
     backIcon: 'default',
     counterBgColor: 'bg-[#C87874]',
-    counterTextColor: 'text-[#F5F5F5]'
+    counterTextColor: 'text-[#F5F5F5]',
+    iconScale: 150
   },
     {
     id: 'building_tools',
@@ -85,7 +91,8 @@ export const THEMES: ThemeConfig[] = [
     backColor: 'bg-[#E9B41C]',
     backIcon: 'default',
     counterBgColor: 'bg-[#E9B41C]',
-    counterTextColor: 'text-[#121212]'
+    counterTextColor: 'text-[#121212]',
+    iconScale: 100
   },
   // {
   //   id: 'bone',
