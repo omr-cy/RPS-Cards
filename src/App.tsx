@@ -608,7 +608,7 @@ const App = () => {
     return stored ? parseInt(stored, 10) : 100;
   });
 
-  // Persist local state whenever it changes
+  // Local state persistence
   useEffect(() => {
     localStorage.setItem('cardclash_guestName', playerName);
     localStorage.setItem('cardclash_selectedThemeId', selectedThemeId);
@@ -618,6 +618,7 @@ const App = () => {
 
   // Sync state with auth user (Initial load only)
   const isProfileInitialized = useRef(false);
+  const lastSyncPayload = useRef<string | null>(null);
 
   useEffect(() => {
     if (user && !authLoading && !isProfileInitialized.current) {
@@ -660,19 +661,27 @@ const App = () => {
       const needsEquippedSync = selectedThemeId !== user.equippedTheme;
 
       if (needsNameSync || needsCoinsSync || needsThemesSync || needsEquippedSync) {
-        // We only sync if there is a real difference to avoid loops
-        console.log('Background Sync: Pushing local updates to server...', { needsNameSync, needsCoinsSync, needsThemesSync, needsEquippedSync });
-        
-        // Debounce sync slightly to avoid rapid-fire updates
-        const timeout = setTimeout(() => {
-          updateProfile({ 
-            displayName: playerName,
-            coins, 
-            purchasedThemes: ownedThemes, 
-            equippedTheme: selectedThemeId 
-          });
-        }, 500);
-        return () => clearTimeout(timeout);
+        const payload = { 
+          displayName: playerName,
+          coins, 
+          purchasedThemes: ownedThemes, 
+          equippedTheme: selectedThemeId 
+        };
+        const payloadStr = JSON.stringify(payload);
+
+        // Prevent identical parallel/chained requests resulting from React re-renders mid-API call
+        if (lastSyncPayload.current !== payloadStr) {
+          console.log('Background Sync: Pushing local updates to server...', { needsNameSync, needsCoinsSync, needsThemesSync, needsEquippedSync });
+          
+          const timeout = setTimeout(() => {
+            lastSyncPayload.current = payloadStr;
+            updateProfile(payload);
+          }, 500);
+          return () => clearTimeout(timeout);
+        }
+      } else {
+        // Unlock if perfectly synchronized
+        lastSyncPayload.current = null;
       }
     }
   }, [isOnline, playerName, coins, ownedThemes, selectedThemeId, user, authLoading, updateProfile]);
@@ -1774,6 +1783,28 @@ const App = () => {
     </div>
   );
 
+  const handleLogout = () => {
+    // 1. Clears guest tracking values from Local Storage so the app resets to default values 
+    //    instead of retaining the previous user's coins/themes for the guest.
+    localStorage.removeItem('cardclash_guestName');
+    localStorage.removeItem('cardclash_playerId');
+    localStorage.removeItem('cardclash_selectedThemeId');
+    localStorage.removeItem('cardclash_ownedThemes');
+    localStorage.removeItem('cardclash_coins');
+    
+    // 2. Reset the React States Natively
+    setPlayerNameState('محارب');
+    const newId = Math.random().toString(36).substring(2, 12);
+    setPlayerId(newId);
+    localStorage.setItem('cardclash_playerId', newId);
+    setSelectedThemeIdState('normal');
+    setOwnedThemesState(['normal']);
+    setCoinsState(100);
+
+    // 3. Clear auth context
+    logout();
+  };
+
   const renderExitConfirm = () => (
     <AnimatePresence>
       {showExitConfirm && (
@@ -2016,7 +2047,7 @@ const App = () => {
           coins={coins}
           playerName={playerName}
           isGuest={!user}
-          onLogout={logout}
+          onLogout={handleLogout}
           onLoginClick={() => {
             setAppState('auth');
             setAuthTab('login');

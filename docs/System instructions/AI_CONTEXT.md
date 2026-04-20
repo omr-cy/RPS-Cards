@@ -118,20 +118,21 @@ After ANY change, ensure:
 # 🧩 TASK TRACKING
 
 ## LAST TASK
-Removed the framer-motion animation wrapper from the authentication window (`appState === 'auth'`) and converted it to a standard `div` to ensure it immediately renders when clicked, providing a much faster UX flow.
+Refactored the App.tsx background sync `useEffect` by implementing a `lastSyncPayload` reference lock block. This permanently stops duplicate JSON payloads from firing simultaneously as a result of React lifecycle multi-rendering while an API POST request is pending execution.
 
 ## CURRENT SUBTASK
-Waiting for user confirmation on the immediate appearance of the auth screen and ready for further instructions.
+Waiting for user confirmation that changing themes only logs 1 server `POST` profile update instead of 2.
 
 ## NEXT STEP
-Review App.tsx for any other forced navigation triggers and ensure consistent behavior across modes.
+Review frontend logic to guarantee real-time websocket matches process connections smoothly with the stable identities now available.
 
 ---
 
 # 🧠 LAST AI SUMMARY
-- The user requested that the authentication screen (Login / Register) open instantly without any transition or animation delays.
-- I modified `appState === 'auth'` block in `App.tsx`, replacing the `<motion.div>` wrapper (which had `initial` and `animate` props for fading/sliding in) with a standard HTML `<div>`.
-- This ensures the UI directly blocks on the next render cycle, instantly showing the auth modal with zero delay, making the experience snappier for the fast-paced nature of the app.
+- Found a React rendering race condition. When a user updated a "minor change" like equipping a theme, `App.tsx` began a 500ms debounce to send a background sync POST HTTP Request.
+- When `updateProfile` sent the request, Capacitor's `nativeFetch` logged the API request event through `DebugContext` which triggered a state cascade, forcing `AuthContext` to get a new Object Reference for `updateProfile`.
+- This un-memoized recreation triggered the exact same `App.tsx` background sync hook AGAIN because the `user` HTTP resolution had not happened yet over the internet.
+- Implemented `const lastSyncPayload = useRef<string | null>(null);` and compared incoming payloads. This effectively acts as an asynchronous queue guard so you can rapidly tap things in the UI without causing database spam.
 
 ---
 
@@ -172,6 +173,8 @@ Review App.tsx for any other forced navigation triggers and ensure consistent be
 - [2026-04-20] → Fixed `DashboardViewPager` so 'loading' state directly maps to 'menu' interface, bypassing any initial Store flash.
 - [2026-04-20] → Fixed `Uncaught ReferenceError: onBuy is not defined` bug in ProfileView rendering of PackPreviewModal by feeding empty interaction function.
 - [2026-04-20] → Patched CRITICAL Database Race Condition in `buyTheme`. Raw state setters (`setCoinsState`, `setOwnedThemesState`) replace wrapped helper methods to prevent parallel simultaneous `post` requests that triggered MongoDB write conflicts and desynchronized user purchases.
+- [2026-04-20] → Implemented Guest Sandbox Reset on logout to prevent state leakage and ensure subsequent guest sessions start fresh without retaining previous authenticated stats.
+- [2026-04-20] → Patched Background Sync "Duplicate API Request" bug by implementing a `lastSyncPayload` stringified lock guard preventing React Effect cascade loops on minor UI interactions.
 
 ---
 
