@@ -591,6 +591,13 @@ const App = () => {
     }
   }, [appState]);
   const [playerName, setPlayerNameState] = useState(() => localStorage.getItem('cardclash_guestName') || 'محارب');
+  const [playerId, setPlayerId] = useState(() => {
+    const stored = localStorage.getItem('cardclash_playerId');
+    if (stored) return stored;
+    const newId = Math.random().toString(36).substring(2, 12);
+    localStorage.setItem('cardclash_playerId', newId);
+    return newId;
+  });
   const [selectedThemeId, setSelectedThemeIdState] = useState('normal');
   const [ownedThemes, setOwnedThemesState] = useState<string[]>(['normal']);
   const [coins, setCoinsState] = useState(100);
@@ -599,6 +606,7 @@ const App = () => {
   useEffect(() => {
     if (user && !authLoading) {
       setPlayerNameState(user.displayName);
+      setPlayerId(user._id);
       
       // Merge logic: If local state exists and server is behind, we might need a sync-up
       // For simplicity, we trust server on initial load, but buyTheme will handle offline writes
@@ -797,6 +805,7 @@ const App = () => {
   const roomIdRef = useRef<string | null>(null);
   const roomStateRef = useRef<Room | null>(null);
   const playerNameRef = useRef<string>('');
+  const playerIdRef = useRef<string>('');
   const selectedThemeIdRef = useRef<string>('normal');
   const appStateRef = useRef(appState);
   const roleRef = useRef(role);
@@ -806,6 +815,7 @@ const App = () => {
     roomIdRef.current = roomId;
     roomStateRef.current = roomState;
     playerNameRef.current = playerName;
+    playerIdRef.current = playerId;
     selectedThemeIdRef.current = selectedThemeId;
     appStateRef.current = appState;
     roleRef.current = role;
@@ -1020,9 +1030,19 @@ const App = () => {
       if (Capacitor.isNativePlatform()) {
         LocalServer.getStatus().then(status => {
           if (status.role === 'HOST') {
-            sendNativeAction({ type: 'host_join', playerName: playerNameRef.current, themeId: selectedThemeIdRef.current });
+            sendNativeAction({ 
+              type: 'host_join', 
+              playerName: playerNameRef.current, 
+              playerId: playerIdRef.current,
+              themeId: selectedThemeIdRef.current 
+            });
           } else if (status.role === 'CLIENT') {
-            sendNativeAction({ type: 'join_game', playerName: playerNameRef.current, themeId: selectedThemeIdRef.current });
+            sendNativeAction({ 
+              type: 'join_game', 
+              playerName: playerNameRef.current, 
+              playerId: playerIdRef.current,
+              themeId: selectedThemeIdRef.current 
+            });
           }
         }).catch(e => addLog(`Failed to get status: ${e}`, 'error'));
       }
@@ -1379,7 +1399,12 @@ const App = () => {
 
   const startQuickMatch = () => {
     if (!playerNameRef.current.trim()) return setErrorMsg('يرجى إدخال اسمك أولاً');
-    connectToOnline({ type: 'quick_match', playerName: playerNameRef.current.trim(), themeId: selectedThemeIdRef.current }).catch(() => {});
+    connectToOnline({ 
+      type: 'quick_match', 
+      playerName: playerNameRef.current.trim(), 
+      playerId: playerIdRef.current,
+      themeId: selectedThemeIdRef.current 
+    }).catch(() => {});
   };
 
   const cancelSearch = () => {
@@ -1389,13 +1414,24 @@ const App = () => {
 
   const createOnlineRoom = () => {
     if (!playerNameRef.current.trim()) return setErrorMsg('يرجى إدخال اسمك أولاً');
-    connectToOnline({ type: 'create_room', playerName: playerNameRef.current.trim(), themeId: selectedThemeIdRef.current }).catch(() => {});
+    connectToOnline({ 
+      type: 'create_room', 
+      playerName: playerNameRef.current.trim(), 
+      playerId: playerIdRef.current,
+      themeId: selectedThemeIdRef.current 
+    }).catch(() => {});
   };
 
   const joinOnlineRoom = () => {
     if (!roomIdInput.trim()) return setErrorMsg('يرجى إدخال رمز الغرفة');
     if (!playerNameRef.current.trim()) return setErrorMsg('يرجى إدخال اسمك أولاً');
-    connectToOnline({ type: 'join_room_by_code', roomCode: roomIdInput.trim(), playerName: playerNameRef.current.trim(), themeId: selectedThemeIdRef.current }).catch(() => {});
+    connectToOnline({ 
+      type: 'join_room_by_code', 
+      roomCode: roomIdInput.trim(), 
+      playerName: playerNameRef.current.trim(), 
+      playerId: playerIdRef.current,
+      themeId: selectedThemeIdRef.current 
+    }).catch(() => {});
   };
 
   const createBotRoom = () => {
@@ -2328,6 +2364,8 @@ const App = () => {
   let myId = '';
   if (roomState.isBotRoom) {
     myId = 'me';
+  } else if (roomState.players[playerId]) {
+    myId = playerId;
   } else if (role === 'HOST') {
     myId = 'host';
   } else {

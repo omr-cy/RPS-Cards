@@ -526,8 +526,8 @@ async function startServer() {
   });
 
   wss.on('connection', (ws) => {
-    const socketId = Math.random().toString(36).substring(2, 10);
-    console.log(`[WS] New connection attempt. ID: ${socketId}`);
+    let effectivePlayerId = Math.random().toString(36).substring(2, 10);
+    console.log(`[WS] New connection attempt. Temp ID: ${effectivePlayerId}`);
 
     ws.send(JSON.stringify({ type: 'PING' }));
 
@@ -535,7 +535,13 @@ async function startServer() {
       try {
         const messageString = data.toString();
         const message = JSON.parse(messageString);
-        console.log(`[WS] Message from ${socketId}:`, message.type);
+        
+        // Use client-provided ID if available (persistent for registered users)
+        if (message.playerId) {
+          effectivePlayerId = message.playerId;
+        }
+
+        console.log(`[WS] Message from ${effectivePlayerId}:`, message.type);
         
         if (message.type === 'PONG') return;
 
@@ -544,7 +550,7 @@ async function startServer() {
           rooms[roomId] = {
             id: roomId,
             players: {
-              [socketId]: { id: socketId, name: message.playerName || 'لاعب', themeId: message.themeId || 'normal', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false, ws }
+              [effectivePlayerId]: { id: effectivePlayerId, name: message.playerName || 'لاعب', themeId: message.themeId || 'normal', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false, ws }
             },
             gameState: 'waiting',
             round: 1,
@@ -567,7 +573,7 @@ async function startServer() {
             return;
           }
 
-          room.players[socketId] = { id: socketId, name: message.playerName || 'لاعب', themeId: message.themeId || 'normal', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false, ws };
+          room.players[effectivePlayerId] = { id: effectivePlayerId, name: message.playerName || 'لاعب', themeId: message.themeId || 'normal', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false, ws };
           room.gameState = 'playing';
           ws.send(JSON.stringify({ type: 'joined_room_success', roomId: code }));
           startRoundTimer(code);
@@ -575,10 +581,10 @@ async function startServer() {
         }
 
         if (message.type === 'quick_match') {
-          if (matchmakingQueue.find(p => p.id === socketId)) return;
+          if (matchmakingQueue.find(p => p.id === effectivePlayerId)) return;
 
           matchmakingQueue.push({
-            id: socketId,
+            id: effectivePlayerId,
             name: message.playerName || 'لاعب',
             themeId: message.themeId || 'normal',
             ws: ws
@@ -610,7 +616,7 @@ async function startServer() {
         }
 
         if (message.type === 'cancel_matchmaking') {
-          const idx = matchmakingQueue.findIndex(p => p.id === socketId);
+          const idx = matchmakingQueue.findIndex(p => p.id === effectivePlayerId);
           if (idx !== -1) matchmakingQueue.splice(idx, 1);
         }
 
@@ -618,8 +624,8 @@ async function startServer() {
           const { roomId, choice } = message;
           const room = rooms[roomId];
           
-          if (room && room.gameState === 'playing' && room.players[socketId]) {
-            const player = room.players[socketId];
+          if (room && room.gameState === 'playing' && room.players[effectivePlayerId]) {
+            const player = room.players[effectivePlayerId];
             if (!player.choice && player.deck[choice as CardType] > 0) {
               player.choice = choice as CardType;
               player.deck[choice as CardType] -= 1;
@@ -638,7 +644,7 @@ async function startServer() {
           const { roomId } = message;
           const room = rooms[roomId];
           if (room && room.gameState === 'gameOver') {
-            room.players[socketId].readyForNext = true;
+            room.players[effectivePlayerId].readyForNext = true;
             broadcastToRoom(roomId, { type: 'room_state', state: room });
             
             const allReady = Object.values(room.players).every(p => p.readyForNext);
@@ -660,7 +666,7 @@ async function startServer() {
 
         if (message.type === 'leave_room') {
           const { roomId } = message;
-          handleDisconnect(socketId, roomId);
+          handleDisconnect(effectivePlayerId, roomId);
         }
 
       } catch (e) {
@@ -669,8 +675,8 @@ async function startServer() {
     });
 
     ws.on('close', () => {
-      console.log('Online User disconnected:', socketId);
-      handleDisconnect(socketId);
+      console.log('Online User disconnected:', effectivePlayerId);
+      handleDisconnect(effectivePlayerId);
     });
 
     function handleDisconnect(id: string, specificRoomId?: string) {
