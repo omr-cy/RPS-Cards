@@ -23,21 +23,13 @@
   transform: translateZ(0);
 }
 
+
 @utility text-stroke-white {
   -webkit-text-stroke: 1px rgba(245, 245, 245, 0.4);
 }
 
 @utility text-stroke-black {
   -webkit-text-stroke: 2px #121212;
-}
-
-.inline-preload {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  pointer-events: none;
-  z-index: -999;
 }
 
 @layer base {
@@ -118,4 +110,18 @@
 @keyframes shimmer {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(100%); }
+}
+
+@keyframes gentle-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+.animate-gentle-float {
+  animation: gentle-float 4s linear infinite;
+  will-change: transform;
+}
+
+.paused {
+  animation-play-state: paused;
 }

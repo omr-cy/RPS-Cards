@@ -450,7 +450,7 @@ async function startServer() {
 
   app.get('/api/auth/verify', async (req, res) => {
     try {
-      const { token } = req.query;
+      const token = req.query.token as string;
       const user = await User.findOne({ verificationToken: token });
 
       if (!user) {
@@ -477,7 +477,7 @@ async function startServer() {
   app.get('/api/profile/:id', async (req, res) => {
     try {
       const user = await User.findById(req.params.id);
-      if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
+      if (!user || !user.save) return res.status(404).json({ error: 'المستخدم غير موجود' });
       
       const userResponse = user.toObject();
       delete userResponse.password;
@@ -489,13 +489,19 @@ async function startServer() {
 
   app.post('/api/profile/:id', async (req, res) => {
     try {
-      const { displayName, themeId, coins } = req.body;
+      const { displayName, themeId, coins, purchasedThemes } = req.body;
       const user = await User.findById(req.params.id);
-      if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
+      if (!user || !user.save) return res.status(404).json({ error: 'المستخدم غير موجود' });
 
       if (displayName) user.displayName = displayName;
       if (themeId) user.equippedTheme = themeId;
       if (coins !== undefined) user.coins = coins;
+      if (purchasedThemes) {
+        // Ensure we don't duplicate themes and keep 'normal'
+        const existingThemes: string[] = user.purchasedThemes || ['normal'];
+        const combined = Array.from(new Set([...existingThemes, ...purchasedThemes]));
+        user.purchasedThemes = combined;
+      }
 
       await user.save();
       

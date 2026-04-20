@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, memo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Bot, Globe, Home, Trophy, XCircle, Minus, Copy, Edit2, Bug, X, Wifi, ShieldCheck, Activity, ShoppingCart, User, LogIn, LogOut, Swords, PlusCircle, Mail, Lock, UserPlus, Info } from 'lucide-react';
+import { Bot, Globe, Home, Trophy, XCircle, Minus, Copy, Edit2, Bug, X, Wifi, ShieldCheck, Activity, ShoppingCart, User, LogIn, LogOut, Swords, PlusCircle, Mail, Lock, UserPlus, Info, ArrowRight, ArrowLeft, ChevronRight, ChevronLeft } from 'lucide-react';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { SplashScreen } from '@capacitor/splash-screen';
 import { Network } from '@capacitor/network';
@@ -39,12 +39,13 @@ export const LocalServer = registerPlugin<LocalServerPlugin>('LocalServer');
 import { assetPreloader } from './lib/preloader';
 import { THEMES, getTheme, getCardImagePath, getThemeBackIcon, ThemeConfig, CardType } from './themes';
 
+// Removed local LogEntry interface
+
 interface Deck {
   rock: number;
   paper: number;
   scissors: number;
 }
-
 interface Player {
   id: string;
   name: string;
@@ -79,19 +80,25 @@ const INITIAL_DECK: Deck = { rock: 3, paper: 3, scissors: 3 };
 // Removed local LogEntry interface
 
 const FloatingCard = memo(({ theme, type, idx }: { theme: ThemeConfig, type: CardType, idx: number }) => {
+  const [isVisible, setIsVisible] = useState(true);
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver((entries) => {
+      setIsVisible(entries[0].isIntersecting);
+    }, { threshold: 0.1 });
+
+    if (cardRef.current) observer.observe(cardRef.current);
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <motion.div
-      animate={{ 
-        y: [0, -12, 0],
-        rotate: idx % 2 === 0 ? [-2, 2, -2] : [2, -2, 2]
+    <div 
+      ref={cardRef}
+      className={`w-20 sm:w-36 aspect-[3/4] rounded-2xl shadow-xl flex items-center justify-center p-2 sm:p-3 ${theme.frontColor} border-2 border-white/20 relative animate-gentle-float ${!isVisible ? 'paused' : ''}`}
+      style={{ 
+        animationDelay: `${idx * 0.5}s`
       }}
-      transition={{
-        duration: 4,
-        repeat: Infinity,
-        ease: "easeInOut",
-        delay: idx * 0.3
-      }}
-      className={`w-20 sm:w-36 aspect-[3/4] rounded-2xl shadow-xl flex items-center justify-center p-2 sm:p-3 ${theme.frontColor} border-2 border-white/20 relative gpu-accelerated`}
     >
       <div className="absolute inset-0 bg-gradient-to-tr from-white/20 to-transparent opacity-30" />
       <img 
@@ -100,7 +107,7 @@ const FloatingCard = memo(({ theme, type, idx }: { theme: ThemeConfig, type: Car
         className="w-full h-full object-contain relative z-10 drop-shadow-lg" 
         referrerPolicy="no-referrer" 
       />
-    </motion.div>
+    </div>
   );
 });
 
@@ -162,71 +169,147 @@ const CardPack = memo(({ theme, isOwned, isSelected, onClick, onSelect }: {
 ));
 
 const PackPreviewModal = memo(({ selectedPack, ownedThemes, selectedThemeId, onBuy, onSelect, onClose }: {
-  selectedPack: ThemeConfig,
+  selectedPack: ThemeConfig | null,
   ownedThemes: string[],
   selectedThemeId: string,
   onBuy: (theme: ThemeConfig) => void,
   onSelect: (id: string) => void,
   onClose: () => void
-}) => (
-  <div 
-    className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/90"
-    onClick={onClose}
-  >
+}) => {
+  if (!selectedPack) return null;
+  return (
     <div 
-      className="bg-game-dark/90 w-full max-w-2xl rounded-3xl p-6 sm:p-10 border border-white/10 shadow-2xl relative overflow-hidden"
-      onClick={e => e.stopPropagation()}
+      className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm"
+      onClick={onClose}
     >
-      <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 rounded-full opacity-10 ${selectedPack.frontColor}`} />
-      <div className="relative z-10 flex flex-col items-center">
-        <h2 className="text-3xl sm:text-4xl font-display text-game-offwhite mb-2">{selectedPack.name}</h2>
-        <p className="text-game-offwhite/60 font-display mb-12">مجموعة البطاقات الكاملة</p>
-        <div className="flex justify-center items-center gap-2 sm:gap-8 mb-16 w-full px-2">
-          {['scissors', 'paper', 'rock'].map((type, idx) => (
-            <FloatingCard key={type} theme={selectedPack} type={type as CardType} idx={idx} />
-          ))}
-        </div>
-        <div className="flex flex-col sm:flex-row gap-4 w-full max-w-md">
-          {ownedThemes.includes(selectedPack.id) ? (
-            <motion.button 
-              whileTap={{ scale: 0.95 }}
-              onClick={() => onSelect(selectedPack.id)}
-              disabled={selectedThemeId === selectedPack.id}
-              className={`flex-1 py-4 rounded-xl font-display text-2xl transition-all shadow-lg ${
-                selectedThemeId === selectedPack.id 
-                ? 'bg-game-teal/20 text-game-teal cursor-default border border-game-teal/30' 
-                : 'bg-game-teal hover:bg-slate-600 text-white active:scale-95'
-              }`}
+      <div 
+        className="w-full max-w-md bg-[var(--color-game-charcoal)] p-6 sm:p-8 rounded-2xl shadow-2xl relative"
+        onClick={e => e.stopPropagation()}
+      >
+              <div className="relative z-10 flex flex-col items-center">
+          <h2 className="text-2xl font-display text-game-offwhite mb-1">{selectedPack.name}</h2>
+          <p className="text-game-offwhite/60 font-display mb-8 text-sm">مجموعة البطاقات الكاملة</p>
+          <div className="flex justify-center items-center gap-4 sm:gap-6 mb-10 w-full px-2">
+            {['scissors', 'paper', 'rock'].map((type, idx) => (
+              <FloatingCard key={type} theme={selectedPack} type={type as CardType} idx={idx} />
+            ))}
+          </div>
+          <div className="flex flex-col gap-3 w-full">
+            {ownedThemes.includes(selectedPack.id) ? (
+              <button 
+                onClick={() => onSelect(selectedPack.id)}
+                disabled={selectedThemeId === selectedPack.id}
+                className={`w-full py-3.5 rounded-xl font-display text-xl transition-all shadow-lg ${
+                  selectedThemeId === selectedPack.id 
+                  ? 'bg-game-teal/20 text-game-teal cursor-default border border-game-teal/30' 
+                  : 'bg-game-teal hover:bg-slate-600 text-white active:scale-95'
+                }`}
+              >
+                {selectedThemeId === selectedPack.id ? 'مفعل حالياً' : 'تفعيل الثيم'}
+              </button>
+            ) : selectedPack.id === 'robot' ? (
+              <div className="w-full py-3.5 bg-game-slate/20 text-game-teal rounded-xl font-display text-lg border border-game-teal/30 flex items-center justify-center text-center">
+                فتح عبر الفوز على الروبوت
+              </div>
+            ) : (
+              <button 
+                onClick={() => onBuy(selectedPack)}
+                className="w-full py-3.5 bg-game-offwhite hover:bg-white text-black rounded-xl font-display text-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-3"
+              >
+                شراء المجموعة <span className="text-yellow-600">{selectedPack.price} 🪙</span>
+              </button>
+            )}
+            <button 
+              onClick={onClose} 
+              className="w-full py-3.5 bg-white/5 hover:bg-white/10 text-game-offwhite rounded-xl font-display text-xl transition-all"
             >
-              {selectedThemeId === selectedPack.id ? 'مفعل حالياً' : 'تفعيل الثيم'}
-            </motion.button>
-          ) : selectedPack.id === 'robot' ? (
-            <div className="flex-1 py-4 bg-game-slate/20 text-game-teal rounded-xl font-display text-xl border border-game-teal/30 flex items-center justify-center text-center">
-              فتح عبر الفوز على الروبوت
-            </div>
-          ) : (
-            <motion.button 
-              whileTap={{ scale: 0.95 }}
-              onClick={() => onBuy(selectedPack)}
-              className="flex-1 py-4 bg-game-offwhite hover:bg-white text-black rounded-xl font-display text-2xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-3"
-            >
-              شراء المجموعة <span className="text-yellow-600">{selectedPack.price} 🪙</span>
-            </motion.button>
-          )}
-          <motion.button 
-            whileTap={{ scale: 0.95 }}
-            onClick={onClose} 
-            className="flex-1 py-4 bg-game-slate/20 hover:bg-game-slate/40 text-game-offwhite rounded-xl font-display text-2xl transition-all border border-white/10"
-          >
-            إغلاق
-          </motion.button>
+              إغلاق
+            </button>
+          </div>
         </div>
       </div>
     </div>
-  </div>
-));
+  );
+});
 
-const StoreView = memo(({ coins, ownedThemes, selectedThemeId, onBack, onBuy, onSelect, selectedPack, setSelectedPack }: {
+
+const GlobalNavbar = memo(({ activeTab, setAppState, coins, playerName, isGuest, onLogout, onLoginClick }: any) => {
+  return (
+    <nav 
+      dir="rtl" 
+      className="fixed top-0 inset-x-0 z-[60] bg-game-dark/95 backdrop-blur-md border-b border-white/10 shadow-lg transition-colors" 
+      style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}
+    >
+      <div className="relative w-full h-12">
+        {/* --- STORE NAVBAR --- */}
+        <div className={`absolute inset-0 flex justify-between items-center px-6 sm:px-8 transition-opacity duration-300 ${activeTab === 'store' ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+          <button onClick={() => setAppState('menu')} className="p-1.5 bg-game-dark/50 rounded-full text-game-cream hover:bg-game-dark border border-white/10 transition-all">
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          <h1 className="text-lg sm:text-xl font-display text-game-offwhite tracking-wider">متجر الثيمات</h1>
+          <div className="flex items-center gap-1.5 bg-black/30 px-2.5 py-1 rounded-full border border-white/10 shadow-inner">
+            <span className="text-sm sm:text-base font-display text-game-offwhite">{coins}</span>
+            <span className="text-yellow-500 text-xs">🪙</span>
+          </div>
+        </div>
+
+        {/* --- MENU NAVBAR --- */}
+        <div className={`absolute inset-0 flex justify-between items-center px-6 sm:px-8 transition-opacity duration-300 ${activeTab === 'menu' ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => setAppState('profile')}
+              className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+            >
+              <div className="w-8 h-8 rounded-full bg-game-teal/20 border border-game-teal/30 flex items-center justify-center">
+                <User className="w-3.5 h-3.5 text-game-teal" />
+              </div>
+              <div className="text-right flex flex-col">
+                <div className="text-sm sm:text-base font-display text-game-offwhite leading-none">{playerName}</div>
+              </div>
+            </button>
+          </div>
+          <div>
+            <button 
+              onClick={() => setAppState('store')}
+              className="flex items-center gap-1 bg-black/30 px-2.5 py-1 rounded-full border border-white/10 hover:bg-black/50 transition-all shadow-inner"
+            >
+              <span className="text-sm sm:text-base font-display text-yellow-500">{coins}</span>
+              <span className="text-xs">🪙</span>
+              <PlusCircle className="w-3 h-3 text-game-teal ml-0.5" />
+            </button>
+          </div>
+        </div>
+
+        {/* --- PROFILE NAVBAR --- */}
+        <div className={`absolute inset-0 flex justify-between items-center px-6 sm:px-8 transition-opacity duration-300 ${activeTab === 'profile' ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+          <button onClick={() => setAppState('menu')} className="p-1.5 bg-game-dark/50 rounded-full text-game-cream hover:bg-game-dark border border-white/10 transition-all">
+            <ChevronRight className="w-5 h-5" />
+          </button>
+          <h1 className="text-lg sm:text-xl font-display text-game-offwhite tracking-wider">الملف الشخصي</h1>
+          {!isGuest ? (
+            <button 
+              onClick={onLogout}
+              className="p-1.5 bg-red-900/50 rounded-full text-red-200 hover:bg-red-800 border border-red-500/20 transition-all shadow-inner"
+              title="تسجيل الخروج"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+            </button>
+          ) : (
+            <button 
+              onClick={onLoginClick}
+              className="flex items-center gap-1 bg-game-teal text-game-dark px-2.5 py-1 rounded-lg font-display text-[10px] shadow-md hover:bg-emerald-400 transition-all"
+              title="تسجيل الدخول"
+            >
+              <LogIn className="w-3.5 h-3.5" /> دخول
+            </button>
+          )}
+        </div>
+      </div>
+    </nav>
+  );
+});
+
+const StoreView = memo(({ coins, ownedThemes, selectedThemeId, onBuy, onSelect, selectedPack, setSelectedPack }: {
   coins: number,
   ownedThemes: string[],
   selectedThemeId: string,
@@ -238,26 +321,9 @@ const StoreView = memo(({ coins, ownedThemes, selectedThemeId, onBack, onBuy, on
 }) => (
   <div 
     dir="rtl" 
-    className="fixed inset-0 w-full h-full wood-texture text-game-cream flex flex-col p-4 sm:p-6 font-body overflow-x-hidden overflow-y-auto select-none relative"
-    style={{
-      paddingTop: 'env(safe-area-inset-top)',
-      paddingBottom: 'env(safe-area-inset-bottom)',
-      paddingLeft: 'env(safe-area-inset-left)',
-      paddingRight: 'env(safe-area-inset-right)'
-    }}
+    className="w-full h-full flex flex-col font-body overflow-x-hidden overflow-y-auto select-none relative pb-10"
   >
-    <div className="sticky top-0 z-50 wood-texture bg-game-dark/95 backdrop-blur-sm border-b border-white/10 flex justify-between items-center p-4 sm:p-6 mb-8">
-      <button onClick={onBack} className="p-2 bg-game-dark/50 rounded-full text-game-cream hover:bg-game-dark border border-white/10 transition-all">
-        <X className="w-6 h-6" />
-      </button>
-      <h1 className="text-3xl font-display text-game-offwhite tracking-wider">متجر الثيمات</h1>
-      <div className="flex items-center gap-2 bg-game-dark/50 px-4 py-2 rounded-full border border-white/10">
-        <span className="text-game-offwhite font-display text-xl">{coins}</span>
-        <span className="text-yellow-500">🪙</span>
-      </div>
-    </div>
-
-    <div className="grid grid-cols-2 sm:grid-cols-3 gap-y-12 gap-x-6 max-w-4xl mx-auto w-full pb-20">
+    <div className="grid grid-cols-2 gap-y-10 gap-x-4 max-w-md mx-auto w-full px-4 sm:px-6 pt-20">
       {THEMES.map(theme => (
         <CardPack 
           key={theme.id}
@@ -270,75 +336,41 @@ const StoreView = memo(({ coins, ownedThemes, selectedThemeId, onBack, onBuy, on
       ))}
     </div>
 
-      {selectedPack && (
+      <div className={selectedPack ? 'block' : 'hidden'}>
         <PackPreviewModal 
-          selectedPack={selectedPack}
-          ownedThemes={ownedThemes}
-          selectedThemeId={selectedThemeId}
-          onBuy={onBuy}
-          onSelect={onSelect}
-          onClose={() => setSelectedPack(null)}
+          selectedPack={selectedPack as any} 
+          ownedThemes={ownedThemes} 
+          selectedThemeId={selectedThemeId} 
+          onBuy={onBuy} 
+          onSelect={onSelect} 
+          onClose={() => setSelectedPack(null)} 
         />
-      )}
+      </div>
   </div>
 ));
 
-const ProfileView = memo(({ playerName, coins, ownedThemes, selectedThemeId, onBack, onSelect, selectedPack, setSelectedPack, onEditName, onLogout, onLoginClick, isGuest }: {
+const ProfileView = memo(({ playerName, coins, ownedThemes, selectedThemeId, onSelect, selectedPack, setSelectedPack, onEditName }: {
   playerName: string,
   coins: number,
   ownedThemes: string[],
   selectedThemeId: string,
-  onBack: () => void,
   onSelect: (id: string) => void,
   selectedPack: ThemeConfig | null,
   setSelectedPack: (theme: ThemeConfig | null) => void,
   onEditName: () => void,
-  onLogout: () => void,
-  onLoginClick: () => void,
-  isGuest?: boolean
 }) => (
   <div 
     dir="rtl" 
-    className="fixed inset-0 w-full h-full wood-texture text-game-cream flex flex-col p-4 sm:p-6 font-body overflow-x-hidden overflow-y-auto select-none"
-    style={{
-      paddingTop: 'env(safe-area-inset-top)',
-      paddingBottom: 'env(safe-area-inset-bottom)',
-      paddingLeft: 'env(safe-area-inset-left)',
-      paddingRight: 'env(safe-area-inset-right)'
-    }}
+    className="w-full h-full flex flex-col font-body overflow-x-hidden overflow-y-auto select-none pb-10"
   >
-    <div className="sticky top-0 z-50 wood-texture bg-game-dark/95 backdrop-blur-sm border-b border-white/10 flex justify-between items-center p-4 sm:p-6 mb-8">
-      <button onClick={onBack} className="p-2 bg-game-dark/50 rounded-full text-game-cream hover:bg-game-dark border border-white/10 transition-all">
-        <X className="w-6 h-6" />
-      </button>
-      <h1 className="text-3xl font-display text-game-offwhite tracking-wider">الملف الشخصي</h1>
-      {!isGuest ? (
-        <button 
-          onClick={onLogout}
-          className="p-2 bg-red-900/50 rounded-full text-red-200 hover:bg-red-800 border border-red-500/20 transition-all"
-          title="تسجيل الخروج"
-        >
-          <LogOut className="w-6 h-6" />
-        </button>
-      ) : (
-        <button 
-          onClick={onLoginClick}
-          className="flex items-center gap-2 bg-game-teal text-game-dark px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg font-display text-xs sm:text-sm shadow-md hover:bg-emerald-400 transition-all"
-          title="تسجيل الدخول"
-        >
-          <LogIn className="w-4 h-4 sm:w-5 sm:h-5" /> دخول
-        </button>
-      )}
-    </div>
-
-    <div className="max-w-4xl mx-auto w-full space-y-8 pb-20">
-      <div className="bg-gradient-to-br from-game-dark/95 to-game-dark/80 p-8 rounded-2xl border border-white/10 flex flex-col sm:flex-row items-center gap-6 relative shadow-2xl">
-        <div className="w-24 h-24 rounded-full bg-game-bg border-4 border-game-offwhite/5 flex items-center justify-center overflow-hidden shadow-inner">
-          <User className="w-12 h-12 text-game-offwhite/20" />
+    <div className="max-w-md mx-auto w-full space-y-6 px-4 sm:px-6 pt-20">
+      <div className="bg-gradient-to-br from-game-dark/95 to-game-dark/80 p-6 rounded-2xl border border-white/10 flex flex-col sm:flex-row items-center gap-4 relative shadow-2xl">
+        <div className="w-20 h-20 rounded-full bg-game-bg border-4 border-game-offwhite/5 flex items-center justify-center overflow-hidden shadow-inner">
+          <User className="w-10 h-10 text-game-offwhite/20" />
         </div>
-        <div className="flex-1 flex flex-col items-center sm:items-start text-center sm:text-right gap-3">
+        <div className="flex-1 flex flex-col items-center sm:items-start text-center sm:text-right gap-2">
           <div className="flex items-center gap-3">
-            <h2 className="text-3xl font-display text-game-offwhite">{playerName}</h2>
+            <h2 className="text-2xl font-display text-game-offwhite">{playerName}</h2>
             <button 
               onClick={onEditName}
               className="p-2 text-game-offwhite/40 hover:text-game-offwhite transition-all bg-white/5 rounded-lg border border-white/5"
@@ -377,7 +409,7 @@ const ProfileView = memo(({ playerName, coins, ownedThemes, selectedThemeId, onB
           selectedPack={selectedPack}
           ownedThemes={ownedThemes}
           selectedThemeId={selectedThemeId}
-          onBuy={() => {}} // Already owned
+          onBuy={() => {}}
           onSelect={onSelect}
           onClose={() => setSelectedPack(null)}
         />
@@ -385,13 +417,150 @@ const ProfileView = memo(({ playerName, coins, ownedThemes, selectedThemeId, onB
   </div>
 ));
 
+const DashboardViewPager = ({ appState, setAppState, onVisibleTabChange, children }: { appState: string, setAppState: (state: any) => void, onVisibleTabChange: (tab: string) => void, children: React.ReactNode }) => {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollTimeout = useRef<number | null>(null);
+  const uiTimeout = useRef<number | null>(null);
+  const isProgrammaticScroll = useRef(false);
+
+  // Sync React State -> Scroll Position (only if needed)
+  useEffect(() => {
+    // If we're loading, default to the main menu (index 1) to avoid flash of store
+    const idx = appState === 'store' ? 0 : (appState === 'menu' || appState === 'loading') ? 1 : 2;
+    const container = scrollRef.current;
+    if (!container || !container.children[idx]) return;
+
+    const child = container.children[idx] as HTMLElement;
+    const rect = child.getBoundingClientRect();
+    const containerRect = container.getBoundingClientRect();
+    
+    const containerCenter = containerRect.left + containerRect.width / 2;
+    const childCenter = rect.left + rect.width / 2;
+
+    // Use a tolerance (e.g., 50px) to determine if it's already centered
+    // This strictly prevents the React effect from fighting the native scroll-snap
+    // Increased to 100px to make it deeply tolerant of minor swipe releases
+    if (Math.abs(childCenter - containerCenter) > 100) {
+      isProgrammaticScroll.current = true;
+      child.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+      
+      // Lock scroll tracking while the smooth scroll animation happens
+      // Increased to 1500ms for extreme insensitivity on tap
+      setTimeout(() => {
+        isProgrammaticScroll.current = false;
+      }, 1500); 
+    }
+  }, [appState]);
+
+  // Sync Native Scroll Position -> React State (debounced)
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    // If the scroll was triggered by our own buttons, ignore it to prevent loops
+    if (isProgrammaticScroll.current) return;
+
+    if (uiTimeout.current) clearTimeout(uiTimeout.current);
+    if (scrollTimeout.current) clearTimeout(scrollTimeout.current);
+    
+    const container = e.currentTarget;
+
+    // Fast update for Navbar visually
+    uiTimeout.current = window.setTimeout(() => {
+      if (isProgrammaticScroll.current) return;
+      let closestIdx = 1;
+      let minDistance = Infinity;
+      const containerRect = container.getBoundingClientRect();
+      const containerCenter = containerRect.left + containerRect.width / 2;
+      
+      Array.from(container.children).forEach((child, idx) => {
+        const rect = (child as HTMLElement).getBoundingClientRect();
+        const childCenter = rect.left + rect.width / 2;
+        const distance = Math.abs(childCenter - containerCenter);
+        if (distance < minDistance) {
+          minDistance = distance;
+          closestIdx = idx;
+        }
+      });
+
+      const visibleTab = closestIdx === 0 ? 'store' : closestIdx === 1 ? 'menu' : 'profile';
+      onVisibleTabChange(visibleTab);
+    }, 10);
+
+    // Deep debounce for AppState programmatic logic
+    scrollTimeout.current = window.setTimeout(() => {
+      if (isProgrammaticScroll.current) return;
+
+      let closestIdx = 1;
+      let minDistance = Infinity;
+      const containerRect = container.getBoundingClientRect();
+      const containerCenter = containerRect.left + containerRect.width / 2;
+      
+      Array.from(container.children).forEach((child, idx) => {
+        const rect = (child as HTMLElement).getBoundingClientRect();
+        const childCenter = rect.left + rect.width / 2;
+        const distance = Math.abs(childCenter - containerCenter);
+        if (distance < minDistance) {
+          minDistance = distance;
+          closestIdx = idx;
+        }
+      });
+
+      const newState = closestIdx === 0 ? 'store' : closestIdx === 1 ? 'menu' : 'profile';
+      if (newState !== appState) {
+        setAppState(newState);
+      }
+    }, 700);
+  };
+
+  return (
+    <div 
+      ref={scrollRef}
+      onScroll={handleScroll}
+      className="fixed inset-0 w-full h-full flex overflow-x-auto overflow-y-hidden snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] z-0 wood-texture text-game-cream font-body"
+      dir="rtl"
+    >
+      {React.Children.toArray(children).map((child, idx) => (
+        <div key={idx} className="w-full h-full shrink-0 snap-center relative overflow-hidden">
+          {child}
+        </div>
+      ))}
+    </div>
+  );
+};
+
 const App = () => {
   const { user, login, register, verifyCode, resendCode, logout, updateProfile, loading: authLoading, error: authError, pendingVerificationEmail, setPendingVerificationEmail } = useAuth();
   const [appState, setAppState] = useState<'loading' | 'auth' | 'menu' | 'store' | 'profile' | 'matchmaking' | 'game' | 'gameOver' | 'inRoom' | 'verifySent'>('loading');
+  const [assetsLoaded, setAssetsLoaded] = useState(false);
   const [authTab, setAuthTab] = useState<'login' | 'register'>('login');
   const [menuTab, setMenuTab] = useState<'main' | 'online' | 'local'>('main');
 
+  useEffect(() => {
+    const totalAssets = THEMES.length * 3;
+    assetPreloader.setTotal(totalAssets);
+    assetPreloader.setOnProgress((progress) => {
+      if (progress >= 1) setAssetsLoaded(true);
+    });
+
+    // Proactively preload all theme images into native browser cache
+    THEMES.forEach(theme => {
+      ['rock', 'paper', 'scissors'].forEach(type => {
+        const ext = theme.extension || 'svg';
+        assetPreloader.preloadImage(`${theme.path}/${type}.${ext}`);
+      });
+    });
+  }, []);
+
+  const [editNameInput, setEditNameInput] = useState('');
+  const [showEditNameDialog, setShowEditNameDialog] = useState(false);
+  const [visibleTab, setVisibleTab] = useState<'store'|'menu'|'profile'>('menu');
+
   // Player Local State (Syncs with User Profile if logged in)
+
+  // Fast-sync visible tab when programmatic state changes
+  useEffect(() => {
+    if (appState === 'menu' || appState === 'store' || appState === 'profile') {
+      setVisibleTab(appState);
+    }
+  }, [appState]);
   const [playerName, setPlayerNameState] = useState(() => localStorage.getItem('cardclash_guestName') || 'محارب');
   const [selectedThemeId, setSelectedThemeIdState] = useState('normal');
   const [ownedThemes, setOwnedThemesState] = useState<string[]>(['normal']);
@@ -526,6 +695,9 @@ const App = () => {
   const [isRevealingLocal, setIsRevealingLocal] = useState(false);
   const [ws, setWs] = useState<WebSocket | null>(null);
   const [selectedPack, setSelectedPack] = useState<ThemeConfig | null>(null);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const backPressTimer = useRef<NodeJS.Timeout | null>(null);
+  const [isDoubleBack, setIsDoubleBack] = useState(false);
 
   // Silent Preload Assets
   const preloadAssets = async () => {
@@ -618,7 +790,13 @@ const App = () => {
   useEffect(() => {
     const handleBackButton = async () => {
       const listener = await CapApp.addListener('backButton', (data) => {
-        // 1. Priority: Close UI Modals/Overlays
+        // 1. Priority: Close Exit Confirmation
+        if (showExitConfirm) {
+          setShowExitConfirm(false);
+          return;
+        }
+
+        // 2. Priority: Close UI Modals/Overlays
         if (selectedPack) {
           setSelectedPack(null);
           return;
@@ -628,7 +806,7 @@ const App = () => {
           return;
         }
 
-        // 2. Priority: Secondary Screens -> Menu
+        // 3. Priority: Secondary Screens -> Menu
         const secondaryStates = ['store', 'profile', 'matchmaking', 'verifySent', 'gameOver'];
         if (secondaryStates.includes(appState)) {
           setAppState('menu');
@@ -636,38 +814,42 @@ const App = () => {
           return;
         }
 
-        // 3. Priority: Game/Room -> Menu (and handle exit)
+        // 4. Priority: Game/Room -> Menu
         if (appState === 'game' || appState === 'inRoom') {
-          // Typically we should show a confirmation, but for now we'll just go to menu
-          // which should trigger existing cleanup logic
           setAppState('menu');
           setMenuTab('main');
           return;
         }
 
-        // 4. Priority: Auth Tabs
-        if (appState === 'auth') {
-          if (authTab === 'register') {
-            setAuthTab('login');
-          } else {
-            CapApp.exitApp();
-          }
+        // 5. Priority: Auth Tabs
+        if (appState === 'auth' || appState === 'verifySent') {
+          setAppState('menu');
           return;
         }
 
-        // 5. Priority: Menu Navigation
+        // 6. Priority: Menu Navigation
         if (appState === 'menu') {
           if (menuTab !== 'main') {
             setMenuTab('main');
           } else {
-            CapApp.exitApp();
+            // Check for double press
+            if (isDoubleBack) {
+              CapApp.exitApp();
+            } else {
+              setIsDoubleBack(true);
+              setShowExitConfirm(true);
+              if (backPressTimer.current) clearTimeout(backPressTimer.current);
+              backPressTimer.current = setTimeout(() => {
+                setIsDoubleBack(false);
+              }, 2000);
+            }
           }
           return;
         }
 
         // Default or fallthrough
         if (!data.canGoBack) {
-          CapApp.exitApp();
+          setShowExitConfirm(true);
         }
       });
       return listener;
@@ -676,8 +858,9 @@ const App = () => {
     const listenerPromise = handleBackButton();
     return () => {
       listenerPromise.then(l => l.remove());
+      if (backPressTimer.current) clearTimeout(backPressTimer.current);
     };
-  }, [appState, selectedPack, showDebug, authTab, menuTab]);
+  }, [appState, selectedPack, showDebug, authTab, menuTab, showExitConfirm, isDoubleBack]);
 
   // Bot independent thinking logic
   useEffect(() => {
@@ -1348,30 +1531,37 @@ const App = () => {
   };
 
   const buyTheme = async (theme: ThemeConfig) => {
-    if (ownedThemes.includes(theme.id)) return;
+    console.log('Attempting to buy:', theme, 'Coins:', coins);
+    if (ownedThemes.includes(theme.id)) {
+      console.log('Already owned');
+      return;
+    }
     if (coins >= theme.price) {
+      console.log('Sufficient coins, processing purchase');
       const newCoins = coins - theme.price;
       const newOwned = [...ownedThemes, theme.id];
       
-      // تحديث الحالة المحلية
-      setCoins(newCoins);
-      setOwnedThemes(newOwned);
+      // تحديث الحالة المحلية فقط
+      setCoinsState(newCoins);
+      setOwnedThemesState(newOwned);
       
-      // مزامنة مع السيرفر إذا كان المستخدم مسجلاً
+      // مزامنة مع السيرفر إذا كان المستخدم مسجلاً (عملية واحدة مجمعة)
       if (user) {
         try {
+          // Send a single combined atomic update request to the backend
           await updateProfile({ coins: newCoins, purchasedThemes: newOwned });
           addLog(`تم شراء وحفظ ثيم ${theme.name}`, 'success');
         } catch (err) {
           addLog(`خطأ في مزامنة الشراء: ${err}`, 'error');
           // استعادة الحالة في حال الفشل
-          setCoins(coins);
-          setOwnedThemes(ownedThemes);
+          setCoinsState(coins);
+          setOwnedThemesState(ownedThemes);
         }
       } else {
         addLog(`تم شراء ثيم ${theme.name} (محلياً)`, 'success');
       }
     } else {
+      console.log('Insufficient coins');
       setErrorMsg('عملات غير كافية!');
     }
   };
@@ -1407,77 +1597,82 @@ const App = () => {
     </AnimatePresence>
   );
 
-  const renderDebugUI = () => (
-    <>
-      {/* Debug Toggle Button */}
-      <motion.button 
-        drag
-        dragMomentum={false}
-        onClick={() => setShowDebug(true)} 
-        className="fixed top-[45%] left-2 p-3 bg-game-dark/90 hover:bg-game-red text-game-cream rounded-md shadow-xl z-[60] transition-colors active:scale-90 flex items-center justify-center border-2 border-game-red/30 cursor-grab active:cursor-grabbing"
-        title="سجل الأخطاء (يمكنك سحب الزر)"
-      >
-        <Bug className="w-5 h-5 pointer-events-none" />
-      </motion.button>
+  const renderDebugUI = () => null;
 
-      {/* Debug Overlay */}
-      <AnimatePresence>
-        {showDebug && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.1 }}
-            className="fixed inset-0 z-[70] wood-texture flex flex-col p-4 font-mono text-xs"
-            dir="ltr"
+  const handleUpdateName = async () => {
+    if (editNameInput.trim().length < 2) return;
+    const trimmedName = editNameInput.trim();
+    if (user) {
+      try {
+        await updateProfile({ displayName: trimmedName });
+        setShowEditNameDialog(false);
+      } catch (err) {
+        setErrorMsg('فشل في تحديث الاسم على السيرفر');
+      }
+    } else {
+      setPlayerNameState(trimmedName);
+      localStorage.setItem('cardclash_guestName', trimmedName);
+      setShowEditNameDialog(false);
+    }
+  };
+
+  const renderNameEditDialog = () => (
+    <div 
+      className={`fixed inset-0 z-[250] flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm ${showEditNameDialog ? '' : 'hidden'}`} onClick={() => setShowEditNameDialog(false)}>
+      <div className="w-full max-w-md bg-stone-900 p-6 sm:p-8 rounded-2xl border border-white/5 shadow-2xl space-y-6" onClick={e => e.stopPropagation()}>
+        <div className="text-center space-y-2">
+          <h3 className="text-xl font-display text-game-offwhite">تغيير الاسم</h3>
+        </div>
+        <input 
+          type="text" 
+          value={editNameInput}
+          onChange={(e) => setEditNameInput(e.target.value)}
+          className="w-full bg-black/40 border border-white/5 rounded-xl py-3 px-4 text-center text-game-offwhite focus:outline-none focus:border-game-teal transition-all"
+          placeholder="أدخل اسمك الجديد"
+          autoFocus
+        />
+        <div className="flex flex-col gap-3">
+          <button 
+            onClick={handleUpdateName}
+            className="w-full py-3 bg-game-teal text-white hover:bg-emerald-500 rounded-xl font-display text-lg transition-all active:scale-95 shadow-lg"
           >
-            <div className="flex justify-between items-center mb-4 border-b-4 border-game-dark pb-2">
-              <h3 className="text-game-cream font-display text-2xl tracking-widest" dir="rtl">سجل الأخطاء والاتصال</h3>
-              <div className="flex gap-2">
-                <button 
-                  onClick={() => clearLogs()}
-                  className="px-3 py-1 bg-game-red hover:bg-red-800 text-game-cream text-[10px] rounded-md font-display tracking-widest transition-colors"
-                  dir="rtl"
-                >
-                  مسح السجل
-                </button>
-                <button onClick={() => setShowDebug(false)} className="p-1.5 bg-game-dark rounded-md text-game-cream hover:bg-game-bg border border-game-red/30 transition-colors">
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-            <div className="flex-1 overflow-y-auto space-y-2 flex flex-col-reverse">
+            حفظ التغييرات
+          </button>
+          <button 
+            onClick={() => setShowEditNameDialog(false)}
+            className="w-full py-3 bg-white/5 hover:bg-white/10 text-game-offwhite/60 rounded-xl font-display text-lg transition-all"
+          >
+            إلغاء
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderExitConfirm = () => (
+    <AnimatePresence>
+      {showExitConfirm && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/80">
+          <div className="bg-game-dark border-2 border-white/10 p-8 rounded-2xl w-full max-w-xs text-center shadow-2xl space-y-6">
+            <h3 className="text-2xl font-display text-game-offwhite">هل تريد الخروج من اللعبة؟</h3>
+            <div className="flex flex-col gap-3">
               <button 
-                onClick={async () => {
-                   addLog(`Testing Native Ping to: ${API_BASE_URL}/api/health`, 'info');
-                   try {
-                     const res = await CapacitorHttp.request({
-                       url: `${API_BASE_URL}/api/health`,
-                       method: 'GET'
-                     });
-                     addLog(`Ping Result: ${res.status}`, res.status === 200 ? 'success' : 'error');
-                   } catch (e: any) {
-                     addLog(`Ping Failed: ${e.message}`, 'error');
-                   }
-                }}
-                className="p-3 bg-game-teal text-game-dark font-bold border-2 border-game-teal/50 rounded shadow-md"
+                onClick={() => CapApp.exitApp()}
+                className="w-full py-3 bg-game-red hover:bg-red-700 text-white rounded-xl font-display text-xl transition-all active:scale-95"
               >
-                Ping Server (Native)
+                تأكيد الخروج
               </button>
-              {logs.length === 0 && (
-                <div className="text-game-cream/40 text-center py-4 font-display italic tracking-widest" dir="rtl">لا يوجد سجلات حتى الآن</div>
-              )}
-              {logs.map(log => (
-                <div key={log.id} className={`p-2 rounded border-2 break-words ${log.type === 'error' ? 'bg-game-red/10 border-game-red/30 text-game-red' : log.type === 'success' ? 'bg-game-teal/10 border-game-teal/30 text-game-teal' : 'bg-game-dark/50 border-game-dark text-game-cream'}`}>
-                  <span className="opacity-50 mr-2">[{log.time}]</span>
-                  {log.msg}
-                </div>
-              ))}
+              <button 
+                onClick={() => setShowExitConfirm(false)}
+                className="w-full py-3 bg-white/10 hover:bg-white/20 text-game-offwhite rounded-xl font-display text-xl transition-all"
+              >
+                إلغاء
+              </button>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </>
+          </div>
+        </div>
+      )}
+    </AnimatePresence>
   );
 
   if (appState === 'auth') {
@@ -1487,10 +1682,16 @@ const App = () => {
         className="fixed inset-0 w-full h-full wood-texture text-game-cream flex flex-col items-center justify-center p-4 sm:p-6 font-body overflow-hidden select-none"
       >
         <div 
-          className="max-w-md w-full bg-game-dark/90 p-5 sm:p-8 rounded-2xl border border-white/10 shadow-2xl space-y-6"
+          className="relative max-w-md w-full bg-game-dark/90 p-5 sm:p-8 rounded-2xl border border-white/10 shadow-2xl space-y-6"
         >
+          <button 
+            onClick={() => setAppState('menu')}
+            className="absolute top-4 left-4 p-2 text-game-offwhite/50 hover:text-game-offwhite hover:bg-white/5 rounded-full transition-all"
+          >
+            <X className="w-5 h-5" />
+          </button>
+          
           <div className="text-center space-y-2">
-            <h1 className="text-4xl font-display text-game-offwhite">صراع البطاقات</h1>
             <p className="text-game-offwhite/50">{authTab === 'login' ? 'سجل دخولك للمنافسة' : 'أنشئ حسابك الجديد'}</p>
           </div>
 
@@ -1608,8 +1809,15 @@ const App = () => {
         <motion.div 
           initial={{ opacity: 0, scale: 0.9 }} 
           animate={{ opacity: 1, scale: 1 }}
-          className="max-w-md w-full bg-game-dark/95 p-6 sm:p-10 rounded-3xl border border-game-teal/30 shadow-2xl text-center space-y-6"
+          className="relative max-w-md w-full bg-game-dark/95 p-6 sm:p-10 rounded-3xl border border-game-teal/30 shadow-2xl text-center space-y-6"
         >
+          <button 
+            onClick={() => setAppState('menu')}
+            className="absolute top-6 left-6 p-2 text-game-offwhite/50 hover:text-game-offwhite hover:bg-white/5 rounded-full transition-all"
+          >
+            <X className="w-5 h-5" />
+          </button>
+          
           <div className="w-20 h-20 bg-game-teal/20 rounded-full flex items-center justify-center mx-auto border-2 border-game-teal/50">
             <Mail className="w-10 h-10 text-game-teal" />
           </div>
@@ -1667,50 +1875,44 @@ const App = () => {
     );
   }
 
-  if (appState === 'menu') {
+  if (['menu', 'store', 'profile'].includes(appState)) {
     return (
       <>
         {renderErrorToast()}
-        <div 
-          dir="rtl" 
-          className="fixed inset-0 w-full h-full wood-texture text-game-cream flex flex-col p-4 sm:p-6 font-body overflow-x-hidden overflow-y-auto select-none"
-          style={{
-            paddingTop: 'env(safe-area-inset-top)',
-            paddingBottom: 'env(safe-area-inset-bottom)',
-            paddingLeft: 'env(safe-area-inset-left)',
-            paddingRight: 'env(safe-area-inset-right)'
+        <GlobalNavbar 
+          activeTab={visibleTab} 
+          setAppState={setAppState}
+          coins={coins}
+          playerName={playerName}
+          isGuest={!user}
+          onLogout={logout}
+          onLoginClick={() => {
+            setAppState('auth');
+            setAuthTab('login');
           }}
-        >
-          {/* Top Profile Bar */}
-          <div className="w-full max-w-md mx-auto mb-8 flex justify-between items-center bg-game-dark/60 p-4 rounded-2xl border border-white/5 backdrop-blur-sm">
-            <button 
-              onClick={() => setAppState('profile')}
-              className="flex items-center gap-3 hover:opacity-80 transition-opacity"
-            >
-              <div className="w-10 h-10 rounded-full bg-game-teal/20 border border-game-teal/30 flex items-center justify-center">
-                <User className="w-5 h-5 text-game-teal" />
-              </div>
-              <div className="text-right">
-                <div className="text-sm text-game-offwhite/40 leading-none mb-1 uppercase tracking-tighter">المحارب</div>
-                <div className="text-lg font-display text-game-offwhite leading-none">{playerName}</div>
-              </div>
-            </button>
-            <button 
-              onClick={() => setAppState('store')}
-              className="flex items-center gap-2 bg-black/20 px-3 py-1.5 rounded-full border border-white/5 hover:bg-black/40 transition-all"
-            >
-              <span className="text-lg font-display text-yellow-500">{coins}</span>
-              <span className="text-sm">🪙</span>
-              <PlusCircle className="w-4 h-4 text-game-teal ml-1" />
-            </button>
-          </div>
-
-          <div
-            className="max-w-md w-full text-center mx-auto"
+        />
+        <DashboardViewPager appState={appState} setAppState={setAppState} onVisibleTabChange={setVisibleTab}>
+          <StoreView 
+            coins={coins}
+            ownedThemes={ownedThemes}
+            selectedThemeId={selectedThemeId}
+            onBack={() => setAppState('menu')}
+            onBuy={buyTheme}
+            onSelect={(id) => {
+              setSelectedThemeId(id);
+              setSelectedPack(null);
+            }}
+            selectedPack={selectedPack}
+            setSelectedPack={setSelectedPack}
+          />
+          <div 
+            dir="rtl" 
+            className="w-full h-full flex flex-col font-body overflow-x-hidden overflow-y-auto select-none"
           >
-            <h1 className="text-4xl sm:text-5xl md:text-6xl font-display mb-10 text-game-offwhite tracking-[0.2em] uppercase leading-tight">
-              صراع البطاقات
-            </h1>
+            <div
+              className="max-w-xs w-full text-center mx-auto py-4 px-4 sm:px-6 pt-16"
+            >
+            <div className="mb-6"></div>
             
             <div className="space-y-4 sm:space-y-5">
               {menuTab === 'main' && (
@@ -1960,14 +2162,14 @@ const App = () => {
                         </div>
                       </div>
 
-                      <div className="flex flex-col gap-4">
+                      <div className="flex flex-col gap-3">
                         <input
                           type="text"
                           inputMode="decimal"
                           placeholder="مثال: 192.168.1.5"
                           value={ipInput}
                           onChange={handleIpChange}
-                          className="w-full bg-transparent border-0 border-b-2 border-white/30 rounded-none py-3 px-2 text-center text-xl font-mono text-game-offwhite focus:outline-none focus:border-white transition-all placeholder:text-white/10"
+                          className="w-full bg-black/30 border border-white/10 rounded-lg py-2.5 px-3 text-center text-xl font-mono text-game-offwhite focus:outline-none focus:border-game-teal transition-all placeholder:text-white/10"
                           dir="ltr"
                         />
                         {isValidIp(ipInput.trim()) && (
@@ -1976,7 +2178,7 @@ const App = () => {
                           >
                             <button
                               onClick={joinGame}
-                              className="w-full py-4 bg-game-offwhite hover:bg-white text-black rounded-lg font-display text-2xl shadow-lg transition-all active:scale-95"
+                              className="w-full py-3 bg-game-teal hover:bg-emerald-400 text-game-dark rounded-lg font-display text-xl shadow-lg transition-all active:scale-95"
                             >
                               اتصال
                             </button>
@@ -1989,69 +2191,27 @@ const App = () => {
               )}
             </div>
           </div>
-        </div>
-        {renderDebugUI()}
-      </>
-    );
-  }
-
-  if (appState === 'store') {
-    return (
-      <StoreView 
-        coins={coins}
-        ownedThemes={ownedThemes}
-        selectedThemeId={selectedThemeId}
-        onBack={() => setAppState('menu')}
-        onBuy={buyTheme}
-        onSelect={(id) => {
-          setSelectedThemeId(id);
-          setSelectedPack(null);
-        }}
-        selectedPack={selectedPack}
-        setSelectedPack={setSelectedPack}
-      />
-    );
-  }
-
-  if (appState === 'profile') {
-    return (
-      <ProfileView 
-        playerName={playerName}
-        coins={coins}
-        ownedThemes={ownedThemes}
-        selectedThemeId={selectedThemeId}
-        onBack={() => setAppState('menu')}
-        onSelect={(id) => {
-          setSelectedThemeId(id);
-          setSelectedPack(null);
-        }}
-        selectedPack={selectedPack}
-        setSelectedPack={setSelectedPack}
-        onEditName={async () => {
-          const newName = prompt('أدخل اسمك الجديد:', playerName);
-          if (newName && newName.trim().length >= 2) {
-             const trimmedName = newName.trim();
-             if (user) {
-               try {
-                 await updateProfile({ displayName: trimmedName });
-               } catch (err) {
-                 setErrorMsg('فشل في تحديث الاسم على السيرفر');
-               }
-             } else {
-               setPlayerNameState(trimmedName);
-               localStorage.setItem('cardclash_guestName', trimmedName);
-             }
-          }
-        }}
-        onLogout={() => {
-          logout();
-        }}
-        onLoginClick={() => {
-          setAppState('auth');
-          setAuthTab('login');
-        }}
-        isGuest={!user}
-      />
+          </div>
+            <ProfileView 
+              playerName={playerName}
+              coins={coins}
+              ownedThemes={ownedThemes}
+              selectedThemeId={selectedThemeId}
+              onSelect={(id) => {
+                setSelectedThemeId(id);
+                setSelectedPack(null);
+              }}
+              selectedPack={selectedPack}
+              setSelectedPack={setSelectedPack}
+              onEditName={() => {
+                setEditNameInput(playerName);
+                setShowEditNameDialog(true);
+              }}
+            />
+          </DashboardViewPager>
+          {renderNameEditDialog()}
+          {renderDebugUI()}
+        </>
     );
   }
 
@@ -2245,7 +2405,7 @@ const App = () => {
     >
       <div className="max-w-md mx-auto w-full h-full flex flex-col flex-1 relative">
         {/* Header */}
-        <header className="flex justify-between items-center px-4 py-1.5 bg-[#121212]/90 shadow-xl z-20">
+        <nav className="sticky top-0 z-50 bg-[#121212]/95 backdrop-blur-md border-b border-white/10 px-6 sm:px-8 py-2.5 flex justify-between items-center shadow-lg w-full shrink-0" style={{ paddingTop: 'max(0.5rem, env(safe-area-inset-top))' }}>
           <div className="flex items-center gap-2">
             <button 
               onClick={leaveRoom}
@@ -2255,21 +2415,18 @@ const App = () => {
               <XCircle className="w-5 h-5 sm:w-6 sm:h-6" />
             </button>
             <div className="flex flex-col">
-              <h1 className="text-lg sm:text-xl font-display text-game-offwhite tracking-wider drop-shadow-md">
-                صراع البطاقات
-              </h1>
-              <span className="text-[8px] sm:text-[9px] text-game-offwhite/50 font-display italic leading-none">{roomState.isBotRoom ? 'لعب فردي' : 'لعب محلي'}</span>
+              <span className="text-xs sm:text-sm text-game-offwhite/50 font-display italic leading-none">{roomState.isBotRoom ? 'لعب فردي' : 'لعب محلي'}</span>
             </div>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="text-[8px] sm:text-[9px] text-game-offwhite font-display tracking-widest bg-white/5 px-1.5 py-0.5 rounded">
+            <span className="text-[10px] sm:text-xs text-game-offwhite font-display tracking-widest bg-yellow-500/20 text-yellow-500 border border-yellow-500/30 px-2 py-0.5 rounded">
               قيمة الفوز: {roomState.round === 9 ? 2 : 1}
             </span>
-            <span className="bg-white/5 px-2 sm:px-3 py-0.5 rounded text-[9px] sm:text-10px font-display text-game-offwhite tracking-widest">
+            <span className="bg-white/10 border border-white/5 shadow-inner px-2.5 py-0.5 rounded text-[10px] sm:text-xs font-display text-game-offwhite tracking-widest">
               الجولة: {roomState.round}
             </span>
           </div>
-        </header>
+        </nav>
 
         {/* Opponent Area */}
         <div className="flex-1 flex flex-col-reverse justify-center px-10 pt-4 pb-1 bg-[#F5F5F5]/5">
@@ -2283,9 +2440,21 @@ const App = () => {
             </div>
           </div>
           <div className="flex justify-between gap-2 sm:gap-4">
-             <CardCount type="rock" count={opponent?.deck.rock || 0} theme={opponentTheme} />
-             <CardCount type="paper" count={opponent?.deck.paper || 0} theme={opponentTheme} />
-             <CardCount type="scissors" count={opponent?.deck.scissors || 0} theme={opponentTheme} />
+             <CardCount 
+               type="rock" 
+               count={(opponent?.deck.rock || 0) + (opponent?.hasChosen && roomState.gameState === 'playing' && opponent?.choice === null ? 1 : 0) + (opponent?.id === 'bot' && opponent?.choice === 'rock' && roomState.gameState === 'playing' ? 1 : 0)} 
+               theme={opponentTheme} 
+             />
+             <CardCount 
+               type="paper" 
+               count={(opponent?.deck.paper || 0) + (opponent?.hasChosen && roomState.gameState === 'playing' && opponent?.choice === null ? 1 : 0) + (opponent?.id === 'bot' && opponent?.choice === 'paper' && roomState.gameState === 'playing' ? 1 : 0)} 
+               theme={opponentTheme} 
+             />
+             <CardCount 
+               type="scissors" 
+               count={(opponent?.deck.scissors || 0) + (opponent?.hasChosen && roomState.gameState === 'playing' && opponent?.choice === null ? 1 : 0) + (opponent?.id === 'bot' && opponent?.choice === 'scissors' && roomState.gameState === 'playing' ? 1 : 0)} 
+               theme={opponentTheme} 
+             />
           </div>
         </div>
 
@@ -2385,14 +2554,33 @@ const App = () => {
             </div>
           </div>
           <div className="flex justify-between gap-3 sm:gap-6 px-2">
-             <PlayableCard type="rock" count={me.deck.rock} onClick={() => playCard('rock')} disabled={roomState.gameState !== 'playing' || me.choice !== null} theme={currentTheme} />
-             <PlayableCard type="paper" count={me.deck.paper} onClick={() => playCard('paper')} disabled={roomState.gameState !== 'playing' || me.choice !== null} theme={currentTheme} />
-             <PlayableCard type="scissors" count={me.deck.scissors} onClick={() => playCard('scissors')} disabled={roomState.gameState !== 'playing' || me.choice !== null} theme={currentTheme} />
+             <PlayableCard 
+               type="rock" 
+               count={me.deck.rock + (me.choice === 'rock' && (roomState.gameState === 'playing' || roomState.gameState === 'revealing') ? 1 : 0)} 
+               onClick={() => playCard('rock')} 
+               disabled={roomState.gameState !== 'playing' || me.choice !== null} 
+               theme={currentTheme} 
+             />
+             <PlayableCard 
+               type="paper" 
+               count={me.deck.paper + (me.choice === 'paper' && (roomState.gameState === 'playing' || roomState.gameState === 'revealing') ? 1 : 0)} 
+               onClick={() => playCard('paper')} 
+               disabled={roomState.gameState !== 'playing' || me.choice !== null} 
+               theme={currentTheme} 
+             />
+             <PlayableCard 
+               type="scissors" 
+               count={me.deck.scissors + (me.choice === 'scissors' && (roomState.gameState === 'playing' || roomState.gameState === 'revealing') ? 1 : 0)} 
+               onClick={() => playCard('scissors')} 
+               disabled={roomState.gameState !== 'playing' || me.choice !== null} 
+               theme={currentTheme} 
+             />
           </div>
         </div>
       </div>
 
       {renderDebugUI()}
+      {renderExitConfirm()}
     </div>
     </>
   );

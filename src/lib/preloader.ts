@@ -13,15 +13,12 @@ class AssetPreloader {
   private onProgress?: (progress: number) => void;
 
   public async preloadImage(url: string): Promise<string> {
-    if (this.cache.has(url)) {
-      return this.cache.get(url)!;
-    }
-
+    if (this.cache.has(url)) return this.cache.get(url)!;
+    
     try {
       const response = await fetch(url);
       const blob = await response.blob();
       
-      // Convert Blob to Base64 String (Data URI)
       const dataUri = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onloadend = () => resolve(reader.result as string);
@@ -35,8 +32,8 @@ class AssetPreloader {
       
       return dataUri;
     } catch (e) {
-      console.warn(`Failed to dynamically encode asset: ${url}`, e);
-      return url; // Fallback to raw URL if encoding fails
+      console.warn(`Failed to Base64 preload asset: ${url}`, e);
+      return url; 
     }
   }
 
@@ -46,7 +43,7 @@ class AssetPreloader {
 
   private updateProgress() {
     if (this.onProgress && this.totalToLoad > 0) {
-      this.onProgress(this.loadedCount / this.totalToLoad);
+      this.onProgress(Math.min(this.loadedCount / this.totalToLoad, 1));
     }
   }
 

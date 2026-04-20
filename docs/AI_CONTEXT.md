@@ -168,6 +168,10 @@ Review App.tsx for any other forced navigation triggers and ensure consistent be
 - [2026-04-19] → Fixed name change button bug and implemented persistence.
 - [2026-04-19] → Changed initial app state to 'menu' and delayed 'auth' until Online Mode selection.
 - [2026-04-19] → Initialized AI self-documentation system
+- [2026-04-20] → Refactored robust Image Asset Preloader utilizing native browser implicit caching (Base64 conversion) for instant loading.
+- [2026-04-20] → Fixed `DashboardViewPager` so 'loading' state directly maps to 'menu' interface, bypassing any initial Store flash.
+- [2026-04-20] → Fixed `Uncaught ReferenceError: onBuy is not defined` bug in ProfileView rendering of PackPreviewModal by feeding empty interaction function.
+- [2026-04-20] → Patched CRITICAL Database Race Condition in `buyTheme`. Raw state setters (`setCoinsState`, `setOwnedThemesState`) replace wrapped helper methods to prevent parallel simultaneous `post` requests that triggered MongoDB write conflicts and desynchronized user purchases.
 
 ---
 
