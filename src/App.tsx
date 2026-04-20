@@ -129,14 +129,13 @@ const CardPack = memo(({ theme, isOwned, isSelected, onClick, onSelect }: {
   onClick: () => void,
   onSelect: () => void
 }) => (
-  <motion.div 
-    whileTap={{ scale: 0.94 }}
+  <div 
     onClick={onClick}
-    className="relative flex flex-col items-center cursor-pointer gpu-accelerated"
+    className="relative flex flex-col items-center cursor-pointer"
   >
     <div className="relative w-24 sm:w-32 aspect-[3/4] mb-4">
       <div className={`absolute inset-0 rounded-xl shadow-sm transform -rotate-3 translate-x-[-4%] translate-y-[2%] opacity-20 ${theme.frontColor} border border-white/5`} />
-      <div className={`absolute inset-0 rounded-xl shadow-md flex flex-col items-center justify-center p-2 ${theme.frontColor} border-2 ${isSelected ? 'border-game-slate ring-2 ring-game-slate/20' : 'border-white/20'} z-10 overflow-hidden gpu-accelerated`}>
+      <div className={`absolute inset-0 rounded-xl shadow-md flex flex-col items-center justify-center p-2 ${theme.frontColor} border-2 ${isSelected ? 'border-game-slate ring-2 ring-game-slate/20' : 'border-white/20'} z-10 overflow-hidden`}>
         <img src={getCardImagePath(theme, 'rock')} alt="rock" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
         {isOwned && (
           <div 
@@ -165,7 +164,7 @@ const CardPack = memo(({ theme, isOwned, isSelected, onClick, onSelect }: {
         </p>
       )}
     </div>
-  </motion.div>
+  </div>
 ));
 
 const PackPreviewModal = memo(({ selectedPack, ownedThemes, selectedThemeId, onBuy, onSelect, onClose }: {
@@ -237,7 +236,7 @@ const GlobalNavbar = memo(({ activeTab, setAppState, coins, playerName, isGuest,
   return (
     <nav 
       dir="rtl" 
-      className="fixed top-0 inset-x-0 z-[60] bg-game-dark/95 backdrop-blur-md border-b border-white/10 shadow-lg transition-colors" 
+      className="fixed top-0 inset-x-0 z-[60] bg-game-dark/95 border-b border-white/10 shadow-lg" 
       style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}
     >
       <div className="relative w-full h-12">
