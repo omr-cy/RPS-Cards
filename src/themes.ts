@@ -85,7 +85,7 @@ export const THEMES: ThemeConfig[] = [
     backIcon: 'default',
     counterBgColor: 'bg-[#C87874]',
     counterTextColor: 'text-[#F5F5F5]',
-    iconScale: 150,
+    iconScale: 100,
     requiredLevel: 10
   },
     {

@@ -104,6 +104,7 @@ interface Room {
   round: number;
   roundWinner: string | 'draw' | null;
   timeLeft?: number;
+  isPublic?: boolean;
 }
 
 const rooms: Record<string, Room> = {};
@@ -121,7 +122,7 @@ interface MatchmakingPlayer {
 const matchmakingQueue: MatchmakingPlayer[] = [];
 const LEVEL_SENSITIVITY = 2; // Initial acceptable level difference
 const LEVEL_SENSITIVITY_EXPANSION = 2; // How much to expand search per interval
-const SEARCH_EXPANSION_INTERVAL = 5000; // Expand search every 5 seconds
+const SEARCH_EXPANSION_INTERVAL = 3000; // Expand search every 3 seconds
 
 const INITIAL_DECK: Deck = { rock: 3, paper: 3, scissors: 3 };
 
@@ -307,20 +308,29 @@ async function startNextRound(roomId: string) {
           try {
             const user = await User.findById(p.id);
             if (user) {
-              // PvP Reward: 20 XP for participation + 30 XP for win = 50 XP
-              const xpGain = (p.id === winnerId) ? 50 : 20;
               const oldLevel = user.level || 1;
               
-              user.xp = (user.xp || 0) + xpGain;
-              user.level = calculateLevel(user.xp);
+              // NEW REWARD LOGIC:
+              // XP only for Public Matchmaking
+              // Coins for ALL games (Public and Private/Friend)
               
-              // Win Bonus: 15 coins
-              if (p.id === winnerId) {
-                user.coins = (user.coins || 0) + 15;
+              const xpGain = (p.id === winnerId) ? 50 : 20;
+              const coinGain = (p.id === winnerId) ? 15 : 5; // Small coin reward for participation too
+
+              if (room.isPublic) {
+                user.xp = (user.xp || 0) + xpGain;
+                user.level = calculateLevel(user.xp);
+                console.log(`[Game Over - Public] Player ${user.displayName} gained ${xpGain} XP.`);
+              } else {
+                console.log(`[Game Over - Private] Player ${user.displayName} gained no XP (Friend Room).`);
               }
               
+              // Reward coins
+              user.coins = (user.coins || 0) + coinGain;
+              
               await user.save();
-              console.log(`[Game Over] Player ${user.displayName} gained ${xpGain} XP. Level: ${user.level}`);
+              const currentXp = user.xp || 0;
+              console.log(`[Game Over] Player ${user.displayName}. Total XP: ${currentXp}. Level: ${user.level}`);
               
               if (user.level > oldLevel) {
                 p.ws.send(JSON.stringify({ 
@@ -668,7 +678,8 @@ async function startServer() {
             },
             gameState: 'waiting',
             round: 1,
-            roundWinner: null
+            roundWinner: null,
+            isPublic: false
           };
           ws.send(JSON.stringify({ type: 'room_created', roomId, roomCode: roomId, isHost: true }));
           broadcastToRoom(roomId, { type: 'room_state', state: rooms[roomId] });
@@ -839,7 +850,8 @@ async function startServer() {
           },
           gameState: 'playing',
           round: 1,
-          roundWinner: null
+          roundWinner: null,
+          isPublic: true
         };
 
         p1.ws.send(JSON.stringify({ type: 'match_found', roomId, roomCode: roomId }));
@@ -858,7 +870,7 @@ async function startServer() {
   }, 2000);
 
   // Vite integration for full-stack SPA
-  if (process.env.NODE_ENV !== 'production') {
+  if (process.env.NODE_ENV !== 'production' && false) { // Disabled
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },

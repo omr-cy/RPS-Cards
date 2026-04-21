@@ -305,12 +305,7 @@ const GlobalNavbar = memo(({ activeTab, setAppState, coins, playerName, isGuest,
             </>
           ) : (
             <>
-              <button 
-                onClick={() => setMenuTab?.('main')} 
-                className="p-1.5 bg-white/5 backdrop-blur-sm rounded-full text-game-cream hover:bg-white/10 border border-white/10 transition-all shadow-inner transform-gpu"
-              >
-                <ArrowRight className="w-5 h-5" />
-              </button>
+              <div className="w-8" />
               <h1 className="text-lg font-display text-white tracking-widest uppercase">
                 {menuTab === 'online' ? 'اللعب عبر الإنترنت' : 'الشبكة المحلية'}
               </h1>
@@ -824,6 +819,7 @@ const App = () => {
   const [visibleTab, setVisibleTab] = useState<'store'|'menu'|'profile'>('menu');
   const [showLevelUp, setShowLevelUp] = useState<number | null>(null);
   const [isOnline, setIsOnline] = useState(true);
+  const [isBotLoading, setIsBotLoading] = useState(false);
 
   // Network Status Listener
   useEffect(() => {
@@ -1122,9 +1118,20 @@ const App = () => {
       if (me && opponent) {
         if (me.score > opponent.score) {
           // Reward coins for winning
+          // Bot = 25, Other (Local/Online) = 50
           const reward = roomId === OFFLINE_BOT_ID ? 25 : 50; 
-          setCoins(prev => prev + reward);
-          addLog(`لقد فزت وربحت ${reward} 🪙 عملة!`, 'success');
+          
+          // Only award coins locally if it's NOT an online game with an account 
+          // (Server handles coins for registered users in online rooms)
+          if (role !== 'ONLINE' || !user) {
+            setCoins(prev => prev + reward);
+            addLog(`لقد فزت وربحت ${reward} 🪙 عملة!`, 'success');
+          } else if (role === 'ONLINE' && user) {
+            // For online logged-in users, the server pushes the coin update, 
+            // but we can still show the message for feedback.
+            // Server awards 15-50 depending on config, but client shows 50 for consistency in UI.
+            addLog(`أداء رائع! ستربح عملات ذهبية لهذا الفوز 🪙`, 'success');
+          }
           
           // Robot theme unlock logic
           if (roomId === OFFLINE_BOT_ID && !ownedThemes.includes('robot')) {
@@ -1132,12 +1139,14 @@ const App = () => {
             addLog('تهانينا! لقد فتحت ثيم الروبوت بالفوز على الكمبيوتر!', 'success');
           }
         } else if (me.score === opponent.score) {
-          setCoins(prev => prev + 10);
-          addLog('تعادل! حصلت على 10 🪙 عملات', 'info');
+          if (role !== 'ONLINE' || !user) {
+            setCoins(prev => prev + 10);
+            addLog('تعادل! حصلت على 10 🪙 عملات', 'info');
+          }
         }
       }
     }
-  }, [roomState?.gameState, roomId, ownedThemes]);
+  }, [roomState?.gameState, roomId, role, user, ownedThemes]);
 
   useEffect(() => {
     if (errorMsg) {
@@ -1564,7 +1573,7 @@ const App = () => {
     // Convert Arabic numerals to English numerals
     value = value.replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d).toString());
     // Remove any character that is not a digit or a dot
-    value = value.replace(/[^0-9.]/g, '');
+    value = value.replace(/[^0-9.]/g, '').slice(0, 15);
     setIpInput(value);
   };
 
@@ -1732,22 +1741,27 @@ const App = () => {
   };
 
   const createBotRoom = () => {
-    const newRoom: Room = {
-      id: OFFLINE_BOT_ID,
-      isBotRoom: true,
-      players: {
-        me: { id: 'me', name: playerName.trim() || 'لاعب', themeId: selectedThemeId, deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false },
-        bot: { id: 'bot', name: 'الكمبيوتر', themeId: 'robot', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: true }
-      },
-      gameState: 'playing',
-      round: 1,
-      roundWinner: null,
-      timeLeft: 15
-    };
-    setRoomState(newRoom);
-    setRoomId(OFFLINE_BOT_ID);
-    setAppState('inRoom');
-    addLog('Started offline game against bot', 'success');
+    setIsBotLoading(true);
+    // Add a tiny delay so the UI can render the spinner before blocking the main thread
+    setTimeout(() => {
+      const newRoom: Room = {
+        id: OFFLINE_BOT_ID,
+        isBotRoom: true,
+        players: {
+          me: { id: 'me', name: playerName.trim() || 'لاعب', themeId: selectedThemeId, deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false },
+          bot: { id: 'bot', name: 'الكمبيوتر', themeId: 'robot', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: true }
+        },
+        gameState: 'playing',
+        round: 1,
+        roundWinner: null,
+        timeLeft: 15
+      };
+      setRoomState(newRoom);
+      setRoomId(OFFLINE_BOT_ID);
+      setAppState('inRoom');
+      addLog('Started offline game against bot', 'success');
+      setIsBotLoading(false);
+    }, 150);
   };
 
   const copyRoomId = () => {
@@ -2037,8 +2051,9 @@ const App = () => {
         <input 
           type="text" 
           value={editNameInput}
-          onChange={(e) => setEditNameInput(e.target.value)}
+          onChange={(e) => setEditNameInput(e.target.value.replace(/[^ \w\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/g, '').slice(0, 20))}
           className="w-full bg-black/40 border border-white/5 rounded-xl py-3 px-4 text-center text-game-offwhite focus:outline-none focus:border-game-teal transition-all"
+          maxLength={20}
           placeholder="أدخل اسمك الجديد"
           autoFocus
         />
@@ -2172,8 +2187,9 @@ const App = () => {
                   <input 
                     type="text" 
                     value={authName}
-                    onChange={(e) => setAuthName(e.target.value)}
+                    onChange={(e) => setAuthName(e.target.value.replace(/[^ \w\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/g, '').slice(0, 20))}
                     required
+                    maxLength={20}
                     placeholder="اسم المحارب"
                     className="w-full bg-black/30 border border-white/10 rounded-xl py-3 px-10 text-game-offwhite focus:outline-none focus:border-game-teal transition-all placeholder:text-white/10"
                   />
@@ -2188,8 +2204,9 @@ const App = () => {
                 <input 
                   type="email" 
                   value={authEmail}
-                  onChange={(e) => setAuthEmail(e.target.value)}
+                  onChange={(e) => setAuthEmail(e.target.value.replace(/\s/g, '').slice(0, 64))}
                   required
+                  maxLength={64}
                   placeholder="name@example.com"
                   className="w-full bg-black/30 border border-white/10 rounded-xl py-3 px-10 text-game-offwhite focus:outline-none focus:border-game-teal transition-all placeholder:text-white/10"
                   dir="ltr"
@@ -2204,8 +2221,9 @@ const App = () => {
                 <input 
                   type="password" 
                   value={authPass}
-                  onChange={(e) => setAuthPass(e.target.value)}
+                  onChange={(e) => setAuthPass(e.target.value.replace(/\s/g, '').slice(0, 32))}
                   required
+                  maxLength={32}
                   placeholder="••••••••"
                   className="w-full bg-black/30 border border-white/10 rounded-xl py-3 px-10 text-game-offwhite focus:outline-none focus:border-game-teal transition-all placeholder:text-white/10"
                   dir="ltr"
@@ -2425,9 +2443,10 @@ const App = () => {
                     <motion.button
                       whileTap={{ scale: 0.94 }}
                       onClick={createBotRoom}
-                      className="w-full sm:w-[90%] mx-auto py-3 sm:py-4 bg-white/10 backdrop-blur-md border border-white/10 text-game-offwhite/80 hover:bg-white/15 hover:border-white/20 hover:text-white focus:bg-white/15 focus:border-white/40 focus:text-white rounded-lg font-display text-xl sm:text-2xl transition-all flex items-center justify-center gap-2 sm:gap-3 outline-none transform-gpu"
+                      disabled={isBotLoading}
+                      className="w-full sm:w-[90%] mx-auto py-3 sm:py-4 bg-white/10 backdrop-blur-md border border-white/10 text-game-offwhite/80 hover:bg-white/15 hover:border-white/20 hover:text-white focus:bg-white/15 focus:border-white/40 focus:text-white rounded-lg font-display text-xl sm:text-2xl transition-all flex items-center justify-center gap-2 sm:gap-3 outline-none transform-gpu disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <Bot className="w-5 h-5 sm:w-6 sm:h-6" /> ضد الكمبيوتر
+                      {isBotLoading ? <Activity className="w-5 h-5 sm:w-6 sm:h-6 animate-spin" /> : <><Bot className="w-5 h-5 sm:w-6 sm:h-6" /> ضد الكمبيوتر</>}
                     </motion.button>
                     <div className="flex w-full sm:w-[90%] mx-auto gap-3">
                       <motion.button
@@ -2451,8 +2470,18 @@ const App = () => {
                 {menuTab === 'online' && (
                   <div
                     key="online"
-                    className="flex flex-col gap-5 w-full max-w-[340px] mx-auto px-2"
+                    className="flex flex-col gap-5 w-full max-w-[340px] mx-auto px-2 relative"
                   >
+                    <div className="sticky top-24 z-40 flex justify-center w-full mb-2">
+                       <button
+                         onClick={() => setMenuTab('main')}
+                         className="flex items-center gap-2 bg-white/10 backdrop-blur-md hover:bg-white/20 border border-white/10 px-5 py-2.5 rounded-full text-game-cream shadow-lg transition-all"
+                       >
+                         <ArrowRight className="w-4 h-4" />
+                         <span className="font-display text-sm tracking-wide">العودة للقائمة</span>
+                       </button>
+                    </div>
+
                     <div className="relative flex flex-col gap-6">
                         <>
                           {isSearching && (
@@ -2541,7 +2570,7 @@ const App = () => {
                                  type="text"
                                  placeholder="الرمز"
                                  value={roomIdInput}
-                                 onChange={(e) => setRoomIdInput(e.target.value.toUpperCase())}
+                                 onChange={(e) => setRoomIdInput(e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 4))}
                                  className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-center text-2xl font-mono text-game-offwhite focus:outline-none focus:border-game-teal/50 focus:bg-white/10 transition-all placeholder:text-white/10 uppercase tracking-[0.2em]"
                                  maxLength={4}
                                  disabled={isSearching}
@@ -2571,8 +2600,18 @@ const App = () => {
                 {menuTab === 'local' && (
                   <div
                     key="local"
-                    className="flex flex-col gap-6 w-full max-w-[340px] mx-auto px-2"
+                    className="flex flex-col gap-6 w-full max-w-[340px] mx-auto px-2 relative"
                   >
+                    <div className="sticky top-24 z-40 flex justify-center w-full mb-2">
+                       <button
+                         onClick={() => setMenuTab('main')}
+                         className="flex items-center gap-2 bg-white/10 backdrop-blur-md hover:bg-white/20 border border-white/10 px-5 py-2.5 rounded-full text-game-cream shadow-lg transition-all"
+                       >
+                         <ArrowRight className="w-4 h-4" />
+                         <span className="font-display text-sm tracking-wide">العودة للقائمة</span>
+                       </button>
+                    </div>
+
                     <div className="relative flex flex-col gap-6">
                       {connectionStatus === 'CONNECTING' && (
                         <div
@@ -2647,6 +2686,7 @@ const App = () => {
                           value={ipInput}
                           onChange={handleIpChange}
                           className="w-full bg-black/30 border border-white/10 rounded-lg py-2.5 px-3 text-center text-xl font-mono text-game-offwhite focus:outline-none focus:border-game-teal transition-all placeholder:text-white/10"
+                          maxLength={15}
                           dir="ltr"
                         />
                         {isValidIp(ipInput.trim()) && (
@@ -3101,10 +3141,10 @@ const CardCount = memo(({ type, count, theme }: { type: CardType, count: number,
       <motion.div 
         animate={{ 
           opacity: isAvailable ? 1 : 0.25,
-          backgroundColor: isAvailable ? 'rgba(0,0,0,0)' : 'rgba(0,0,0,0.4)'
+          scale: isAvailable ? 1 : 0.94
         }}
         transition={{ duration: 0.05 }}
-        className={`w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center text-[10px] sm:text-xs font-display rounded-md ${isAvailable ? `${theme.counterBgColor} ${theme.counterTextColor}` : 'text-game-cream/20'}`}
+        className={`w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center text-[10px] sm:text-xs font-bold rounded-md shadow-md ${isAvailable ? `${theme.counterBgColor} ${theme.counterTextColor}` : 'bg-game-dark text-game-cream/20'}`}
       >
         {count}
       </motion.div>
