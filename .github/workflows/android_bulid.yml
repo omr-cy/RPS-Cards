@@ -89,7 +89,10 @@ jobs:
 
       - name: Upload APK to Google Drive
         run: |
-          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-          NEW_NAME="CardClash_$TIMESTAMP.apk"
+          TIMESTAMP=$(date +%Y-%m-%d_%H:%M:%S)
+          NEW_NAME="RPS-Cards_$TIMESTAMP.apk"
           cp android/app/build/outputs/apk/debug/app-debug.apk ./$NEW_NAME
-          rclone copy ./$NEW_NAME gdrive:/CardClash_Builds
+          rclone copy ./$NEW_NAME gdrive:/RPS-Cards_Builds
+
+
+
