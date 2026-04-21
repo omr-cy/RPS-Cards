@@ -118,13 +118,13 @@ After ANY change, ensure:
 # 🧩 TASK TRACKING
 
 ## LAST TASK
-Configured `javascript-obfuscator` to run in both development (debug) and production (build) modes. This was implemented by creating a custom post-transformation plugin in `vite.config.ts` that uses the `javascript-obfuscator` library directly, ensuring all source files are obfuscated before being served or bundled.
+Created a comprehensive roadmap for the XP, Leveling, and Leaderboard system in `docs/TODO.md`, breaking down requirements into backend, frontend, and progression logic milestones.
 
 ## CURRENT SUBTASK
-Verifying that obfuscation works as expected in the development environment and handles HMR correctly.
+Initializing the Leveling system foundation: Updating the database model and backend logic to handle XP and Levels.
 
 ## NEXT STEP
-Verify real-time websocket matches process connections smoothly with the stable identities now available.
+Implement the `User` schema updates and XP awarding logic in the backend.
 
 ---
 
@@ -176,7 +176,7 @@ Verify real-time websocket matches process connections smoothly with the stable 
 - [2026-04-20] → Implemented Guest Sandbox Reset on logout to prevent state leakage and ensure subsequent guest sessions start fresh without retaining previous authenticated stats.
 - [2026-04-20] → Patched Background Sync "Duplicate API Request" bug by implementing a `lastSyncPayload` stringified lock guard preventing React Effect cascade loops on minor UI interactions.
 - [2026-04-20] → Added `iconScale` property to `ThemeConfig` and updated `App.tsx` components to dynamically scale card icons based on theme settings.
-- [2026-04-20] → Enforced source code obfuscation via `javascript-obfuscator` in both development (debug) and production build modes by implementing a custom Vite transform plugin.
+- [2026-04-21] → Updated `docs/TODO.md` with a detailed Epic roadmap for the XP, Levels, and Leaderboard systems.
 
 ---
 

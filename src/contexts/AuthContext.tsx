@@ -10,8 +10,6 @@ interface UserProfile {
   coins: number;
   xp: number;
   level: number;
-  totalWins: number;
-  totalMatches: number;
   purchasedThemes: string[];
   equippedTheme: string;
   isVerified: boolean;
@@ -26,6 +24,7 @@ interface AuthContextType {
   resendCode: (email: string) => Promise<void>;
   logout: () => void;
   updateProfile: (data: Partial<UserProfile>) => Promise<void>;
+  refreshProfile: () => Promise<void>;
   error: string | null;
   pendingVerificationEmail: string | null;
   setPendingVerificationEmail: (email: string | null) => void;
@@ -114,6 +113,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     addLog(`ENV Detection - VITE_API_URL: ${import.meta.env.VITE_API_URL ? 'FOUND' : 'MISSING'}`, 'info');
     addLog(`ENV Detection - VITE_BACKEND_URL: ${import.meta.env.VITE_BACKEND_URL ? 'FOUND' : 'MISSING'}`, 'info');
     addLog(`Config Detection - ONLINE_API_BASE_URL: ${config.ONLINE_API_BASE_URL ? 'FOUND' : 'MISSING'}`, 'info');
+    
+    // Try to load cached user immediately for offline support
+    const cachedUser = localStorage.getItem('cardclash_userProfile');
+    if (cachedUser) {
+      try {
+        const parsedUser = JSON.parse(cachedUser);
+        setUser(parsedUser);
+        addLog('Loaded cached user profile for offline support', 'success');
+      } catch (e) {
+        console.error('Failed to parse cached user profile:', e);
+      }
+    }
+
     const storedUserId = localStorage.getItem('cardclash_userId');
     if (storedUserId) {
       fetchProfile(storedUserId);
@@ -128,9 +140,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (response.ok) {
         const data = await response.json();
         setUser(data);
+        localStorage.setItem('cardclash_userProfile', JSON.stringify(data));
       } else {
         if (response.status === 401 || response.status === 404) {
           localStorage.removeItem('cardclash_userId');
+          localStorage.removeItem('cardclash_userProfile');
+          setUser(null);
         } else {
           console.error('Server error on fetch profile, not deleting token. Status:', response.status);
         }
@@ -155,8 +170,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (response.ok) {
         setUser(data);
         localStorage.setItem('cardclash_userId', data._id);
+        localStorage.setItem('cardclash_userProfile', JSON.stringify(data));
         setPendingVerificationEmail(null);
-        return data;
       } else {
         if (response.status === 403) {
           setPendingVerificationEmail(email);
@@ -230,6 +245,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = () => {
     setUser(null);
     localStorage.removeItem('cardclash_userId');
+    localStorage.removeItem('cardclash_userProfile');
+  };
+
+  const refreshProfile = async () => {
+    if (user?._id) {
+      await fetchProfile(user._id);
+    }
   };
 
   const updateProfile = async (data: Partial<UserProfile>) => {
@@ -244,6 +266,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (response.ok) {
         const updatedUser = await response.json();
         setUser(updatedUser);
+        localStorage.setItem('cardclash_userProfile', JSON.stringify(updatedUser));
       }
     } catch (err) {
       console.error('Failed to update profile:', err);
@@ -251,7 +274,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, verifyCode, resendCode, logout, updateProfile, error, pendingVerificationEmail, setPendingVerificationEmail }}>
+    <AuthContext.Provider value={{ user, loading, login, register, verifyCode, resendCode, logout, updateProfile, refreshProfile, error, pendingVerificationEmail, setPendingVerificationEmail }}>
       {children}
     </AuthContext.Provider>
   );

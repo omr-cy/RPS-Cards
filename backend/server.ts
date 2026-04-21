@@ -46,9 +46,6 @@ const userSchema = new mongoose.Schema({
   coins: { type: Number, default: 100 },
   xp: { type: Number, default: 0 },
   level: { type: Number, default: 1 },
-  totalWins: { type: Number, default: 0 },
-  totalMatches: { type: Number, default: 0 },
-  lastXpRewardDate: { type: Date }, // For daily login rewards
   purchasedThemes: { type: [String], default: ['normal'] },
   equippedTheme: { type: String, default: 'normal' },
   isVerified: { type: Boolean, default: false },
@@ -62,28 +59,15 @@ const userSchema = new mongoose.Schema({
 
 const User = mongoose.model('User', userSchema);
 
-// XP Constants
-const XP_REWARDS = {
-  DAILY_LOGIN: 50,
-  MATCH_COMPLETE: 20,
-  MATCH_WIN_BONUS: 30, // Total 50 if win
-  TOURNAMENT_PARTICIPATION: 100,
-  TOURNAMENT_WIN: 500,
+// Leveling Logic Helpers
+const BASE_XP = 100;
+const calculateLevel = (xp: number) => {
+  if (!xp || xp < 0) return 1;
+  // Quadratic curve: To reach level L, you need (L-1)^2 * BASE_XP total XP.
+  // Level = sqrt(xp / BASE_XP) + 1
+  return Math.floor(Math.sqrt(xp / BASE_XP)) + 1;
 };
-
-/**
- * Level Formula: 100 * (Level^1.5)
- * Level 1: 0 XP
- * Level 2: 100 XP
- * Level 3: 282 XP
- * Level 4: 520 XP
- * Level 5: 800 XP
- */
-function calculateLevel(xp: number): number {
-  if (xp < 100) return 1;
-  // Inverse formula: (XP/100)^(1/1.5)
-  return Math.floor(Math.pow(xp / 100, 1 / 1.5)) + 1;
-}
+const getXPToLevel = (level: number) => Math.pow(level, 2) * BASE_XP;
 
 // Email Setup
 const transporter = nodemailer.createTransport({
@@ -126,7 +110,18 @@ const rooms: Record<string, Room> = {};
 const roomTimers: Record<string, NodeJS.Timeout> = {};
 
 // Queue for Random Matchmaking
-const matchmakingQueue: { id: string; name: string; themeId: string; ws: WebSocket }[] = [];
+interface MatchmakingPlayer {
+  id: string;
+  name: string;
+  themeId: string;
+  level: number;
+  ws: WebSocket;
+  timeJoined: number;
+}
+const matchmakingQueue: MatchmakingPlayer[] = [];
+const LEVEL_SENSITIVITY = 2; // Initial acceptable level difference
+const LEVEL_SENSITIVITY_EXPANSION = 2; // How much to expand search per interval
+const SEARCH_EXPANSION_INTERVAL = 5000; // Expand search every 5 seconds
 
 const INITIAL_DECK: Deck = { rock: 3, paper: 3, scissors: 3 };
 
@@ -251,7 +246,7 @@ function handleReveal(roomId: string) {
   }, 1200); 
 }
 
-function resolveRound(roomId: string) {
+async function resolveRound(roomId: string) {
   const room = rooms[roomId];
   if (!room) return;
 
@@ -284,68 +279,62 @@ function resolveRound(roomId: string) {
   room.gameState = 'roundResult';
   broadcastToRoom(roomId, { type: 'room_state', state: room });
 
-  setTimeout(() => {
-    startNextRound(roomId);
+  setTimeout(async () => {
+    await startNextRound(roomId);
   }, 3000); 
 }
 
-async function awardMatchRewards(room: Room) {
-  const players = Object.values(room.players);
-  if (players.length !== 2) return;
-
-  const p1 = players[0];
-  const p2 = players[1];
-
-  const p1Winner = p1.score > p2.score;
-  const p2Winner = p2.score > p1.score;
-
-  const updatePlayer = async (player: Player, won: boolean) => {
-    // Only update if it's a valid MongoDB ID (registered user)
-    if (player.id && (player.id.length === 24 || /^[0-9a-fA-F]{24}$/.test(player.id))) {
-      try {
-        const user = await User.findById(player.id);
-        if (user) {
-          user.totalMatches += 1;
-          if (won) user.totalWins += 1;
-          
-          const xpGained = XP_REWARDS.MATCH_COMPLETE + (won ? XP_REWARDS.MATCH_WIN_BONUS : 0);
-          user.xp += xpGained;
-          
-          const newLevel = calculateLevel(user.xp);
-          const leveledUp = newLevel > user.level;
-          user.level = newLevel;
-          
-          await user.save();
-          
-          // Send specific reward message to this player
-          if (player.ws.readyState === WebSocket.OPEN) {
-            player.ws.send(JSON.stringify({
-              type: 'match_rewards',
-              xpGained,
-              leveledUp,
-              newLevel: user.level,
-              totalXp: user.xp
-            }));
-          }
-        }
-      } catch (err) {
-        console.error('Error awarding match rewards:', err);
-      }
-    }
-  };
-
-  await updatePlayer(p1, p1Winner);
-  await updatePlayer(p2, p2Winner);
-}
-
-function startNextRound(roomId: string) {
+async function startNextRound(roomId: string) {
   const room = rooms[roomId];
   if (!room) return;
 
   const round = room.round;
   if (round >= 9) {
     room.gameState = 'gameOver';
-    awardMatchRewards(room);
+
+    // Award XP and Coins at the end of the game
+    const playersArr = Object.values(room.players);
+    if (playersArr.length === 2) {
+      const p1 = playersArr[0];
+      const p2 = playersArr[1];
+      
+      let winnerId: string | null = null;
+      if (p1.score > p2.score) winnerId = p1.id;
+      else if (p2.score > p1.score) winnerId = p2.id;
+      
+      for (const p of playersArr) {
+        if (mongoose.Types.ObjectId.isValid(p.id)) {
+          try {
+            const user = await User.findById(p.id);
+            if (user) {
+              // PvP Reward: 20 XP for participation + 30 XP for win = 50 XP
+              const xpGain = (p.id === winnerId) ? 50 : 20;
+              const oldLevel = user.level || 1;
+              
+              user.xp = (user.xp || 0) + xpGain;
+              user.level = calculateLevel(user.xp);
+              
+              // Win Bonus: 15 coins
+              if (p.id === winnerId) {
+                user.coins = (user.coins || 0) + 15;
+              }
+              
+              await user.save();
+              console.log(`[Game Over] Player ${user.displayName} gained ${xpGain} XP. Level: ${user.level}`);
+              
+              if (user.level > oldLevel) {
+                p.ws.send(JSON.stringify({ 
+                  type: 'level_up', 
+                  newLevel: user.level 
+                }));
+              }
+            }
+          } catch (err) {
+            console.error(`[XP Reward Error] Player ID: ${p.id}`, err);
+          }
+        }
+      }
+    }
   } else {
     room.round = round + 1;
     room.gameState = 'playing';
@@ -444,20 +433,19 @@ async function startServer() {
       }
 
       const now = new Date();
-      let xpGained = 0;
-      let leveledUp = false;
+      const lastLogin = user.lastLogin;
+      let xpBonus = 0;
 
-      // Daily XP Reward check
-      if (!user.lastXpRewardDate || now.toDateString() !== user.lastXpRewardDate.toDateString()) {
-        xpGained = XP_REWARDS.DAILY_LOGIN;
-        user.xp += xpGained;
-        user.lastXpRewardDate = now;
-        
-        const newLevel = calculateLevel(user.xp);
-        if (newLevel > user.level) {
-          user.level = newLevel;
-          leveledUp = true;
-        }
+      // Migration check: Ensure legacy users have xp and level
+      if (user.xp === undefined || user.xp === null) user.xp = 0;
+      if (user.level === undefined || user.level === null) user.level = 1;
+
+      // Daily Login Bonus (50 XP)
+      if (!lastLogin || now.toDateString() !== lastLogin.toDateString()) {
+        xpBonus = 50;
+        user.xp = (user.xp || 0) + xpBonus;
+        user.level = calculateLevel(user.xp);
+        console.log(`[AUTH] User ${user.email} received daily login bonus: ${xpBonus} XP. New Level: ${user.level}`);
       }
 
       user.lastLogin = now;
@@ -468,41 +456,10 @@ async function startServer() {
       delete userResponse.password;
       delete userResponse.verificationToken;
 
-      res.json({ 
-        ...userResponse, 
-        dailyXpGained: xpGained,
-        leveledUp
-      });
+      res.json(userResponse);
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: 'حدث خطأ أثناء تسجيل الدخول' });
-    }
-  });
-
-  app.get('/api/leaderboard', async (req, res) => {
-    try {
-      const { userId } = req.query;
-      const topPlayers = await User.find({ isVerified: true })
-        .sort({ xp: -1 })
-        .limit(50)
-        .select('displayName xp level equippedTheme');
-
-      let userRank = -1;
-      let userData = null;
-
-      if (userId) {
-        const allUsers = await User.find({ isVerified: true }).sort({ xp: -1 }).select('_id');
-        userRank = allUsers.findIndex(u => u._id.toString() === userId) + 1;
-        userData = await User.findById(userId).select('displayName xp level equippedTheme');
-      }
-
-      res.json({
-        topPlayers,
-        userRank,
-        userData
-      });
-    } catch (err) {
-      res.status(500).json({ error: 'حدث خطأ أثناء جلب لوحة الصدارة' });
     }
   });
 
@@ -651,6 +608,37 @@ async function startServer() {
     }
   });
 
+  app.get('/api/leaderboard', async (req, res) => {
+    try {
+      const topPlayers = await User.find({ isVerified: true })
+        .sort({ xp: -1 })
+        .limit(20)
+        .select('displayName xp level equippedTheme');
+
+      let userRank = null;
+      let userScore = null;
+      const userId = req.query.userId as string;
+
+      if (userId) {
+        const user = await User.findById(userId);
+        if (user) {
+          userScore = { xp: user.xp, level: user.level };
+          // Count users with more XP to get rank
+          userRank = await User.countDocuments({ xp: { $gt: user.xp }, isVerified: true }) + 1;
+        }
+      }
+
+      res.json({
+        topPlayers,
+        userRank,
+        userScore
+      });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: 'حدث خطأ أثناء جلب لوحة المتصدرين' });
+    }
+  });
+
   wss.on('connection', (ws) => {
     let effectivePlayerId = Math.random().toString(36).substring(2, 10);
     console.log(`[WS] New connection attempt. Temp ID: ${effectivePlayerId}`);
@@ -709,36 +697,18 @@ async function startServer() {
         if (message.type === 'quick_match') {
           if (matchmakingQueue.find(p => p.id === effectivePlayerId)) return;
 
+          const playerLevel = message.playerLevel || 1;
+          
           matchmakingQueue.push({
             id: effectivePlayerId,
             name: message.playerName || 'لاعب',
             themeId: message.themeId || 'normal',
-            ws: ws
+            level: playerLevel,
+            ws: ws,
+            timeJoined: Date.now()
           });
 
-          ws.send(JSON.stringify({ type: 'matchmaking_status', msg: 'جاري البحث عن خصم مناسب...' }));
-
-          if (matchmakingQueue.length >= 2) {
-            const p1 = matchmakingQueue.shift()!;
-            const p2 = matchmakingQueue.shift()!;
-            
-            const roomId = generateRoomCode();
-            rooms[roomId] = {
-               id: roomId,
-               players: {
-                 [p1.id]: { id: p1.id, name: p1.name, themeId: p1.themeId, deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false, ws: p1.ws },
-                 [p2.id]: { id: p2.id, name: p2.name, themeId: p2.themeId, deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false, ws: p2.ws }
-               },
-               gameState: 'playing',
-               round: 1,
-               roundWinner: null
-            };
-            
-            p1.ws.send(JSON.stringify({ type: 'match_found', roomId, roomCode: roomId }));
-            p2.ws.send(JSON.stringify({ type: 'match_found', roomId, roomCode: roomId }));
-            startRoundTimer(roomId);
-            broadcastToRoom(roomId, { type: 'room_state', state: rooms[roomId] });
-          }
+          ws.send(JSON.stringify({ type: 'matchmaking_status', msg: 'جاري البحث عن خصم بمستوى مهارة متقارب...' }));
         }
 
         if (message.type === 'cancel_matchmaking') {
@@ -827,6 +797,65 @@ async function startServer() {
       });
     }
   });
+
+  // Periodic Matchmaking Processor
+  setInterval(() => {
+    if (matchmakingQueue.length < 2) return;
+
+    const handledIds = new Set<string>();
+
+    for (let i = 0; i < matchmakingQueue.length; i++) {
+      const p1 = matchmakingQueue[i];
+      if (handledIds.has(p1.id)) continue;
+
+      const timeInQueue = Date.now() - p1.timeJoined;
+      const allowedDiff = LEVEL_SENSITIVITY + (Math.floor(timeInQueue / SEARCH_EXPANSION_INTERVAL) * LEVEL_SENSITIVITY_EXPANSION);
+
+      let bestMatchIdx = -1;
+      let minDiff = Infinity;
+
+      for (let j = i + 1; j < matchmakingQueue.length; j++) {
+        const p2 = matchmakingQueue[j];
+        if (handledIds.has(p2.id)) continue;
+
+        const diff = Math.abs(p1.level - p2.level);
+        if (diff <= allowedDiff && diff < minDiff) {
+          minDiff = diff;
+          bestMatchIdx = j;
+        }
+      }
+
+      if (bestMatchIdx !== -1) {
+        const p2 = matchmakingQueue[bestMatchIdx];
+        handledIds.add(p1.id);
+        handledIds.add(p2.id);
+
+        const roomId = generateRoomCode();
+        rooms[roomId] = {
+          id: roomId,
+          players: {
+            [p1.id]: { id: p1.id, name: p1.name, themeId: p1.themeId, deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false, ws: p1.ws },
+            [p2.id]: { id: p2.id, name: p2.name, themeId: p2.themeId, deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false, ws: p2.ws }
+          },
+          gameState: 'playing',
+          round: 1,
+          roundWinner: null
+        };
+
+        p1.ws.send(JSON.stringify({ type: 'match_found', roomId, roomCode: roomId }));
+        p2.ws.send(JSON.stringify({ type: 'match_found', roomId, roomCode: roomId }));
+        startRoundTimer(roomId);
+        broadcastToRoom(roomId, { type: 'room_state', state: rooms[roomId] });
+      }
+    }
+
+    // Remove matched players from queue
+    for (let i = matchmakingQueue.length - 1; i >= 0; i--) {
+      if (handledIds.has(matchmakingQueue[i].id)) {
+        matchmakingQueue.splice(i, 1);
+      }
+    }
+  }, 2000);
 
   // Vite integration for full-stack SPA
   if (process.env.NODE_ENV !== 'production') {

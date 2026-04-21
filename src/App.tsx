@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, memo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Bot, Globe, Home, Trophy, XCircle, CheckCircle2, Minus, Copy, Edit2, Bug, X, Wifi, ShieldCheck, Activity, ShoppingCart, User, LogIn, LogOut, Users, UserSearch, PlusCircle, Mail, Lock, UserPlus, Info, ArrowRight, ArrowLeft, ChevronRight, ChevronLeft, Network as NetworkIcon, PlugZap } from 'lucide-react';
+import { Bot, Globe, Home, Trophy, XCircle, CheckCircle2, Minus, Copy, Edit2, Bug, X, Wifi, ShieldCheck, Activity, ShoppingCart, User, LogIn, LogOut, Users, UserSearch, PlusCircle, Mail, Lock, UserPlus, Info, ArrowRight, ArrowLeft, ChevronRight, ChevronLeft, Network as NetworkIcon, PlugZap, Star, Zap, Sparkles } from 'lucide-react';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { SplashScreen } from '@capacitor/splash-screen';
 import { Network } from '@capacitor/network';
@@ -123,205 +123,40 @@ const GameTimer = memo(({ timeLeft }: { timeLeft?: number }) => {
   );
 });
 
-const XPBadge = memo(({ level, xp }: { level: number, xp: number }) => {
-  // Formula: 100 * (Level^1.5)
-  const currentLevelXp = Math.floor(100 * Math.pow(level - 1, 1.5));
-  const nextLevelXp = Math.floor(100 * Math.pow(level, 1.5));
-  const progress = level === 1 ? (xp / 100) * 100 : ((xp - currentLevelXp) / (nextLevelXp - currentLevelXp)) * 100;
-
-  return (
-    <div className="flex flex-col items-end gap-1">
-      <div className="flex items-center gap-2">
-        <span className="text-[10px] text-game-offwhite/40 uppercase tracking-widest font-display">المستوى {level}</span>
-        <div className="w-24 h-1.5 bg-white/5 rounded-full overflow-hidden border border-white/5">
-          <motion.div 
-            initial={{ width: 0 }}
-            animate={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
-            className="h-full bg-game-teal shadow-[0_0_8px_rgba(0,128,128,0.5)]"
-          />
-        </div>
-      </div>
-      <span className="text-[8px] text-game-teal/60 font-mono tracking-tighter">
-        {Math.floor(xp)} / {nextLevelXp} XP
-      </span>
-    </div>
-  );
-});
-
-const LeaderboardModal = memo(({ onClose }: { onClose: () => void }) => {
-  const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<{ topPlayers: any[], userRank: number, userData: any } | null>(null);
-
-  useEffect(() => {
-    const fetchLeaderboard = async () => {
-      try {
-        const response = await CapacitorHttp.request({
-          url: `${getBaseApiUrl()}/api/leaderboard?userId=${user?._id || ''}`,
-          method: 'GET'
-        });
-        if (response.status === 200) {
-          setData(response.data);
-        }
-      } catch (err) {
-        console.error('Failed to fetch leaderboard:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchLeaderboard();
-  }, [user?._id]);
-
-  return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md" onClick={onClose}>
-      <motion.div 
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        className="w-full max-w-lg bg-game-dark border border-white/10 rounded-3xl overflow-hidden flex flex-col max-h-[85vh] shadow-2xl"
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="p-6 border-b border-white/10 flex items-center justify-between bg-gradient-to-r from-game-slate/20 to-transparent">
-          <div className="flex items-center gap-3">
-            <Trophy className="w-6 h-6 text-yellow-500" />
-            <h2 className="text-xl font-display text-game-offwhite">لوحة الصدارة</h2>
-          </div>
-          <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-full transition-colors">
-            <X className="w-6 h-6 text-game-offwhite/40" />
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-4 space-y-2">
-          {loading ? (
-            <div className="h-40 flex items-center justify-center">
-              <Activity className="w-8 h-8 text-game-teal animate-spin" />
-            </div>
-          ) : data?.topPlayers.length === 0 ? (
-            <div className="text-center py-10 text-game-offwhite/40 font-display">لا يوجد لاعبين مسجلين حالياً</div>
-          ) : (
-            data?.topPlayers.map((player, idx) => (
-              <div 
-                key={player._id} 
-                className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${
-                  player._id === user?._id 
-                    ? 'bg-game-teal/20 border-game-teal/50 shadow-[0_0_15px_rgba(0,128,128,0.2)]' 
-                    : 'bg-white/5 border-white/5 hover:border-white/10'
-                }`}
-              >
-                <div className="flex items-center gap-4">
-                  <span className={`w-6 text-center font-mono font-bold ${idx < 3 ? 'text-yellow-500' : 'text-game-offwhite/20'}`}>
-                    {idx + 1}
-                  </span>
-                  <div className="flex flex-col">
-                    <span className="text-sm font-display text-game-offwhite">{player.displayName}</span>
-                    <span className="text-[10px] text-game-offwhite/40 uppercase tracking-tight">مستوى {player.level}</span>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-sm font-mono text-game-teal font-bold">{Math.floor(player.xp)}</div>
-                  <div className="text-[8px] text-game-offwhite/20 uppercase tracking-widest">XP</div>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-
-        {user && !loading && (
-          <div className="p-4 bg-game-slate/30 border-t border-white/10">
-            <div className={`flex items-center justify-between p-4 rounded-2xl bg-game-teal/30 border border-game-teal/50 shadow-inner`}>
-              <div className="flex items-center gap-4">
-                <span className="w-6 text-center font-mono font-bold text-game-offwhite">
-                  {data?.userRank === -1 ? '?' : data?.userRank}
-                </span>
-                <div className="flex flex-col">
-                  <span className="text-sm font-display text-game-offwhite">{user.displayName} (أنت)</span>
-                  <span className="text-[10px] text-game-offwhite/40 uppercase tracking-tight">مستوى {user.level}</span>
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="text-sm font-mono text-game-teal font-bold">{Math.floor(user.xp)}</div>
-                <div className="text-[8px] text-game-offwhite/20 uppercase tracking-widest">XP</div>
-              </div>
-            </div>
-          </div>
-        )}
-      </motion.div>
-    </div>
-  );
-});
-
-const LevelUpModal = memo(({ level, unlockedThemes, onClose }: { level: number, unlockedThemes: ThemeConfig[], onClose: () => void }) => {
-  return (
-    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/95 backdrop-blur-xl">
-      <motion.div 
-        initial={{ opacity: 0, scale: 0.5, rotate: -10 }}
-        animate={{ opacity: 1, scale: 1, rotate: 0 }}
-        className="w-full max-w-sm text-center relative"
-      >
-        <div className="absolute inset-0 bg-game-teal/20 blur-[100px] animate-pulse rounded-full" />
-        
-        <motion.div 
-          animate={{ scale: [1, 1.1, 1] }} 
-          transition={{ repeat: Infinity, duration: 2 }}
-          className="relative z-10 mb-6"
-        >
-          <div className="w-32 h-32 mx-auto bg-gradient-to-b from-game-teal to-game-slate rounded-full flex items-center justify-center border-4 border-white/20 shadow-[0_0_50px_rgba(0,128,128,0.5)]">
-            <span className="text-6xl font-bold text-white font-mono">{level}</span>
-          </div>
-        </motion.div>
-
-        <h1 className="text-4xl font-display text-game-offwhite mb-2 leading-tight">مبروك!</h1>
-        <p className="text-game-teal font-display text-xl mb-8">لقد ارتقيت للمستوى {level}</p>
-
-        {unlockedThemes.length > 0 && (
-          <div className="mb-8">
-            <p className="text-game-offwhite/40 text-xs uppercase tracking-widest mb-4">تم فتح مجموعات جديدة:</p>
-            <div className="flex justify-center gap-4">
-              {unlockedThemes.map(theme => (
-                <div key={theme.id} className="w-16 h-20 bg-white/5 rounded-lg border border-white/10 flex items-center justify-center p-2">
-                   <img src={getCardImagePath(theme, 'rock')} alt={theme.name} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <button 
-          onClick={onClose}
-          className="w-full bg-game-teal text-white py-4 rounded-2xl font-display text-lg shadow-[0_10px_20px_rgba(0,128,128,0.3)] hover:scale-105 transition-transform active:scale-95"
-        >
-          استكمال اللعب
-        </button>
-      </motion.div>
-    </div>
-  );
-});
-
-const CardPack = memo(({ theme, isOwned, isSelected, currentLevel, onClick, onSelect }: { 
+const CardPack = memo(({ theme, isOwned, isSelected, onClick, onSelect, userLevel = 1 }: { 
   theme: ThemeConfig, 
   isOwned: boolean, 
   isSelected: boolean, 
-  currentLevel: number,
   onClick: () => void,
-  onSelect: () => void
+  onSelect: () => void,
+  userLevel?: number
 }) => {
-  const isLocked = !isOwned && theme.requiredLevel && currentLevel < theme.requiredLevel;
+  const isLocked = !isOwned && (theme.requiredLevel || 1) > userLevel;
 
   return (
     <div 
       onClick={isLocked ? undefined : onClick}
-      className={`relative flex flex-col items-center cursor-pointer transition-all ${isLocked ? 'opacity-60 grayscale' : 'hover:scale-105'}`}
+      className={`relative flex flex-col items-center transition-all ${isLocked ? 'grayscale opacity-60' : 'cursor-pointer hover:scale-105'}`}
     >
       <div className="relative w-24 sm:w-32 aspect-[3/4] mb-4">
         <div className={`absolute inset-0 rounded-xl shadow-sm transform -rotate-3 translate-x-[-4%] translate-y-[2%] opacity-20 ${theme.frontColor} border border-white/5`} />
         <div className={`absolute inset-0 rounded-xl shadow-md flex flex-col items-center justify-center p-2 ${theme.frontColor} border-2 ${isSelected ? 'border-game-slate ring-2 ring-game-slate/20' : 'border-white/20'} z-10 overflow-hidden`}>
-          <img 
-            src={getCardImagePath(theme, 'rock')} 
-            alt="rock" 
-            className="w-full h-full object-contain" 
-            style={{ transform: `scale(${(theme.iconScale || 100) / 100})` }}
-            referrerPolicy="no-referrer" 
-          />
+          {isLocked ? (
+            <div className="flex flex-col items-center gap-2">
+              <Lock className="w-8 h-8 text-white/40 mb-1" />
+              <div className="bg-black/40 px-2 py-0.5 rounded text-[10px] font-bold text-white uppercase tracking-tighter font-mono">
+                Lvl {theme.requiredLevel}
+              </div>
+            </div>
+          ) : (
+            <img 
+              src={getCardImagePath(theme, 'rock')} 
+              alt="rock" 
+              className="w-full h-full object-contain" 
+              style={{ transform: `scale(${(theme.iconScale || 100) / 100})` }}
+              referrerPolicy="no-referrer" 
+            />
+          )}
           {isOwned && (
             <div 
               onClick={(e) => { e.stopPropagation(); onSelect(); }}
@@ -333,25 +168,17 @@ const CardPack = memo(({ theme, isOwned, isSelected, currentLevel, onClick, onSe
               <ShieldCheck className={`w-4 h-4 ${isSelected ? 'fill-white/10' : ''}`} />
             </div>
           )}
-          {isLocked && (
-            <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center p-2 text-center z-20">
-               <Lock className="w-6 h-6 text-game-offwhite mb-2" />
-               <span className="text-[10px] text-game-offwhite font-display">مستوى {theme.requiredLevel}</span>
-            </div>
-          )}
         </div>
       </div>
       <div className="text-center">
         <h3 className="text-lg font-display text-game-offwhite leading-tight">{theme.name}</h3>
-        {!isOwned ? (
-          isLocked ? (
-            <p className="text-game-offwhite/40 font-display text-xs">مغلق</p>
+        {isLocked ? (
+          <p className="text-red-400 font-display text-[10px] sm:text-xs">يتطلب مستوى {theme.requiredLevel}</p>
+        ) : !isOwned ? (
+          theme.id === 'robot' ? (
+            <p className="text-game-teal font-display text-[10px] sm:text-xs">فز على الروبوت لفتحه</p>
           ) : (
-            theme.id === 'robot' ? (
-              <p className="text-game-teal font-display text-[10px] sm:text-xs">فز على الروبوت لفتحه</p>
-            ) : (
-              <p className="text-yellow-500 font-display text-sm">{theme.price} 🪙</p>
-            )
+            <p className="text-yellow-500 font-display text-sm">{theme.price} 🪙</p>
           )
         ) : (
           <p className={`text-xs font-display ${isSelected ? 'text-game-teal' : 'text-game-offwhite/40'}`}>
@@ -428,12 +255,12 @@ const PackPreviewModal = memo(({ selectedPack, ownedThemes, selectedThemeId, onB
 });
 
 
-const GlobalNavbar = memo(({ activeTab, setAppState, coins, playerName, isGuest, onLogout, onLoginClick }: any) => {
+const GlobalNavbar = memo(({ activeTab, setAppState, coins, playerName, isGuest, onLogout, onLoginClick, menuTab = 'main', setMenuTab }: any) => {
   return (
     <nav 
       dir="rtl" 
       className="fixed top-0 inset-x-0 z-[60] bg-game-dark/95 border-b border-white/10 shadow-lg" 
-      style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}
+      style={{ paddingTop: 'max(1.25rem, env(safe-area-inset-top))' }}
     >
       <div className="relative w-full h-12">
         {/* --- STORE NAVBAR --- */}
@@ -450,29 +277,46 @@ const GlobalNavbar = memo(({ activeTab, setAppState, coins, playerName, isGuest,
 
         {/* --- MENU NAVBAR --- */}
         <div className={`absolute inset-0 flex justify-between items-center px-6 sm:px-8 transition-opacity duration-300 ${activeTab === 'menu' ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
-          <div className="flex items-center gap-3">
-            <button 
-              onClick={() => setAppState('profile')}
-              className="flex items-center gap-2 hover:opacity-80 transition-opacity"
-            >
-              <div className="w-8 h-8 rounded-full bg-game-teal/20 border border-game-teal/30 flex items-center justify-center">
-                <User className="w-3.5 h-3.5 text-game-teal" />
+          {menuTab === 'main' ? (
+            <>
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={() => setAppState('profile')}
+                  className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+                >
+                  <div className="w-8 h-8 rounded-full bg-game-teal/20 border border-game-teal/30 flex items-center justify-center">
+                    <User className="w-3.5 h-3.5 text-game-teal" />
+                  </div>
+                  <div className="text-right flex flex-col">
+                    <div className="text-sm sm:text-base font-display text-game-offwhite leading-none">{playerName}</div>
+                  </div>
+                </button>
               </div>
-              <div className="text-right flex flex-col">
-                <div className="text-sm sm:text-base font-display text-game-offwhite leading-none">{playerName}</div>
+              <div>
+                <button 
+                  onClick={() => setAppState('store')}
+                  className="flex items-center gap-1 bg-white/5 backdrop-blur-sm px-2.5 py-1 rounded-full border border-white/10 hover:bg-white/10 transition-all group transform-gpu"
+                >
+                  <span className="text-sm sm:text-base font-display text-yellow-500 font-medium group-hover:scale-105 transition-transform">{coins}</span>
+                  <span className="text-xs">🪙</span>
+                  <PlusCircle className="w-3 h-3 text-game-teal ml-0.5 group-hover:rotate-90 transition-transform" />
+                </button>
               </div>
-            </button>
-          </div>
-          <div>
-            <button 
-              onClick={() => setAppState('store')}
-              className="flex items-center gap-1 bg-white/5 backdrop-blur-sm px-2.5 py-1 rounded-full border border-white/10 hover:bg-white/10 transition-all group transform-gpu"
-            >
-              <span className="text-sm sm:text-base font-display text-yellow-500 font-medium group-hover:scale-105 transition-transform">{coins}</span>
-              <span className="text-xs">🪙</span>
-              <PlusCircle className="w-3 h-3 text-game-teal ml-0.5 group-hover:rotate-90 transition-transform" />
-            </button>
-          </div>
+            </>
+          ) : (
+            <>
+              <button 
+                onClick={() => setMenuTab?.('main')} 
+                className="p-1.5 bg-white/5 backdrop-blur-sm rounded-full text-game-cream hover:bg-white/10 border border-white/10 transition-all shadow-inner transform-gpu"
+              >
+                <ArrowRight className="w-5 h-5" />
+              </button>
+              <h1 className="text-lg font-display text-white tracking-widest uppercase">
+                {menuTab === 'online' ? 'اللعب عبر الإنترنت' : 'الشبكة المحلية'}
+              </h1>
+              <div className="w-8" /> {/* Placeholder to balance header */}
+            </>
+          )}
         </div>
 
         {/* --- PROFILE NAVBAR --- */}
@@ -504,8 +348,7 @@ const GlobalNavbar = memo(({ activeTab, setAppState, coins, playerName, isGuest,
   );
 });
 
-const StoreView = memo(({ user, coins, ownedThemes, selectedThemeId, onBuy, onSelect, selectedPack, setSelectedPack }: {
-  user: any,
+const StoreView = memo(({ coins, ownedThemes, selectedThemeId, onBuy, onSelect, selectedPack, setSelectedPack, userLevel = 1 }: {
   coins: number,
   ownedThemes: string[],
   selectedThemeId: string,
@@ -513,7 +356,8 @@ const StoreView = memo(({ user, coins, ownedThemes, selectedThemeId, onBuy, onSe
   onBuy: (theme: ThemeConfig) => void,
   onSelect: (id: string) => void,
   selectedPack: ThemeConfig | null,
-  setSelectedPack: (theme: ThemeConfig | null) => void
+  setSelectedPack: (theme: ThemeConfig | null) => void,
+  userLevel?: number
 }) => (
   <div 
     dir="rtl" 
@@ -526,7 +370,7 @@ const StoreView = memo(({ user, coins, ownedThemes, selectedThemeId, onBuy, onSe
           theme={theme}
           isOwned={ownedThemes.includes(theme.id)}
           isSelected={selectedThemeId === theme.id}
-          currentLevel={user?.level || 1}
+          userLevel={userLevel}
           onClick={() => setSelectedPack(theme)}
           onSelect={() => onSelect(theme.id)}
         />
@@ -546,10 +390,11 @@ const StoreView = memo(({ user, coins, ownedThemes, selectedThemeId, onBuy, onSe
   </div>
 ));
 
-const ProfileView = memo(({ user, playerName, coins, ownedThemes, selectedThemeId, onSelect, onBuy, selectedPack, setSelectedPack, onEditName, onOpenLeaderboard }: {
-  user: any,
+const ProfileView = memo(({ playerName, coins, xp = 0, level = 1, ownedThemes, selectedThemeId, onSelect, onBuy, selectedPack, setSelectedPack, onEditName }: {
   playerName: string,
   coins: number,
+  xp?: number,
+  level?: number,
   ownedThemes: string[],
   selectedThemeId: string,
   onSelect: (id: string) => void,
@@ -557,64 +402,41 @@ const ProfileView = memo(({ user, playerName, coins, ownedThemes, selectedThemeI
   selectedPack: ThemeConfig | null,
   setSelectedPack: (theme: ThemeConfig | null) => void,
   onEditName: () => void,
-  onOpenLeaderboard: () => void,
 }) => (
   <div 
     dir="rtl" 
     className="w-full h-full flex flex-col font-body overflow-x-hidden overflow-y-auto smooth-scroll select-none pb-10"
   >
     <div className="max-w-md mx-auto w-full space-y-6 px-4 sm:px-6 pt-20">
-      <div className="bg-gradient-to-br from-game-dark/95 to-game-dark/80 p-6 rounded-2xl border border-white/10 flex flex-col items-center gap-4 relative shadow-2xl">
-        <div className="w-full flex flex-col sm:flex-row items-center gap-4">
+      <div className="bg-gradient-to-br from-game-dark/95 to-game-dark/80 p-6 rounded-2xl border border-white/10 flex flex-col sm:flex-row items-center gap-4 relative shadow-2xl">
+        <div className="relative">
           <div className="w-20 h-20 rounded-full bg-game-bg border-4 border-game-offwhite/5 flex items-center justify-center overflow-hidden shadow-inner">
             <User className="w-10 h-10 text-game-offwhite/20" />
           </div>
-          <div className="flex-1 flex flex-col items-center sm:items-start text-center sm:text-right gap-2">
-            <div className="flex items-center gap-3">
-              <h2 className="text-2xl font-display text-game-offwhite">{playerName}</h2>
-              <button 
-                onClick={onEditName}
-                className="p-2 text-game-offwhite/40 hover:text-game-offwhite transition-all bg-white/5 rounded-lg border border-white/5"
-                title="تعديل الاسم"
-              >
-                <Edit2 className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="flex items-center gap-2 bg-black/20 px-4 py-1.5 rounded-full border border-white/5">
-              <Trophy className="w-4 h-4 text-yellow-500" />
-              <span className="text-xl font-display text-yellow-500">{coins}</span>
-              <span className="text-sm text-game-offwhite/60 font-body">عملة ذهبية</span>
-            </div>
+          <div className="absolute -bottom-1 -right-1 bg-game-teal text-white w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border-2 border-game-dark shadow-md font-mono">
+            {level}
           </div>
         </div>
-
-        {user && (
-          <div className="w-full border-t border-white/5 pt-4 mt-2 space-y-4">
-            <div className="grid grid-cols-3 gap-3">
-               <div className="flex flex-col items-center p-3 bg-white/5 rounded-xl border border-white/5">
-                  <span className="text-[10px] text-game-offwhite/40 uppercase tracking-widest mb-1">المباريات</span>
-                  <span className="text-lg font-display text-white">{user.totalMatches || 0}</span>
-               </div>
-               <div className="flex flex-col items-center p-3 bg-white/5 rounded-xl border border-white/5">
-                  <span className="text-[10px] text-game-offwhite/40 uppercase tracking-widest mb-1">الانتصارات</span>
-                  <span className="text-lg font-display text-white">{user.totalWins || 0}</span>
-               </div>
-               <div className="flex flex-col items-center p-3 bg-white/5 rounded-xl border border-white/5">
-                  <span className="text-[10px] text-game-offwhite/40 uppercase tracking-widest mb-1">نسبة الفوز</span>
-                  <span className="text-lg font-display text-game-teal">
-                    {user.totalMatches > 0 ? Math.round((user.totalWins / user.totalMatches) * 100) : 0}%
-                  </span>
-               </div>
-            </div>
-            
+        <div className="flex-1 flex flex-col items-center sm:items-start text-center sm:text-right gap-3 w-full">
+          <div className="flex items-center gap-3">
+            <h2 className="text-2xl font-display text-game-offwhite">{playerName}</h2>
             <button 
-              onClick={onOpenLeaderboard}
-              className="w-full py-3 bg-game-teal/20 text-game-teal border border-game-teal/30 rounded-xl font-display flex items-center justify-center gap-2 hover:bg-game-teal/30 transition-all"
+              onClick={onEditName}
+              className="p-2 text-game-offwhite/40 hover:text-game-offwhite transition-all bg-white/5 rounded-lg border border-white/5"
+              title="تعديل الاسم"
             >
-              <Trophy className="w-5 h-5" /> لوحة الصدارة العالمية
+              <Edit2 className="w-4 h-4" />
             </button>
           </div>
-        )}
+          
+          <XPBar xp={xp} level={level} />
+
+          <div className="flex items-center gap-2 bg-black/20 px-4 py-1.5 rounded-full border border-white/5">
+            <Trophy className="w-4 h-4 text-yellow-500" />
+            <span className="text-xl font-display text-yellow-500">{coins}</span>
+            <span className="text-sm text-game-offwhite/60 font-body">عملة ذهبية</span>
+          </div>
+        </div>
       </div>
 
       <div>
@@ -626,7 +448,7 @@ const ProfileView = memo(({ user, playerName, coins, ownedThemes, selectedThemeI
               theme={theme}
               isOwned={true}
               isSelected={selectedThemeId === theme.id}
-              currentLevel={user?.level || 1}
+              userLevel={level}
               onClick={() => setSelectedPack(theme)}
               onSelect={() => onSelect(theme.id)}
             />
@@ -647,6 +469,207 @@ const ProfileView = memo(({ user, playerName, coins, ownedThemes, selectedThemeI
       )}
   </div>
 ));
+
+const XPBar = memo(({ xp = 0, level = 1 }: { xp: number, level: number }) => {
+  const safeLevel = Math.max(1, level);
+  const currentLevelXP = Math.pow(safeLevel - 1, 2) * 100;
+  const nextLevelXP = Math.pow(safeLevel, 2) * 100;
+  const totalInLevel = nextLevelXP - currentLevelXP;
+  const progressInLevel = Math.max(0, xp - currentLevelXP);
+  const progress = Math.min(100, (progressInLevel / totalInLevel) * 100);
+
+  return (
+    <div className="w-full space-y-1.5" dir="rtl">
+      <div className="flex justify-between items-end px-1">
+        <div className="flex items-center gap-1.5">
+          <div className="bg-game-teal/20 p-1 rounded-md">
+            <Star className="w-3.5 h-3.5 text-game-teal fill-game-teal/20" />
+          </div>
+          <span className="text-[10px] text-game-offwhite/50 font-display uppercase tracking-widest">نقاط الخبرة</span>
+        </div>
+        <div className="text-[11px] font-mono text-game-teal font-bold">
+          {Math.floor(progressInLevel)} <span className="text-game-offwhite/30">/</span> {totalInLevel}
+        </div>
+      </div>
+      <div className="h-2.5 bg-game-dark/50 rounded-full overflow-hidden border border-white/5 p-[1px]">
+        <motion.div 
+          initial={{ width: 0 }}
+          animate={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
+          transition={{ duration: 1, ease: "easeOut" }}
+          className="h-full bg-gradient-to-r from-game-teal to-cyan-400 rounded-full shadow-[0_0_10px_rgba(45,212,191,0.3)]"
+        />
+      </div>
+    </div>
+  );
+});
+
+const LevelUpModal = memo(({ level, onClose }: { level: number, onClose: () => void }) => {
+  const unlockedThemes = THEMES.filter(t => t.requiredLevel === level);
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-game-bg/90 backdrop-blur-md"
+    >
+      <motion.div 
+        initial={{ scale: 0.8, y: 50 }}
+        animate={{ scale: 1, y: 0 }}
+        className="w-full max-w-sm bg-game-dark/90 rounded-3xl border border-game-teal/30 p-8 text-center relative overflow-hidden"
+      >
+        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-game-teal to-transparent" />
+        
+        <motion.div 
+          animate={{ rotate: 360 }}
+          transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+          className="absolute -top-24 -left-24 w-48 h-48 bg-game-teal/10 rounded-full blur-3xl"
+        />
+
+        <div className="relative z-10 space-y-6">
+          <div className="flex justify-center">
+            <div className="relative">
+              <motion.div 
+                animate={{ scale: [1, 1.2, 1], rotate: [0, 5, -5, 0] }}
+                transition={{ duration: 2, repeat: Infinity }}
+                className="w-24 h-24 bg-game-teal rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(45,212,191,0.5)]"
+              >
+                <Sparkles className="w-12 h-12 text-white" />
+              </motion.div>
+              <div className="absolute -bottom-2 -right-2 bg-yellow-500 text-game-dark font-bold px-3 py-1 rounded-full border-2 border-game-dark text-xl">
+                {level}
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <h2 className="text-3xl font-display text-white">مبروك!</h2>
+            <p className="text-game-offwhite/70 font-body">لقد ارتقت خبرتك ووصلت للمستوى الجديد</p>
+          </div>
+
+          {unlockedThemes.length > 0 && (
+            <div className="space-y-3 bg-white/5 p-4 rounded-2xl border border-white/5">
+              <p className="text-xs text-game-offwhite/40 font-display">تم فتح ثيمات جديدة:</p>
+              <div className="flex flex-wrap justify-center gap-2">
+                {unlockedThemes.map(t => (
+                  <div key={t.id} className="bg-game-teal/10 px-3 py-1 rounded-full border border-game-teal/20 text-game-teal text-sm font-bold">
+                    {t.name}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <button 
+            onClick={onClose}
+            className="w-full bg-game-teal text-white py-4 rounded-xl font-bold font-display shadow-lg hover:brightness-110 active:scale-95 transition-all text-xl"
+          >
+            استمرار
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+});
+
+const LeaderboardView = memo(({ userId, onBack }: { userId: string | null, onBack: () => void }) => {
+  const [data, setData] = useState<{ topPlayers: any[], userRank: number | null, userScore: any } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchLeaderboard = async () => {
+      try {
+        const url = `${API_BASE_URL}/api/leaderboard${userId ? `?userId=${userId}` : ''}`;
+        const res = await fetch(url);
+        if (res.ok) {
+          const json = await res.json();
+          setData(json);
+        }
+      } catch (err) {
+        console.error('Failed to fetch leaderboard:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchLeaderboard();
+  }, [userId]);
+
+  if (loading) {
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center space-y-4">
+        <Activity className="w-8 h-8 text-game-teal animate-spin" />
+        <p className="text-game-offwhite/50 font-display">جاري تحميل لوحة الصدارة...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div dir="rtl" className="w-full h-full flex flex-col font-body bg-game-bg overflow-hidden relative">
+      <header 
+        className="fixed top-0 inset-x-0 z-[70] bg-game-dark/95 border-b border-white/10 shadow-xl px-6 sm:px-8"
+        style={{ paddingTop: 'max(1.25rem, env(safe-area-inset-top))' }}
+      >
+        <div className="relative w-full h-12 flex items-center justify-center">
+          <button 
+             className="absolute right-0 p-1.5 text-game-offwhite/50 hover:text-game-offwhite bg-white/5 rounded-lg border border-white/5 transition-all active:scale-90"
+             onClick={onBack}
+          >
+            <ArrowRight className="w-6 h-6" />
+          </button>
+          <h2 className="text-xl sm:text-2xl font-display text-white tracking-wider">لوحة الصدارة</h2>
+        </div>
+      </header>
+
+      <div className="flex-1 w-full max-w-md mx-auto space-y-6 pt-28 pb-24 px-4 overflow-y-auto smooth-scroll">
+        {data?.userRank && (
+        <div className="bg-game-teal/10 border border-game-teal/30 p-4 rounded-2xl flex items-center justify-between shadow-xl">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-game-teal rounded-xl flex items-center justify-center font-display text-xl text-white shadow-lg">
+              #{data.userRank}
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-game-teal font-display uppercase tracking-wider">ترتيبك الحالي</p>
+              <p className="text-lg text-white font-bold leading-none mt-1">أنت الآن في المركز الـ {data.userRank}</p>
+            </div>
+          </div>
+          <div className="text-left">
+            <p className="text-xl font-display text-game-teal">{data.userScore?.xp || 0} XP</p>
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-3">
+        {data?.topPlayers.map((player: any, idx: number) => {
+          const isTop3 = idx < 3;
+          const medals = ['🥇', '🥈', '🥉'];
+          return (
+            <motion.div 
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: idx * 0.05 }}
+              key={player._id}
+              className={`p-4 rounded-2xl flex items-center justify-between border ${idx === 0 ? 'bg-yellow-500/10 border-yellow-500/30' : 'bg-game-dark/60 border-white/5'}`}
+            >
+              <div className="flex items-center gap-4">
+                <div className={`w-10 h-10 flex items-center justify-center text-xl font-display ${isTop3 ? '' : 'text-game-offwhite/30'}`}>
+                  {isTop3 ? medals[idx] : idx + 1}
+                </div>
+                <div className="text-right">
+                  <p className={`font-display text-lg leading-tight ${isTop3 ? 'text-white' : 'text-game-offwhite/80'}`}>{player.displayName}</p>
+                  <p className="text-[10px] text-game-offwhite/40 tracking-widest font-mono">LEVEL {player.level || 1}</p>
+                </div>
+              </div>
+              <div className="text-left">
+                <p className={`font-display text-xl ${idx === 0 ? 'text-yellow-500' : 'text-game-teal'}`}>{player.xp || 0} XP</p>
+              </div>
+            </motion.div>
+          );
+        })}
+      </div>
+    </div>
+  </div>
+);
+});
 
 const DashboardViewPager = ({ appState, setAppState, onVisibleTabChange, children }: { appState: string, setAppState: (state: any) => void, onVisibleTabChange: (tab: string) => void, children: React.ReactNode }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -774,8 +797,8 @@ const DashboardViewPager = ({ appState, setAppState, onVisibleTabChange, childre
 };
 
 const App = () => {
-  const { user, login, register, verifyCode, resendCode, logout, updateProfile, loading: authLoading, error: authError, pendingVerificationEmail, setPendingVerificationEmail } = useAuth();
-  const [appState, setAppState] = useState<'loading' | 'auth' | 'menu' | 'store' | 'profile' | 'matchmaking' | 'game' | 'gameOver' | 'inRoom' | 'verifySent'>('loading');
+  const { user, login, register, verifyCode, resendCode, logout, updateProfile, refreshProfile, loading: authLoading, error: authError, pendingVerificationEmail, setPendingVerificationEmail } = useAuth();
+  const [appState, setAppState] = useState<'loading' | 'auth' | 'menu' | 'store' | 'profile' | 'matchmaking' | 'game' | 'gameOver' | 'inRoom' | 'verifySent' | 'leaderboard'>('loading');
   const [assetsLoaded, setAssetsLoaded] = useState(false);
   const [authTab, setAuthTab] = useState<'login' | 'register'>('login');
   const [menuTab, setMenuTab] = useState<'main' | 'online' | 'local'>('main');
@@ -799,6 +822,7 @@ const App = () => {
   const [editNameInput, setEditNameInput] = useState('');
   const [showEditNameDialog, setShowEditNameDialog] = useState(false);
   const [visibleTab, setVisibleTab] = useState<'store'|'menu'|'profile'>('menu');
+  const [showLevelUp, setShowLevelUp] = useState<number | null>(null);
   const [isOnline, setIsOnline] = useState(true);
 
   // Network Status Listener
@@ -838,6 +862,14 @@ const App = () => {
     const stored = localStorage.getItem('cardclash_coins');
     return stored ? parseInt(stored, 10) : 100;
   });
+  const [xp, setXpState] = useState(() => {
+    const stored = localStorage.getItem('cardclash_xp');
+    return stored ? parseInt(stored, 10) : 0;
+  });
+  const [level, setLevelState] = useState(() => {
+    const stored = localStorage.getItem('cardclash_level');
+    return stored ? parseInt(stored, 10) : 1;
+  });
 
   // Local state persistence
   useEffect(() => {
@@ -845,7 +877,9 @@ const App = () => {
     localStorage.setItem('cardclash_selectedThemeId', selectedThemeId);
     localStorage.setItem('cardclash_ownedThemes', JSON.stringify(ownedThemes));
     localStorage.setItem('cardclash_coins', coins.toString());
-  }, [playerName, selectedThemeId, ownedThemes, coins]);
+    localStorage.setItem('cardclash_xp', xp.toString());
+    localStorage.setItem('cardclash_level', level.toString());
+  }, [playerName, selectedThemeId, ownedThemes, coins, xp, level]);
 
   // Sync state with auth user (Initial load only)
   const isProfileInitialized = useRef(false);
@@ -856,6 +890,8 @@ const App = () => {
       setPlayerNameState(user.displayName);
       setPlayerId(user._id);
       setCoinsState(user.coins);
+      setXpState(user.xp || 0);
+      setLevelState(user.level || 1);
       setOwnedThemesState(user.purchasedThemes);
       setSelectedThemeIdState(user.equippedTheme);
       isProfileInitialized.current = true;
@@ -937,14 +973,7 @@ const App = () => {
     setAuthSubmitting(true);
     setErrorMsg(null);
     try {
-      const data = await login(authEmail, authPass);
-      if (data && data.dailyXpGained > 0) {
-        addLog(`Daily Reward: +${data.dailyXpGained} XP`, 'success');
-      }
-      if (data && data.leveledUp) {
-        const unlocked = THEMES.filter(t => t.requiredLevel === data.level);
-        setLevelUpData({ level: data.level, themes: unlocked });
-      }
+      await login(authEmail, authPass);
     } catch (err: any) {
       setErrorMsg(err.message);
     } finally {
@@ -1031,8 +1060,6 @@ const App = () => {
   const [ws, setWs] = useState<WebSocket | null>(null);
   const [selectedPack, setSelectedPack] = useState<ThemeConfig | null>(null);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
-  const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
-  const [levelUpData, setLevelUpData] = useState<{ level: number, themes: ThemeConfig[] } | null>(null);
   const backPressTimer = useRef<NodeJS.Timeout | null>(null);
   const [isDoubleBack, setIsDoubleBack] = useState(false);
 
@@ -1071,6 +1098,7 @@ const App = () => {
   const playerNameRef = useRef<string>('');
   const playerIdRef = useRef<string>('');
   const selectedThemeIdRef = useRef<string>('normal');
+  const levelRef = useRef<number>(1);
   const appStateRef = useRef(appState);
   const roleRef = useRef(role);
   const onlineActionRef = useRef<any>(null);
@@ -1081,6 +1109,7 @@ const App = () => {
     playerNameRef.current = playerName;
     playerIdRef.current = playerId;
     selectedThemeIdRef.current = selectedThemeId;
+    levelRef.current = level;
     appStateRef.current = appState;
     roleRef.current = role;
   }, [roomId, roomState, playerName, selectedThemeId, appState, role]);
@@ -1609,7 +1638,7 @@ const App = () => {
       
       socket.onerror = (e) => {
         addLog(`WebSocket error: ${JSON.stringify(e)}`, 'error');
-        setErrorMsg('فشل الاتصال بالسيرفر الأونلاين');
+        setErrorMsg('فشل الاتصال بسيرفر اللعب عبر الإنترنت');
         reject(e);
       };
       
@@ -1655,21 +1684,12 @@ const App = () => {
         setRoomState(data.state);
         setRoomId(data.state.id);
         if (appStateRef.current !== 'inRoom') setAppState('inRoom');
-      } else if (data.type === 'match_rewards') {
-        addLog(`Match Rewards: +${data.xpGained} XP`, 'success');
-        if (data.leveledUp) {
-           const unlocked = THEMES.filter(t => t.requiredLevel === data.newLevel);
-           setLevelUpData({ level: data.newLevel, themes: unlocked });
-        }
-        // Force profile refetch to get latest XP
-        if (user?._id) {
-           // We could just wait for server to sync, but let's be explicit
-           // auth.updateProfile({ xp: data.xpGained, level: data.newLevel }); 
-           // Better to just rely on the next profile fetch or socket payload
-        }
       } else if (data.type === 'error_msg') {
         setErrorMsg(data.msg);
         setIsSearching(false);
+      } else if (data.type === 'level_up') {
+        setShowLevelUp(data.newLevel);
+        refreshProfile();
       }
   };
 
@@ -1679,6 +1699,7 @@ const App = () => {
       type: 'quick_match', 
       playerName: playerNameRef.current.trim(), 
       playerId: playerIdRef.current,
+      playerLevel: levelRef.current,
       themeId: selectedThemeIdRef.current 
     }).catch(() => {});
   };
@@ -1913,6 +1934,10 @@ const App = () => {
       setErrorMsg('أنت تمتلك هذه المجموعة بالفعل');
       return;
     }
+    if (level < (theme.requiredLevel || 1)) {
+      setErrorMsg(`يجب أن تصل للمستوى ${theme.requiredLevel} لفتح هذه المجموعة`);
+      return;
+    }
     if (coins < theme.price) {
       setErrorMsg('ليس لديك عملات كافية لشراء هذه المجموعة');
       return;
@@ -2083,6 +2108,25 @@ const App = () => {
     </AnimatePresence>
   );
 
+  if (appState === 'leaderboard') {
+    return (
+      <div className="fixed inset-0 z-0 bg-game-bg">
+        <LeaderboardView 
+          userId={user?._id || null} 
+          onBack={() => setAppState('menu')} 
+        />
+        <div className="fixed bottom-0 left-0 w-full p-4 flex justify-center z-10 sm:hidden">
+           <button 
+             onClick={() => setAppState('menu')}
+             className="w-full py-4 bg-game-teal text-white rounded-xl font-display text-xl shadow-2xl active:scale-95"
+           >
+             العودة للقائمة
+           </button>
+        </div>
+      </div>
+    );
+  }
+
   if (appState === 'auth') {
     return (
       <div 
@@ -2094,7 +2138,8 @@ const App = () => {
         >
           <button 
             onClick={() => setAppState('menu')}
-            className="absolute top-4 left-4 p-2 text-game-offwhite/50 hover:text-game-offwhite hover:bg-white/5 rounded-full transition-all"
+            className="absolute p-2 text-game-offwhite/50 hover:text-game-offwhite hover:bg-white/5 rounded-full transition-all"
+            style={{ top: 'max(1.25rem, env(safe-area-inset-top))', left: '1rem' }}
           >
             <X className="w-5 h-5" />
           </button>
@@ -2196,12 +2241,10 @@ const App = () => {
           <button 
             onClick={() => {
               const hasSetGuestName = localStorage.getItem('cardclash_hasSetGuestName');
+              setAppState('menu');
               if (!hasSetGuestName) {
                 setEditNameInput('');
                 setShowEditNameDialog(true);
-                // We don't set appState('menu') here yet, we wait for handleUpdateName
-              } else {
-                setAppState('menu');
               }
             }}
             className="w-full py-3 bg-white/5 backdrop-blur-sm hover:bg-white/10 text-game-offwhite/60 rounded-xl font-display transition-all border border-white/10 active:scale-95 flex items-center justify-center gap-2 transform-gpu outline-none"
@@ -2227,7 +2270,8 @@ const App = () => {
         >
           <button 
             onClick={() => setAppState('menu')}
-            className="absolute top-6 left-6 p-2 text-game-offwhite/50 hover:text-game-offwhite hover:bg-white/5 rounded-full transition-all"
+            className="absolute p-2 text-game-offwhite/50 hover:text-game-offwhite hover:bg-white/5 rounded-full transition-all"
+            style={{ top: '1.25rem', left: '1.25rem' }}
           >
             <X className="w-5 h-5" />
           </button>
@@ -2304,13 +2348,15 @@ const App = () => {
             setAppState('auth');
             setAuthTab('login');
           }}
+          menuTab={menuTab}
+          setMenuTab={setMenuTab}
         />
         <DashboardViewPager appState={appState} setAppState={setAppState} onVisibleTabChange={setVisibleTab}>
           <StoreView 
-            user={user}
             coins={coins}
             ownedThemes={ownedThemes}
             selectedThemeId={selectedThemeId}
+            userLevel={level}
             onBack={() => setAppState('menu')}
             onBuy={buyTheme}
             onSelect={(id) => {
@@ -2327,21 +2373,7 @@ const App = () => {
             <div
               className="max-w-md w-full text-center mx-auto py-8 px-6 pt-24 min-h-screen flex flex-col justify-center items-center"
             >
-              {user && (
-                <div className="w-full flex items-center justify-between mb-8 sm:mb-10 bg-white/5 p-4 rounded-2xl border border-white/10 backdrop-blur-md">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-white/5 rounded-xl border border-white/10">
-                      <ShieldCheck className="w-6 h-6 text-game-teal" />
-                    </div>
-                    <div className="flex flex-col text-right">
-                      <span className="text-[10px] text-game-offwhite/40 uppercase tracking-widest font-display">مرحباً بك</span>
-                      <span className="text-lg font-display text-white">{user.displayName}</span>
-                    </div>
-                  </div>
-                  <XPBadge level={user.level || 1} xp={user.xp || 0} />
-                </div>
-              )}
-              <div className="mb-4"></div>
+              <div className="mb-8"></div>
             
             <div className="space-y-4 sm:space-y-5 w-full">
               {menuTab === 'main' && (
@@ -2349,8 +2381,8 @@ const App = () => {
                   key="main"
                   className="flex flex-col gap-4 sm:gap-5 w-full"
                 >
-                  {!user && (
-                    <div className="w-full mb-2">
+                  <div className="w-full mb-2">
+                    {!user ? (
                       <div className="bg-yellow-500/10 border border-yellow-500/30 p-3 sm:p-4 rounded-xl flex items-start gap-3 w-full sm:w-[90%] mx-auto text-right">
                         <Info className="w-5 h-5 text-yellow-500 shrink-0 mt-0.5" />
                         <div className="space-y-2.5 w-full">
@@ -2366,8 +2398,16 @@ const App = () => {
                           </button>
                         </div>
                       </div>
-                    </div>
-                  )}
+                    ) : !isOnline ? (
+                      <div className="bg-blue-500/10 border border-blue-500/30 p-3 sm:p-4 rounded-xl flex items-start gap-3 w-full sm:w-[90%] mx-auto text-right">
+                        <Wifi className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
+                        <div className="space-y-2 w-full">
+                          <p className="text-sm text-blue-400 font-display">وضع الأوفلاين (مسجل دخول)</p>
+                          <p className="text-[11px] text-game-cream/60 leading-relaxed font-body">أنت تلعب بحسابك <span className="text-blue-400">{user.displayName}</span>. سيتم مزامنة أي تقدم تحرزه فور عودة الاتصال بالإنترنت.</p>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
                     <motion.button
                       whileTap={{ scale: 0.94 }}
                       onClick={() => setMenuTab('online')}
@@ -2411,16 +2451,8 @@ const App = () => {
                 {menuTab === 'online' && (
                   <div
                     key="online"
-                    className="flex flex-col gap-6 w-full max-w-[340px] mx-auto px-2"
+                    className="flex flex-col gap-5 w-full max-w-[340px] mx-auto px-2"
                   >
-                    <button onClick={() => {
-                        cancelSearch();
-                        setMenuTab('main');
-                      }} 
-                      className="text-game-offwhite/40 hover:text-game-offwhite flex items-center gap-2 mb-2 w-fit transition-colors text-sm font-display tracking-widest group">
-                      <span className="group-hover:-translate-x-1 transition-transform">➔</span> رجوع للخلف
-                    </button>
-                    
                     <div className="relative flex flex-col gap-6">
                         <>
                           {isSearching && (
@@ -2439,57 +2471,78 @@ const App = () => {
                             </div>
                           )}
 
-                          <div className="bg-game-dark/90 border border-white/10 p-6 rounded-xl shadow-xl">
-                            <div className="flex items-center gap-3 mb-5">
-                              <div className="p-2 bg-white/5 rounded-lg border border-game-teal/20">
-                                <UserSearch className="w-6 h-6 text-game-teal" />
+                          <div 
+                            onClick={() => setAppState('leaderboard')}
+                            className="bg-game-dark/90 border border-yellow-500/20 p-4 rounded-xl shadow-xl cursor-pointer hover:bg-white/5 transition-all group"
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className="p-2 bg-yellow-500/10 rounded-lg border border-yellow-500/20 group-hover:bg-yellow-500/20 transition-all">
+                                  <Trophy className="w-5 h-5 text-yellow-500" />
+                                </div>
+                                <div className="text-right">
+                                  <h3 className="text-yellow-500 font-display text-sm tracking-widest">لوحة الصدارة</h3>
+                                  <p className="text-[9px] text-game-cream/40 font-body italic underline decoration-yellow-500/30">شاهد ترتيب أبطال العالم</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1.5 opacity-40 group-hover:opacity-100 transition-all">
+                                <Sparkles className="w-3 h-3 text-yellow-500" />
+                                <ChevronLeft className="w-4 h-4 text-game-offwhite" />
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="bg-game-dark/80 border border-white/10 p-5 rounded-xl shadow-xl">
+                            <div className="flex items-center gap-3 mb-4">
+                              <div className="p-1.5 bg-white/5 rounded-lg border border-game-teal/20">
+                                <UserSearch className="w-5 h-5 text-game-teal" />
                               </div>
                               <div className="text-right">
-                                <h3 className="text-game-cream font-display text-lg tracking-widest">بحث عشوائي</h3>
-                                <p className="text-[10px] text-game-cream/40 font-body italic">اللعب ضد خصم عشوائي عالمياً</p>
+                                <h3 className="text-game-cream font-display text-base tracking-widest leading-none">بحث عشوائي</h3>
+                                <p className="text-[10px] text-game-cream/40 font-body italic mt-1">اللعب ضد خصم عشوائي عالمياً</p>
                               </div>
                             </div>
                             <button
                                onClick={startQuickMatch}
                                disabled={isSearching}
-                               className="w-full py-3 bg-white/15 backdrop-blur-md border border-white/20 text-game-offwhite hover:bg-white/20 hover:border-white/30 rounded-xl font-display text-2xl transition-all active:scale-95 disabled:opacity-50 outline-none transform-gpu"
+                               className="w-full py-3 bg-white/10 backdrop-blur-md border border-white/15 text-game-offwhite hover:bg-white/15 hover:border-white/20 rounded-xl font-display text-xl transition-all active:scale-95 disabled:opacity-50 outline-none transform-gpu"
                             >
                               مباراة سريعة
                             </button>
                           </div>
 
-                          <div className="bg-game-dark/90 border border-white/10 p-6 rounded-xl shadow-xl">
-                            <div className="flex items-center gap-3 mb-5">
-                              <div className="p-2 bg-white/5 rounded-lg border border-white/10">
-                                <Users className="w-6 h-6 text-game-offwhite" />
+                          <div className="bg-game-dark/80 border border-white/10 p-5 rounded-xl shadow-xl">
+                            <div className="flex items-center gap-3 mb-4">
+                              <div className="p-1.5 bg-white/5 rounded-lg border border-white/10">
+                                <Users className="w-5 h-5 text-game-offwhite" />
                               </div>
                               <div className="text-right">
-                                <h3 className="text-game-cream font-display text-lg tracking-widest">غرفة خاصة</h3>
-                                <p className="text-[10px] text-game-cream/40 font-body italic">العب مع أصدقائك برمز سري</p>
+                                <h3 className="text-game-cream font-display text-base tracking-widest leading-none">غرفة خاصة</h3>
+                                <p className="text-[10px] text-game-cream/40 font-body italic mt-1">العب مع أصدقائك برمز سري</p>
                               </div>
                             </div>
 
                             <button
                                onClick={createOnlineRoom}
                                disabled={isSearching}
-                               className="w-full py-3 mb-6 bg-white/15 backdrop-blur-md border border-white/20 text-game-offwhite hover:bg-white/20 hover:border-white/30 rounded-lg font-display text-lg transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 outline-none transform-gpu"
+                               className="w-full py-2.5 mb-4 bg-white/10 backdrop-blur-md border border-white/15 text-game-offwhite hover:bg-white/15 hover:border-white/20 rounded-lg font-display text-base transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 outline-none transform-gpu"
                             >
-                              <PlusCircle className="w-5 h-5" /> إنشاء غرفة جديدة
+                              <PlusCircle className="w-4 h-4" /> إنشاء غرفة جديدة
                             </button>
                             
-                            <div className="relative flex items-center mb-5">
-                              <div className="flex-grow border-t border-white/10"></div>
-                              <span className="flex-shrink-0 mx-3 text-white/30 font-display text-xs">أو انضمام برمز</span>
-                              <div className="flex-grow border-t border-white/10"></div>
+                            <div className="relative flex items-center mb-4">
+                              <div className="flex-grow border-t border-white/5"></div>
+                              <span className="flex-shrink-0 mx-3 text-white/20 font-display text-[10px]">أو انضمام برمز</span>
+                              <div className="flex-grow border-t border-white/5"></div>
                             </div>
 
-                            <div className="flex flex-col gap-4">
+                            <div className="relative">
                               <input
                                  type="text"
-                                 placeholder="مثال: AX72"
+                                 placeholder="الرمز"
                                  value={roomIdInput}
                                  onChange={(e) => setRoomIdInput(e.target.value.toUpperCase())}
-                                 className="w-full bg-transparent border-0 border-b-2 border-white/30 rounded-none py-3 px-2 text-center text-2xl font-mono text-game-offwhite focus:outline-none focus:border-game-teal transition-all placeholder:text-white/10 uppercase tracking-[0.2em]"
+                                 className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-center text-2xl font-mono text-game-offwhite focus:outline-none focus:border-game-teal/50 focus:bg-white/10 transition-all placeholder:text-white/10 uppercase tracking-[0.2em]"
                                  maxLength={4}
                                  disabled={isSearching}
                                  dir="ltr"
@@ -2497,12 +2550,12 @@ const App = () => {
                               <AnimatePresence>
                                 {roomIdInput.length === 4 && (
                                   <motion.button
-                                    initial={{ opacity: 0, height: 0, marginTop: 0 }}
-                                    animate={{ opacity: 1, height: 'auto', marginTop: 8 }}
-                                    exit={{ opacity: 0, height: 0, marginTop: 0 }}
+                                    initial={{ opacity: 0, x: 10, scale: 0.9 }}
+                                    animate={{ opacity: 1, x: 0, scale: 1 }}
+                                    exit={{ opacity: 0, x: 10, scale: 0.9 }}
                                     onClick={joinOnlineRoom}
                                     disabled={isSearching}
-                                    className="w-full py-4 bg-white/15 backdrop-blur-md border border-white/20 text-game-offwhite hover:bg-white/20 hover:border-white/30 rounded-xl font-display text-xl transition-all active:scale-95 overflow-hidden outline-none transform-gpu"
+                                    className="absolute left-1.5 top-1.5 bottom-1.5 px-6 bg-game-teal text-game-dark hover:bg-emerald-400 rounded-lg font-display text-sm transition-all active:scale-95 shadow-lg flex items-center justify-center z-10"
                                   >
                                     دخول
                                   </motion.button>
@@ -2520,13 +2573,6 @@ const App = () => {
                     key="local"
                     className="flex flex-col gap-6 w-full max-w-[340px] mx-auto px-2"
                   >
-                    <button 
-                      onClick={() => setMenuTab('main')} 
-                      className="text-game-offwhite/40 hover:text-game-offwhite flex items-center gap-2 w-fit transition-colors text-sm font-display tracking-widest group mb-2"
-                    >
-                      <span className="group-hover:-translate-x-1 transition-transform">➔</span> رجوع للقائمة
-                    </button>
-
                     <div className="relative flex flex-col gap-6">
                       {connectionStatus === 'CONNECTING' && (
                         <div
@@ -2624,9 +2670,10 @@ const App = () => {
           </div>
           </div>
             <ProfileView 
-              user={user}
               playerName={playerName}
               coins={coins}
+              xp={xp}
+              level={level}
               ownedThemes={ownedThemes}
               selectedThemeId={selectedThemeId}
               onBuy={buyTheme}
@@ -2640,9 +2687,17 @@ const App = () => {
                 setEditNameInput(playerName);
                 setShowEditNameDialog(true);
               }}
-              onOpenLeaderboard={() => setIsLeaderboardOpen(true)}
             />
           </DashboardViewPager>
+          
+          <AnimatePresence>
+            {showLevelUp && (
+              <LevelUpModal 
+                level={showLevelUp} 
+                onClose={() => setShowLevelUp(null)} 
+              />
+            )}
+          </AnimatePresence>
           {renderNameEditDialog()}
           {renderDebugUI()}
         </>
@@ -2841,7 +2896,7 @@ const App = () => {
     >
       <div className="max-w-md mx-auto w-full h-full flex flex-col flex-1 relative">
         {/* Header */}
-        <nav className="sticky top-0 z-50 bg-[#121212]/95 backdrop-blur-md border-b border-white/10 px-6 sm:px-8 py-2.5 flex justify-between items-center shadow-lg w-full shrink-0" style={{ paddingTop: 'max(0.5rem, env(safe-area-inset-top))' }}>
+        <nav className="sticky top-0 z-50 bg-[#121212]/95 backdrop-blur-md border-b border-white/10 px-6 sm:px-8 py-2.5 flex justify-between items-center shadow-lg w-full shrink-0" style={{ paddingTop: 'max(1.25rem, env(safe-area-inset-top))' }}>
           <div className="flex items-center gap-2">
             <button 
               onClick={leaveRoom}
@@ -3017,19 +3072,6 @@ const App = () => {
 
       {renderDebugUI()}
       {renderExitConfirm()}
-      <AnimatePresence>
-        {isLeaderboardOpen && (
-          <LeaderboardModal onClose={() => setIsLeaderboardOpen(false)} />
-        )}
-        
-        {levelUpData && (
-          <LevelUpModal 
-            level={levelUpData.level} 
-            unlockedThemes={levelUpData.themes} 
-            onClose={() => setLevelUpData(null)} 
-          />
-        )}
-      </AnimatePresence>
     </div>
     </>
   );
