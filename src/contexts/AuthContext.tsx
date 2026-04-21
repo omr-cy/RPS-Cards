@@ -8,6 +8,10 @@ interface UserProfile {
   email: string;
   displayName: string;
   coins: number;
+  xp: number;
+  level: number;
+  totalWins: number;
+  totalMatches: number;
   purchasedThemes: string[];
   equippedTheme: string;
   isVerified: boolean;
@@ -152,6 +156,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(data);
         localStorage.setItem('cardclash_userId', data._id);
         setPendingVerificationEmail(null);
+        return data;
       } else {
         if (response.status === 403) {
           setPendingVerificationEmail(email);

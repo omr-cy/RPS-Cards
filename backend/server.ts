@@ -44,6 +44,11 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true },
   displayName: { type: String, required: true },
   coins: { type: Number, default: 100 },
+  xp: { type: Number, default: 0 },
+  level: { type: Number, default: 1 },
+  totalWins: { type: Number, default: 0 },
+  totalMatches: { type: Number, default: 0 },
+  lastXpRewardDate: { type: Date }, // For daily login rewards
   purchasedThemes: { type: [String], default: ['normal'] },
   equippedTheme: { type: String, default: 'normal' },
   isVerified: { type: Boolean, default: false },
@@ -56,6 +61,29 @@ const userSchema = new mongoose.Schema({
 });
 
 const User = mongoose.model('User', userSchema);
+
+// XP Constants
+const XP_REWARDS = {
+  DAILY_LOGIN: 50,
+  MATCH_COMPLETE: 20,
+  MATCH_WIN_BONUS: 30, // Total 50 if win
+  TOURNAMENT_PARTICIPATION: 100,
+  TOURNAMENT_WIN: 500,
+};
+
+/**
+ * Level Formula: 100 * (Level^1.5)
+ * Level 1: 0 XP
+ * Level 2: 100 XP
+ * Level 3: 282 XP
+ * Level 4: 520 XP
+ * Level 5: 800 XP
+ */
+function calculateLevel(xp: number): number {
+  if (xp < 100) return 1;
+  // Inverse formula: (XP/100)^(1/1.5)
+  return Math.floor(Math.pow(xp / 100, 1 / 1.5)) + 1;
+}
 
 // Email Setup
 const transporter = nodemailer.createTransport({
@@ -261,6 +289,55 @@ function resolveRound(roomId: string) {
   }, 3000); 
 }
 
+async function awardMatchRewards(room: Room) {
+  const players = Object.values(room.players);
+  if (players.length !== 2) return;
+
+  const p1 = players[0];
+  const p2 = players[1];
+
+  const p1Winner = p1.score > p2.score;
+  const p2Winner = p2.score > p1.score;
+
+  const updatePlayer = async (player: Player, won: boolean) => {
+    // Only update if it's a valid MongoDB ID (registered user)
+    if (player.id && (player.id.length === 24 || /^[0-9a-fA-F]{24}$/.test(player.id))) {
+      try {
+        const user = await User.findById(player.id);
+        if (user) {
+          user.totalMatches += 1;
+          if (won) user.totalWins += 1;
+          
+          const xpGained = XP_REWARDS.MATCH_COMPLETE + (won ? XP_REWARDS.MATCH_WIN_BONUS : 0);
+          user.xp += xpGained;
+          
+          const newLevel = calculateLevel(user.xp);
+          const leveledUp = newLevel > user.level;
+          user.level = newLevel;
+          
+          await user.save();
+          
+          // Send specific reward message to this player
+          if (player.ws.readyState === WebSocket.OPEN) {
+            player.ws.send(JSON.stringify({
+              type: 'match_rewards',
+              xpGained,
+              leveledUp,
+              newLevel: user.level,
+              totalXp: user.xp
+            }));
+          }
+        }
+      } catch (err) {
+        console.error('Error awarding match rewards:', err);
+      }
+    }
+  };
+
+  await updatePlayer(p1, p1Winner);
+  await updatePlayer(p2, p2Winner);
+}
+
 function startNextRound(roomId: string) {
   const room = rooms[roomId];
   if (!room) return;
@@ -268,6 +345,7 @@ function startNextRound(roomId: string) {
   const round = room.round;
   if (round >= 9) {
     room.gameState = 'gameOver';
+    awardMatchRewards(room);
   } else {
     room.round = round + 1;
     room.gameState = 'playing';
@@ -365,7 +443,24 @@ async function startServer() {
         return res.status(403).json({ error: 'يرجى تأكيد بريدك الإلكتروني أولاً' });
       }
 
-      user.lastLogin = new Date();
+      const now = new Date();
+      let xpGained = 0;
+      let leveledUp = false;
+
+      // Daily XP Reward check
+      if (!user.lastXpRewardDate || now.toDateString() !== user.lastXpRewardDate.toDateString()) {
+        xpGained = XP_REWARDS.DAILY_LOGIN;
+        user.xp += xpGained;
+        user.lastXpRewardDate = now;
+        
+        const newLevel = calculateLevel(user.xp);
+        if (newLevel > user.level) {
+          user.level = newLevel;
+          leveledUp = true;
+        }
+      }
+
+      user.lastLogin = now;
       await user.save();
 
       // Return user without password
@@ -373,10 +468,41 @@ async function startServer() {
       delete userResponse.password;
       delete userResponse.verificationToken;
 
-      res.json(userResponse);
+      res.json({ 
+        ...userResponse, 
+        dailyXpGained: xpGained,
+        leveledUp
+      });
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: 'حدث خطأ أثناء تسجيل الدخول' });
+    }
+  });
+
+  app.get('/api/leaderboard', async (req, res) => {
+    try {
+      const { userId } = req.query;
+      const topPlayers = await User.find({ isVerified: true })
+        .sort({ xp: -1 })
+        .limit(50)
+        .select('displayName xp level equippedTheme');
+
+      let userRank = -1;
+      let userData = null;
+
+      if (userId) {
+        const allUsers = await User.find({ isVerified: true }).sort({ xp: -1 }).select('_id');
+        userRank = allUsers.findIndex(u => u._id.toString() === userId) + 1;
+        userData = await User.findById(userId).select('displayName xp level equippedTheme');
+      }
+
+      res.json({
+        topPlayers,
+        userRank,
+        userData
+      });
+    } catch (err) {
+      res.status(500).json({ error: 'حدث خطأ أثناء جلب لوحة الصدارة' });
     }
   });
 

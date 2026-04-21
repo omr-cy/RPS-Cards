@@ -123,56 +123,245 @@ const GameTimer = memo(({ timeLeft }: { timeLeft?: number }) => {
   );
 });
 
-const CardPack = memo(({ theme, isOwned, isSelected, onClick, onSelect }: { 
+const XPBadge = memo(({ level, xp }: { level: number, xp: number }) => {
+  // Formula: 100 * (Level^1.5)
+  const currentLevelXp = Math.floor(100 * Math.pow(level - 1, 1.5));
+  const nextLevelXp = Math.floor(100 * Math.pow(level, 1.5));
+  const progress = level === 1 ? (xp / 100) * 100 : ((xp - currentLevelXp) / (nextLevelXp - currentLevelXp)) * 100;
+
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <div className="flex items-center gap-2">
+        <span className="text-[10px] text-game-offwhite/40 uppercase tracking-widest font-display">المستوى {level}</span>
+        <div className="w-24 h-1.5 bg-white/5 rounded-full overflow-hidden border border-white/5">
+          <motion.div 
+            initial={{ width: 0 }}
+            animate={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
+            className="h-full bg-game-teal shadow-[0_0_8px_rgba(0,128,128,0.5)]"
+          />
+        </div>
+      </div>
+      <span className="text-[8px] text-game-teal/60 font-mono tracking-tighter">
+        {Math.floor(xp)} / {nextLevelXp} XP
+      </span>
+    </div>
+  );
+});
+
+const LeaderboardModal = memo(({ onClose }: { onClose: () => void }) => {
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<{ topPlayers: any[], userRank: number, userData: any } | null>(null);
+
+  useEffect(() => {
+    const fetchLeaderboard = async () => {
+      try {
+        const response = await CapacitorHttp.request({
+          url: `${getBaseApiUrl()}/api/leaderboard?userId=${user?._id || ''}`,
+          method: 'GET'
+        });
+        if (response.status === 200) {
+          setData(response.data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch leaderboard:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchLeaderboard();
+  }, [user?._id]);
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md" onClick={onClose}>
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="w-full max-w-lg bg-game-dark border border-white/10 rounded-3xl overflow-hidden flex flex-col max-h-[85vh] shadow-2xl"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="p-6 border-b border-white/10 flex items-center justify-between bg-gradient-to-r from-game-slate/20 to-transparent">
+          <div className="flex items-center gap-3">
+            <Trophy className="w-6 h-6 text-yellow-500" />
+            <h2 className="text-xl font-display text-game-offwhite">لوحة الصدارة</h2>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-white/5 rounded-full transition-colors">
+            <X className="w-6 h-6 text-game-offwhite/40" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4 space-y-2">
+          {loading ? (
+            <div className="h-40 flex items-center justify-center">
+              <Activity className="w-8 h-8 text-game-teal animate-spin" />
+            </div>
+          ) : data?.topPlayers.length === 0 ? (
+            <div className="text-center py-10 text-game-offwhite/40 font-display">لا يوجد لاعبين مسجلين حالياً</div>
+          ) : (
+            data?.topPlayers.map((player, idx) => (
+              <div 
+                key={player._id} 
+                className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${
+                  player._id === user?._id 
+                    ? 'bg-game-teal/20 border-game-teal/50 shadow-[0_0_15px_rgba(0,128,128,0.2)]' 
+                    : 'bg-white/5 border-white/5 hover:border-white/10'
+                }`}
+              >
+                <div className="flex items-center gap-4">
+                  <span className={`w-6 text-center font-mono font-bold ${idx < 3 ? 'text-yellow-500' : 'text-game-offwhite/20'}`}>
+                    {idx + 1}
+                  </span>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-display text-game-offwhite">{player.displayName}</span>
+                    <span className="text-[10px] text-game-offwhite/40 uppercase tracking-tight">مستوى {player.level}</span>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-sm font-mono text-game-teal font-bold">{Math.floor(player.xp)}</div>
+                  <div className="text-[8px] text-game-offwhite/20 uppercase tracking-widest">XP</div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {user && !loading && (
+          <div className="p-4 bg-game-slate/30 border-t border-white/10">
+            <div className={`flex items-center justify-between p-4 rounded-2xl bg-game-teal/30 border border-game-teal/50 shadow-inner`}>
+              <div className="flex items-center gap-4">
+                <span className="w-6 text-center font-mono font-bold text-game-offwhite">
+                  {data?.userRank === -1 ? '?' : data?.userRank}
+                </span>
+                <div className="flex flex-col">
+                  <span className="text-sm font-display text-game-offwhite">{user.displayName} (أنت)</span>
+                  <span className="text-[10px] text-game-offwhite/40 uppercase tracking-tight">مستوى {user.level}</span>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="text-sm font-mono text-game-teal font-bold">{Math.floor(user.xp)}</div>
+                <div className="text-[8px] text-game-offwhite/20 uppercase tracking-widest">XP</div>
+              </div>
+            </div>
+          </div>
+        )}
+      </motion.div>
+    </div>
+  );
+});
+
+const LevelUpModal = memo(({ level, unlockedThemes, onClose }: { level: number, unlockedThemes: ThemeConfig[], onClose: () => void }) => {
+  return (
+    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/95 backdrop-blur-xl">
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.5, rotate: -10 }}
+        animate={{ opacity: 1, scale: 1, rotate: 0 }}
+        className="w-full max-w-sm text-center relative"
+      >
+        <div className="absolute inset-0 bg-game-teal/20 blur-[100px] animate-pulse rounded-full" />
+        
+        <motion.div 
+          animate={{ scale: [1, 1.1, 1] }} 
+          transition={{ repeat: Infinity, duration: 2 }}
+          className="relative z-10 mb-6"
+        >
+          <div className="w-32 h-32 mx-auto bg-gradient-to-b from-game-teal to-game-slate rounded-full flex items-center justify-center border-4 border-white/20 shadow-[0_0_50px_rgba(0,128,128,0.5)]">
+            <span className="text-6xl font-bold text-white font-mono">{level}</span>
+          </div>
+        </motion.div>
+
+        <h1 className="text-4xl font-display text-game-offwhite mb-2 leading-tight">مبروك!</h1>
+        <p className="text-game-teal font-display text-xl mb-8">لقد ارتقيت للمستوى {level}</p>
+
+        {unlockedThemes.length > 0 && (
+          <div className="mb-8">
+            <p className="text-game-offwhite/40 text-xs uppercase tracking-widest mb-4">تم فتح مجموعات جديدة:</p>
+            <div className="flex justify-center gap-4">
+              {unlockedThemes.map(theme => (
+                <div key={theme.id} className="w-16 h-20 bg-white/5 rounded-lg border border-white/10 flex items-center justify-center p-2">
+                   <img src={getCardImagePath(theme, 'rock')} alt={theme.name} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <button 
+          onClick={onClose}
+          className="w-full bg-game-teal text-white py-4 rounded-2xl font-display text-lg shadow-[0_10px_20px_rgba(0,128,128,0.3)] hover:scale-105 transition-transform active:scale-95"
+        >
+          استكمال اللعب
+        </button>
+      </motion.div>
+    </div>
+  );
+});
+
+const CardPack = memo(({ theme, isOwned, isSelected, currentLevel, onClick, onSelect }: { 
   theme: ThemeConfig, 
   isOwned: boolean, 
   isSelected: boolean, 
+  currentLevel: number,
   onClick: () => void,
   onSelect: () => void
-}) => (
-  <div 
-    onClick={onClick}
-    className="relative flex flex-col items-center cursor-pointer"
-  >
-    <div className="relative w-24 sm:w-32 aspect-[3/4] mb-4">
-      <div className={`absolute inset-0 rounded-xl shadow-sm transform -rotate-3 translate-x-[-4%] translate-y-[2%] opacity-20 ${theme.frontColor} border border-white/5`} />
-      <div className={`absolute inset-0 rounded-xl shadow-md flex flex-col items-center justify-center p-2 ${theme.frontColor} border-2 ${isSelected ? 'border-game-slate ring-2 ring-game-slate/20' : 'border-white/20'} z-10 overflow-hidden`}>
-        <img 
-          src={getCardImagePath(theme, 'rock')} 
-          alt="rock" 
-          className="w-full h-full object-contain" 
-          style={{ transform: `scale(${(theme.iconScale || 100) / 100})` }}
-          referrerPolicy="no-referrer" 
-        />
-        {isOwned && (
-          <div 
-            onClick={(e) => { e.stopPropagation(); onSelect(); }}
-            className={`absolute top-2 right-2 p-1 rounded-full shadow-sm z-20 transition-all duration-100 ${
-            isSelected 
-              ? 'bg-game-slate text-white ring-1 ring-white/30 scale-105' 
-              : 'bg-slate-900/80 text-white hover:bg-slate-700 hover:scale-110 border border-white/10'
-          }`}>
-            <ShieldCheck className={`w-4 h-4 ${isSelected ? 'fill-white/10' : ''}`} />
-          </div>
+}) => {
+  const isLocked = !isOwned && theme.requiredLevel && currentLevel < theme.requiredLevel;
+
+  return (
+    <div 
+      onClick={isLocked ? undefined : onClick}
+      className={`relative flex flex-col items-center cursor-pointer transition-all ${isLocked ? 'opacity-60 grayscale' : 'hover:scale-105'}`}
+    >
+      <div className="relative w-24 sm:w-32 aspect-[3/4] mb-4">
+        <div className={`absolute inset-0 rounded-xl shadow-sm transform -rotate-3 translate-x-[-4%] translate-y-[2%] opacity-20 ${theme.frontColor} border border-white/5`} />
+        <div className={`absolute inset-0 rounded-xl shadow-md flex flex-col items-center justify-center p-2 ${theme.frontColor} border-2 ${isSelected ? 'border-game-slate ring-2 ring-game-slate/20' : 'border-white/20'} z-10 overflow-hidden`}>
+          <img 
+            src={getCardImagePath(theme, 'rock')} 
+            alt="rock" 
+            className="w-full h-full object-contain" 
+            style={{ transform: `scale(${(theme.iconScale || 100) / 100})` }}
+            referrerPolicy="no-referrer" 
+          />
+          {isOwned && (
+            <div 
+              onClick={(e) => { e.stopPropagation(); onSelect(); }}
+              className={`absolute top-2 right-2 p-1 rounded-full shadow-sm z-20 transition-all duration-100 ${
+              isSelected 
+                ? 'bg-game-slate text-white ring-1 ring-white/30 scale-105' 
+                : 'bg-slate-900/80 text-white hover:bg-slate-700 hover:scale-110 border border-white/10'
+            }`}>
+              <ShieldCheck className={`w-4 h-4 ${isSelected ? 'fill-white/10' : ''}`} />
+            </div>
+          )}
+          {isLocked && (
+            <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center p-2 text-center z-20">
+               <Lock className="w-6 h-6 text-game-offwhite mb-2" />
+               <span className="text-[10px] text-game-offwhite font-display">مستوى {theme.requiredLevel}</span>
+            </div>
+          )}
+        </div>
+      </div>
+      <div className="text-center">
+        <h3 className="text-lg font-display text-game-offwhite leading-tight">{theme.name}</h3>
+        {!isOwned ? (
+          isLocked ? (
+            <p className="text-game-offwhite/40 font-display text-xs">مغلق</p>
+          ) : (
+            theme.id === 'robot' ? (
+              <p className="text-game-teal font-display text-[10px] sm:text-xs">فز على الروبوت لفتحه</p>
+            ) : (
+              <p className="text-yellow-500 font-display text-sm">{theme.price} 🪙</p>
+            )
+          )
+        ) : (
+          <p className={`text-xs font-display ${isSelected ? 'text-game-teal' : 'text-game-offwhite/40'}`}>
+            {isSelected ? 'مفعل حالياً' : 'مملوك'}
+          </p>
         )}
       </div>
     </div>
-    <div className="text-center">
-      <h3 className="text-lg font-display text-game-offwhite leading-tight">{theme.name}</h3>
-      {!isOwned ? (
-        theme.id === 'robot' ? (
-          <p className="text-game-teal font-display text-[10px] sm:text-xs">فز على الروبوت لفتحه</p>
-        ) : (
-          <p className="text-yellow-500 font-display text-sm">{theme.price} 🪙</p>
-        )
-      ) : (
-        <p className={`text-xs font-display ${isSelected ? 'text-game-teal' : 'text-game-offwhite/40'}`}>
-          {isSelected ? 'مفعل حالياً' : 'مملوك'}
-        </p>
-      )}
-    </div>
-  </div>
-));
+  );
+});
 
 const PackPreviewModal = memo(({ selectedPack, ownedThemes, selectedThemeId, onBuy, onSelect, onClose }: {
   selectedPack: ThemeConfig | null,
@@ -315,7 +504,8 @@ const GlobalNavbar = memo(({ activeTab, setAppState, coins, playerName, isGuest,
   );
 });
 
-const StoreView = memo(({ coins, ownedThemes, selectedThemeId, onBuy, onSelect, selectedPack, setSelectedPack }: {
+const StoreView = memo(({ user, coins, ownedThemes, selectedThemeId, onBuy, onSelect, selectedPack, setSelectedPack }: {
+  user: any,
   coins: number,
   ownedThemes: string[],
   selectedThemeId: string,
@@ -336,6 +526,7 @@ const StoreView = memo(({ coins, ownedThemes, selectedThemeId, onBuy, onSelect, 
           theme={theme}
           isOwned={ownedThemes.includes(theme.id)}
           isSelected={selectedThemeId === theme.id}
+          currentLevel={user?.level || 1}
           onClick={() => setSelectedPack(theme)}
           onSelect={() => onSelect(theme.id)}
         />
@@ -355,7 +546,8 @@ const StoreView = memo(({ coins, ownedThemes, selectedThemeId, onBuy, onSelect, 
   </div>
 ));
 
-const ProfileView = memo(({ playerName, coins, ownedThemes, selectedThemeId, onSelect, onBuy, selectedPack, setSelectedPack, onEditName }: {
+const ProfileView = memo(({ user, playerName, coins, ownedThemes, selectedThemeId, onSelect, onBuy, selectedPack, setSelectedPack, onEditName, onOpenLeaderboard }: {
+  user: any,
   playerName: string,
   coins: number,
   ownedThemes: string[],
@@ -365,33 +557,64 @@ const ProfileView = memo(({ playerName, coins, ownedThemes, selectedThemeId, onS
   selectedPack: ThemeConfig | null,
   setSelectedPack: (theme: ThemeConfig | null) => void,
   onEditName: () => void,
+  onOpenLeaderboard: () => void,
 }) => (
   <div 
     dir="rtl" 
     className="w-full h-full flex flex-col font-body overflow-x-hidden overflow-y-auto smooth-scroll select-none pb-10"
   >
     <div className="max-w-md mx-auto w-full space-y-6 px-4 sm:px-6 pt-20">
-      <div className="bg-gradient-to-br from-game-dark/95 to-game-dark/80 p-6 rounded-2xl border border-white/10 flex flex-col sm:flex-row items-center gap-4 relative shadow-2xl">
-        <div className="w-20 h-20 rounded-full bg-game-bg border-4 border-game-offwhite/5 flex items-center justify-center overflow-hidden shadow-inner">
-          <User className="w-10 h-10 text-game-offwhite/20" />
+      <div className="bg-gradient-to-br from-game-dark/95 to-game-dark/80 p-6 rounded-2xl border border-white/10 flex flex-col items-center gap-4 relative shadow-2xl">
+        <div className="w-full flex flex-col sm:flex-row items-center gap-4">
+          <div className="w-20 h-20 rounded-full bg-game-bg border-4 border-game-offwhite/5 flex items-center justify-center overflow-hidden shadow-inner">
+            <User className="w-10 h-10 text-game-offwhite/20" />
+          </div>
+          <div className="flex-1 flex flex-col items-center sm:items-start text-center sm:text-right gap-2">
+            <div className="flex items-center gap-3">
+              <h2 className="text-2xl font-display text-game-offwhite">{playerName}</h2>
+              <button 
+                onClick={onEditName}
+                className="p-2 text-game-offwhite/40 hover:text-game-offwhite transition-all bg-white/5 rounded-lg border border-white/5"
+                title="تعديل الاسم"
+              >
+                <Edit2 className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex items-center gap-2 bg-black/20 px-4 py-1.5 rounded-full border border-white/5">
+              <Trophy className="w-4 h-4 text-yellow-500" />
+              <span className="text-xl font-display text-yellow-500">{coins}</span>
+              <span className="text-sm text-game-offwhite/60 font-body">عملة ذهبية</span>
+            </div>
+          </div>
         </div>
-        <div className="flex-1 flex flex-col items-center sm:items-start text-center sm:text-right gap-2">
-          <div className="flex items-center gap-3">
-            <h2 className="text-2xl font-display text-game-offwhite">{playerName}</h2>
+
+        {user && (
+          <div className="w-full border-t border-white/5 pt-4 mt-2 space-y-4">
+            <div className="grid grid-cols-3 gap-3">
+               <div className="flex flex-col items-center p-3 bg-white/5 rounded-xl border border-white/5">
+                  <span className="text-[10px] text-game-offwhite/40 uppercase tracking-widest mb-1">المباريات</span>
+                  <span className="text-lg font-display text-white">{user.totalMatches || 0}</span>
+               </div>
+               <div className="flex flex-col items-center p-3 bg-white/5 rounded-xl border border-white/5">
+                  <span className="text-[10px] text-game-offwhite/40 uppercase tracking-widest mb-1">الانتصارات</span>
+                  <span className="text-lg font-display text-white">{user.totalWins || 0}</span>
+               </div>
+               <div className="flex flex-col items-center p-3 bg-white/5 rounded-xl border border-white/5">
+                  <span className="text-[10px] text-game-offwhite/40 uppercase tracking-widest mb-1">نسبة الفوز</span>
+                  <span className="text-lg font-display text-game-teal">
+                    {user.totalMatches > 0 ? Math.round((user.totalWins / user.totalMatches) * 100) : 0}%
+                  </span>
+               </div>
+            </div>
+            
             <button 
-              onClick={onEditName}
-              className="p-2 text-game-offwhite/40 hover:text-game-offwhite transition-all bg-white/5 rounded-lg border border-white/5"
-              title="تعديل الاسم"
+              onClick={onOpenLeaderboard}
+              className="w-full py-3 bg-game-teal/20 text-game-teal border border-game-teal/30 rounded-xl font-display flex items-center justify-center gap-2 hover:bg-game-teal/30 transition-all"
             >
-              <Edit2 className="w-4 h-4" />
+              <Trophy className="w-5 h-5" /> لوحة الصدارة العالمية
             </button>
           </div>
-          <div className="flex items-center gap-2 bg-black/20 px-4 py-1.5 rounded-full border border-white/5">
-            <Trophy className="w-4 h-4 text-yellow-500" />
-            <span className="text-xl font-display text-yellow-500">{coins}</span>
-            <span className="text-sm text-game-offwhite/60 font-body">عملة ذهبية</span>
-          </div>
-        </div>
+        )}
       </div>
 
       <div>
@@ -403,6 +626,7 @@ const ProfileView = memo(({ playerName, coins, ownedThemes, selectedThemeId, onS
               theme={theme}
               isOwned={true}
               isSelected={selectedThemeId === theme.id}
+              currentLevel={user?.level || 1}
               onClick={() => setSelectedPack(theme)}
               onSelect={() => onSelect(theme.id)}
             />
@@ -713,7 +937,14 @@ const App = () => {
     setAuthSubmitting(true);
     setErrorMsg(null);
     try {
-      await login(authEmail, authPass);
+      const data = await login(authEmail, authPass);
+      if (data && data.dailyXpGained > 0) {
+        addLog(`Daily Reward: +${data.dailyXpGained} XP`, 'success');
+      }
+      if (data && data.leveledUp) {
+        const unlocked = THEMES.filter(t => t.requiredLevel === data.level);
+        setLevelUpData({ level: data.level, themes: unlocked });
+      }
     } catch (err: any) {
       setErrorMsg(err.message);
     } finally {
@@ -800,6 +1031,8 @@ const App = () => {
   const [ws, setWs] = useState<WebSocket | null>(null);
   const [selectedPack, setSelectedPack] = useState<ThemeConfig | null>(null);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
+  const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
+  const [levelUpData, setLevelUpData] = useState<{ level: number, themes: ThemeConfig[] } | null>(null);
   const backPressTimer = useRef<NodeJS.Timeout | null>(null);
   const [isDoubleBack, setIsDoubleBack] = useState(false);
 
@@ -1422,6 +1655,18 @@ const App = () => {
         setRoomState(data.state);
         setRoomId(data.state.id);
         if (appStateRef.current !== 'inRoom') setAppState('inRoom');
+      } else if (data.type === 'match_rewards') {
+        addLog(`Match Rewards: +${data.xpGained} XP`, 'success');
+        if (data.leveledUp) {
+           const unlocked = THEMES.filter(t => t.requiredLevel === data.newLevel);
+           setLevelUpData({ level: data.newLevel, themes: unlocked });
+        }
+        // Force profile refetch to get latest XP
+        if (user?._id) {
+           // We could just wait for server to sync, but let's be explicit
+           // auth.updateProfile({ xp: data.xpGained, level: data.newLevel }); 
+           // Better to just rely on the next profile fetch or socket payload
+        }
       } else if (data.type === 'error_msg') {
         setErrorMsg(data.msg);
         setIsSearching(false);
@@ -2062,6 +2307,7 @@ const App = () => {
         />
         <DashboardViewPager appState={appState} setAppState={setAppState} onVisibleTabChange={setVisibleTab}>
           <StoreView 
+            user={user}
             coins={coins}
             ownedThemes={ownedThemes}
             selectedThemeId={selectedThemeId}
@@ -2081,7 +2327,21 @@ const App = () => {
             <div
               className="max-w-md w-full text-center mx-auto py-8 px-6 pt-24 min-h-screen flex flex-col justify-center items-center"
             >
-              <div className="mb-8"></div>
+              {user && (
+                <div className="w-full flex items-center justify-between mb-8 sm:mb-10 bg-white/5 p-4 rounded-2xl border border-white/10 backdrop-blur-md">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-white/5 rounded-xl border border-white/10">
+                      <ShieldCheck className="w-6 h-6 text-game-teal" />
+                    </div>
+                    <div className="flex flex-col text-right">
+                      <span className="text-[10px] text-game-offwhite/40 uppercase tracking-widest font-display">مرحباً بك</span>
+                      <span className="text-lg font-display text-white">{user.displayName}</span>
+                    </div>
+                  </div>
+                  <XPBadge level={user.level || 1} xp={user.xp || 0} />
+                </div>
+              )}
+              <div className="mb-4"></div>
             
             <div className="space-y-4 sm:space-y-5 w-full">
               {menuTab === 'main' && (
@@ -2364,6 +2624,7 @@ const App = () => {
           </div>
           </div>
             <ProfileView 
+              user={user}
               playerName={playerName}
               coins={coins}
               ownedThemes={ownedThemes}
@@ -2379,6 +2640,7 @@ const App = () => {
                 setEditNameInput(playerName);
                 setShowEditNameDialog(true);
               }}
+              onOpenLeaderboard={() => setIsLeaderboardOpen(true)}
             />
           </DashboardViewPager>
           {renderNameEditDialog()}
@@ -2755,6 +3017,19 @@ const App = () => {
 
       {renderDebugUI()}
       {renderExitConfirm()}
+      <AnimatePresence>
+        {isLeaderboardOpen && (
+          <LeaderboardModal onClose={() => setIsLeaderboardOpen(false)} />
+        )}
+        
+        {levelUpData && (
+          <LevelUpModal 
+            level={levelUpData.level} 
+            unlockedThemes={levelUpData.themes} 
+            onClose={() => setLevelUpData(null)} 
+          />
+        )}
+      </AnimatePresence>
     </div>
     </>
   );

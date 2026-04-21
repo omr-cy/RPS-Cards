@@ -118,13 +118,13 @@ After ANY change, ensure:
 # 🧩 TASK TRACKING
 
 ## LAST TASK
-Implemented a custom `iconScale` property for themes. This allows manual control over the visual size of card icons (Rock, Paper, Scissors) on a per-theme basis to ensure visual balance across different icon sets.
+Configured `javascript-obfuscator` to run in both development (debug) and production (build) modes. This was implemented by creating a custom post-transformation plugin in `vite.config.ts` that uses the `javascript-obfuscator` library directly, ensuring all source files are obfuscated before being served or bundled.
 
 ## CURRENT SUBTASK
-Waiting for user to test and adjust scale values in `src/themes.ts`.
+Verifying that obfuscation works as expected in the development environment and handles HMR correctly.
 
 ## NEXT STEP
-Finalize visual adjustments for any small icons in the library.
+Verify real-time websocket matches process connections smoothly with the stable identities now available.
 
 ---
 
@@ -176,6 +176,7 @@ Finalize visual adjustments for any small icons in the library.
 - [2026-04-20] → Implemented Guest Sandbox Reset on logout to prevent state leakage and ensure subsequent guest sessions start fresh without retaining previous authenticated stats.
 - [2026-04-20] → Patched Background Sync "Duplicate API Request" bug by implementing a `lastSyncPayload` stringified lock guard preventing React Effect cascade loops on minor UI interactions.
 - [2026-04-20] → Added `iconScale` property to `ThemeConfig` and updated `App.tsx` components to dynamically scale card icons based on theme settings.
+- [2026-04-20] → Enforced source code obfuscation via `javascript-obfuscator` in both development (debug) and production build modes by implementing a custom Vite transform plugin.
 
 ---
 
