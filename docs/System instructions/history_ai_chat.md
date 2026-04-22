@@ -66,4 +66,12 @@
 - **Security:** Adjusted obfuscator settings (disabled `debugProtection` and `selfDefending`) to prevent crashes on Android WebView caused by security triggers against the Capacitor bridge.
 - **Refactoring:** Improved API URL detection logic in both `AuthContext.tsx` and `App.tsx` for better cross-platform support.
 
+## [2026-04-22] Android Asset & MongoDB Fixes
+**User Prompt:** "اولا صور البطاقات لا تظهر على الندرويد وكذالك الخطوط ومود اللعب بالنترنت باكامل معطوب"
+**Actions:**
+- **Capacitor Config:** Updated `capacitor.config.ts` to include `server: { androidScheme: 'https', cleartext: true }` to resolve asset loading issues on Android.
+- **MongoDB Debugging:** Identified that the online mode is broken due to a `MongooseServerSelectionError`. This is an IP Whitelisting issue on MongoDB Atlas.
+- **Guidance:** Provided clear instructions to the user to whitelist IP `0.0.0.0/0` in MongoDB Atlas Network Access.
+- **Sync:** Instructed the user to run `npx cap sync` to apply the Android configuration changes.
+
 
