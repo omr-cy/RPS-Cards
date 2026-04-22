@@ -40,11 +40,12 @@
     - Path Sync: Updated `src/themes.ts` to point to `/card_themes/` for theme assets.
     - Cleanup: Removed temporary and redundant subfolders to ensure a clean public directory structure.
 
-## [2026-04-22] Architecture Discussion & Context Log
-**User Prompt:** "المشكلة اني ارى الكود في ملفات التطبيق الداخلية كما هو هنا لا انه معموله بلد هل يمكن لان هذا في وضع الديبج ناقشني"
+## [2026-04-22] Backend Decoupling: Removing Vite Dependency
+**User Prompt:** "Make backend server independent of the frontend to fix ERR_MODULE_NOT_FOUND: Cannot find package 'vite'"
 **Actions:**
-- **Clarification:** Explained the difference between Development Mode (Dev Server) and Production Build. Confirmed that the current visibility of source code is the intended "debug/development" behavior of the platform logic.
-- **Maintenance:** Updated the `history_ai_chat.md` log to maintain context for future turns.
+- **Backend:** Removed Vite middleware and dynamic `vite` import from `backend/server.ts` to make the backend server standalone and independent of frontend build tools.
+- **Serving:** Simplified the server to serve static files from `dist/` directly, removing the dev-time Vite integration.
+- **Log:** Updated `history_ai_chat.md` with these changes.
 
 ## [2026-04-22] Security Hardening: Maximum Obfuscation
 **User Prompt:** "إضافة المكتبات javascript-obfuscator و rollup-plugin-javascript-obfuscator كأدوات تطوير... ضبط الإعدادات لتكون قوية جداً... في وضع الديبج وفي وضع البرودكشون"

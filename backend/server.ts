@@ -869,22 +869,12 @@ async function startServer() {
     }
   }, 2000);
 
-  // Vite integration for full-stack SPA
-  if (process.env.NODE_ENV !== 'production') {
-    const { createServer: createViteServer } = await import('vite');
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-      root: path.resolve(__dirname, '..') // Point to root where index.html is
-    });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(__dirname, '..', 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
-  }
+  // Express static serving for production
+  const distPath = path.join(__dirname, '..', 'dist');
+  app.use(express.static(distPath));
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(distPath, 'index.html'));
+  });
 
   httpServer.listen(parseInt(PORT as string, 10), '0.0.0.0', () => {
     console.log(`=========================================`);
