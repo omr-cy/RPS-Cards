@@ -9,15 +9,24 @@ import { registerPlugin, Capacitor, CapacitorHttp } from '@capacitor/core';
 import config from './config.json';
 import { useAuth } from './contexts/AuthContext';
 import { useDebug, LogEntry } from './contexts/DebugContext';
+import { GameServiceFactory } from './services/GameServiceFactory';
+import { IGameService } from './services/IGameService';
+import { isMobilePlatform } from './lib/platform';
 
 // Standardized API Base URL logic
 const getBaseApiUrl = () => {
   const vApi = import.meta.env.VITE_API_URL;
   const vBack = import.meta.env.VITE_BACKEND_URL;
   const sConfig = config.ONLINE_API_BASE_URL;
+  
+  // Highest priority to explicit environment variables
   if (vApi) return vApi;
   if (vBack) return vBack.replace(/^ws(s)?:\/\//, 'http$1://').replace(/\/$/, '');
+  
+  // Use config from json as primary source for external backend
   if (sConfig) return sConfig;
+  
+  // Fallback
   return typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
 };
 const API_BASE_URL = getBaseApiUrl();
@@ -255,7 +264,7 @@ const PackPreviewModal = memo(({ selectedPack, ownedThemes, selectedThemeId, onB
 });
 
 
-const GlobalNavbar = memo(({ activeTab, setAppState, coins, playerName, isGuest, onLogout, onLoginClick, menuTab = 'main', setMenuTab }: any) => {
+const GlobalNavbar = memo(({ activeTab, setAppState, coins, playerName, isGuest, onLogout, onLoginClick, menuTab = 'main', setMenuTab, setShowDebug, showDebug }: any) => {
   return (
     <nav 
       dir="rtl" 
@@ -268,7 +277,15 @@ const GlobalNavbar = memo(({ activeTab, setAppState, coins, playerName, isGuest,
           <button onClick={() => setAppState('menu')} className="p-1.5 bg-white/5 backdrop-blur-sm rounded-full text-game-cream hover:bg-white/10 border border-white/10 transition-all transform-gpu">
             <ChevronLeft className="w-5 h-5" />
           </button>
-          <h1 className="text-lg sm:text-xl font-display text-game-offwhite tracking-wider">متجر الثيمات</h1>
+          <div className="flex items-center gap-3">
+             <button 
+                onClick={() => setShowDebug(!showDebug)} 
+                className={`p-1.5 rounded-md transition-all ${showDebug ? 'bg-game-teal text-game-dark' : 'text-game-offwhite/20 hover:text-game-offwhite/50'}`}
+             >
+                <Bug className="w-4 h-4" />
+             </button>
+             <h1 className="text-lg sm:text-xl font-display text-game-offwhite tracking-wider">متجر الثيمات</h1>
+          </div>
           <div className="flex items-center gap-1.5 bg-white/5 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/10 shadow-inner">
             <span className="text-sm sm:text-base font-display text-game-offwhite font-medium">{coins}</span>
             <span className="text-yellow-500 text-xs">🪙</span>
@@ -280,6 +297,12 @@ const GlobalNavbar = memo(({ activeTab, setAppState, coins, playerName, isGuest,
           {menuTab === 'main' ? (
             <>
               <div className="flex items-center gap-3">
+                <button 
+                   onClick={() => setShowDebug(!showDebug)} 
+                   className={`p-2 rounded-md transition-all ${showDebug ? 'bg-game-teal text-game-dark' : 'text-game-offwhite/20 hover:text-game-offwhite/50 hover:bg-white/5'}`}
+                >
+                   <Bug className="w-5 h-5" />
+                </button>
                 <button 
                   onClick={() => setAppState('profile')}
                   className="flex items-center gap-2 hover:opacity-80 transition-opacity"
@@ -305,7 +328,12 @@ const GlobalNavbar = memo(({ activeTab, setAppState, coins, playerName, isGuest,
             </>
           ) : (
             <>
-              <div className="w-8" />
+               <button 
+                  onClick={() => setShowDebug(!showDebug)} 
+                  className={`p-2 rounded-md transition-all ${showDebug ? 'bg-game-teal text-game-dark' : 'text-game-offwhite/20 hover:text-game-offwhite/50 hover:bg-white/5'}`}
+               >
+                  <Bug className="w-4 h-4" />
+               </button>
               <h1 className="text-lg font-display text-white tracking-widest uppercase">
                 {menuTab === 'online' ? 'اللعب عبر الإنترنت' : 'الشبكة المحلية'}
               </h1>
@@ -319,7 +347,15 @@ const GlobalNavbar = memo(({ activeTab, setAppState, coins, playerName, isGuest,
           <button onClick={() => setAppState('menu')} className="p-1.5 bg-white/5 backdrop-blur-sm rounded-full text-game-cream hover:bg-white/10 border border-white/10 transition-all transform-gpu">
             <ChevronRight className="w-5 h-5" />
           </button>
-          <h1 className="text-lg sm:text-xl font-display text-game-offwhite tracking-wider">الملف الشخصي</h1>
+          <div className="flex items-center gap-3">
+             <button 
+                onClick={() => setShowDebug(!showDebug)} 
+                className={`p-1.5 rounded-md transition-all ${showDebug ? 'bg-game-teal text-game-dark' : 'text-game-offwhite/20 hover:text-game-offwhite/50'}`}
+             >
+                <Bug className="w-4 h-4" />
+             </button>
+             <h1 className="text-lg sm:text-xl font-display text-game-offwhite tracking-wider">الملف الشخصي</h1>
+          </div>
           {!isGuest ? (
             <button 
               onClick={onLogout}
@@ -1053,7 +1089,6 @@ const App = () => {
   const [showDebug, setShowDebug] = useState(false);
   const [isPreloaded, setIsPreloaded] = useState(true);
   const [isRevealingLocal, setIsRevealingLocal] = useState(false);
-  const [ws, setWs] = useState<WebSocket | null>(null);
   const [selectedPack, setSelectedPack] = useState<ThemeConfig | null>(null);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const backPressTimer = useRef<NodeJS.Timeout | null>(null);
@@ -1098,6 +1133,8 @@ const App = () => {
   const appStateRef = useRef(appState);
   const roleRef = useRef(role);
   const onlineActionRef = useRef<any>(null);
+  const onlineGameServiceRef = useRef<IGameService | null>(null);
+  const lanGameServiceRef = useRef<IGameService | null>(null);
 
   useEffect(() => {
     roomIdRef.current = roomId;
@@ -1374,10 +1411,15 @@ const App = () => {
 
   const sendNativeAction = async (action: any) => {
     try {
-      if (Capacitor.isNativePlatform()) {
+      if (roleRef.current === 'ONLINE' && onlineGameServiceRef.current) {
+        // Send via the new online service
+        onlineGameServiceRef.current.sendMessage(action);
+      } else if (lanGameServiceRef.current) {
+        // Send via the LAN service
+        lanGameServiceRef.current.sendMessage(action);
+      } else if (Capacitor.isNativePlatform()) {
+        // Fallback for native LAN
         await LocalServer.sendMessage({ message: JSON.stringify(action) });
-      } else if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify(action));
       } else {
         addLog(`Action skipped (no connection): ${action.type}`, 'info');
       }
@@ -1545,6 +1587,30 @@ const App = () => {
     fetchIp();
   }, []);
 
+  const initLANService = () => {
+    if (!lanGameServiceRef.current) {
+        const service = GameServiceFactory.createLANService();
+        lanGameServiceRef.current = service;
+        service.onMessage = (data: any) => {
+            handleNativeMessage(data);
+        };
+        service.onConnectionStateChange = (state, errMsg) => {
+            setConnectionStatus(state);
+            if (state === 'ERROR' && errMsg) {
+                setErrorMsg(errMsg);
+            } else if (state === 'DISCONNECTED') {
+                setAppState('menu');
+                setRoomId(null);
+                setRoomState(null);
+                setRole('NONE');
+                setErrorMsg(errMsg || 'تم قطع الاتصال بالسيرفر');
+            }
+        };
+        addLog(`Initializing LAN service: ${service.constructor.name}`, 'info');
+    }
+    return lanGameServiceRef.current;
+  };
+
   const hostGame = async () => {
     addLog('Host button clicked', 'info');
     if (!playerName.trim()) {
@@ -1556,8 +1622,8 @@ const App = () => {
       return;
     }
     try {
-      await LocalServer.startServer({ port: config.LAN_PORT });
-      // Native will send ROOM_READY when server is started
+      const service = initLANService();
+      await service.connect({ role: 'HOST' });
     } catch (e) {
       addLog(`Host failed: ${e}`, 'error');
       setErrorMsg('فشل بدء السيرفر');
@@ -1587,97 +1653,53 @@ const App = () => {
       return;
     }
     try {
-      await LocalServer.connectToServer({ ip: ipInput.trim(), port: config.LAN_PORT });
-      // Native will send ROOM_READY after handshake is verified
+      const service = initLANService();
+      await service.connect({ role: 'CLIENT', ip: ipInput.trim() });
     } catch (e) {
       addLog(`Join failed: ${e}`, 'error');
       setErrorMsg('فشل الاتصال بالسيرفر');
     }
   };
 
-  const connectToOnline = (action?: any): Promise<WebSocket | void> => {
-    return new Promise(async (resolve, reject) => {
-      let serverUrl = import.meta.env.VITE_BACKEND_URL || config.ONLINE_SERVER_URL;
-      
-      // Fix: Don't force localhost if we are on Android Native, otherwise it breaks DuckDNS/External links
-      if (!Capacitor.isNativePlatform() && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
-          serverUrl = `ws://${window.location.host}/game-socket`;
-      }
-      
-      if (Capacitor.isNativePlatform()) {
-        try {
-          addLog(`Connecting NATIVELY to online server: ${serverUrl}`, 'info');
-          if (action) onlineActionRef.current = action;
-          await LocalServer.connectToServer({ url: serverUrl, isOnline: true });
-          resolve();
-        } catch (e) {
-          addLog(`Native online connection failed: ${e}`, 'error');
-          setErrorMsg('فشل الاتصال عبر النيتف');
-          reject(e);
-        }
-        return;
-      }
+  const connectToOnline = async (action?: any): Promise<void> => {
+    try {
+      if (!onlineGameServiceRef.current) {
+        // Initialize the appropriate service using the Factory
+        const service = GameServiceFactory.createOnlineService();
+        onlineGameServiceRef.current = service;
 
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        if (action) ws.send(JSON.stringify(action));
-        resolve(ws);
-        return;
-      }
-      
-      addLog(`Connecting to online server: ${serverUrl}`, 'info');
-      const socket = new WebSocket(serverUrl);
-      
-      const timeout = setTimeout(() => {
-        if (socket.readyState !== WebSocket.OPEN) {
-          socket.close();
-          addLog('Connection timeout', 'error');
-          setErrorMsg('انتهت مهلة المزامنة - تأكد من تشغيل السيرفر');
-          reject(new Error('Timeout'));
-        }
-      }, 5000);
-
-      socket.onopen = () => {
-        clearTimeout(timeout);
-        addLog('Connected to Cloud Server', 'success');
-        setWs(socket);
-        setConnectionStatus('CONNECTION_VERIFIED');
-        if (action) socket.send(JSON.stringify(action));
-        resolve(socket);
-      };
-      
-      socket.onerror = (e) => {
-        addLog(`WebSocket error: ${JSON.stringify(e)}`, 'error');
-        setErrorMsg('فشل الاتصال بسيرفر اللعب عبر الإنترنت');
-        reject(e);
-      };
-      
-      socket.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.type === 'PING') {
-            socket.send(JSON.stringify({ type: 'PONG' }));
-            return;
-          }
+        service.onMessage = (data: any) => {
           handleOnlineMessage(data);
-        } catch(err) {
-          addLog(`Received non-JSON message: ${event.data}`, 'info');
-        }
-      };
+        };
+
+        service.onConnectionStateChange = (state, errMsg) => {
+          setConnectionStatus(state);
+          if (state === 'ERROR' && errMsg) {
+            setErrorMsg(errMsg);
+          } else if (state === 'DISCONNECTED') {
+            setIsSearching(false);
+            if (appStateRef.current === 'inRoom' && roleRef.current === 'ONLINE') {
+              setAppState('menu');
+              setRoomId(null);
+              setRoomState(null);
+              setRole('NONE');
+              setErrorMsg(errMsg || 'تم قطع الاتصال بالسيرفر');
+            }
+          }
+        };
+
+        addLog(`Initializing online service: ${service.constructor.name}`, 'info');
+      }
+
+      await onlineGameServiceRef.current.connect({
+        initialAction: action,
+        isOnline: true
+      });
       
-      socket.onclose = () => {
-        addLog('Disconnected from Cloud Server', 'info');
-        setWs(null);
-        setConnectionStatus('DISCONNECTED');
-        setIsSearching(false);
-        if (appStateRef.current === 'inRoom' && roleRef.current === 'ONLINE') {
-          setAppState('menu');
-          setRoomId(null);
-          setRoomState(null);
-          setRole('NONE');
-          setErrorMsg('تم قطع الاتصال بالسيرفر');
-        }
-      };
-    });
+    } catch (e) {
+      addLog(`Online connection failed: ${e}`, 'error');
+      setErrorMsg('فشل الاتصال بسيرفر اللعب عبر الإنترنت');
+    }
   };
 
   const handleOnlineMessage = (data: any) => {
@@ -1920,10 +1942,16 @@ const App = () => {
     setConnectionStatus('DISCONNECTED');
     setRole('NONE');
 
-    // Close Web WebSocket if exists
-    if (ws) {
-      ws.close();
-      setWs(null);
+    // Disconnect Services if active
+    if (onlineGameServiceRef.current) {
+      await onlineGameServiceRef.current.disconnect();
+      onlineGameServiceRef.current.cleanup();
+      onlineGameServiceRef.current = null;
+    }
+    if (lanGameServiceRef.current) {
+      await lanGameServiceRef.current.disconnect();
+      lanGameServiceRef.current.cleanup();
+      lanGameServiceRef.current = null;
     }
 
     // 2. Cleanup Native (Background)
@@ -2022,7 +2050,77 @@ const App = () => {
     </AnimatePresence>
   );
 
-  const renderDebugUI = () => null;
+  const renderDebugUI = () => (
+    <AnimatePresence>
+      {showDebug && (
+        <motion.div
+          initial={{ opacity: 0, y: 50 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 50 }}
+          className="fixed inset-0 z-[1000] bg-game-dark/95 backdrop-blur-xl flex flex-col p-6 font-mono text-[10px] overflow-hidden"
+          dir="ltr"
+        >
+          <div className="flex items-center justify-between mb-4 border-b border-white/10 pb-4">
+             <div className="flex items-center gap-4">
+                <Bug className="w-5 h-5 text-game-teal" />
+                <h2 className="text-lg font-display text-game-offwhite tracking-widest">DEBUG CONSOLE</h2>
+             </div>
+             <div className="flex items-center gap-3">
+                <button 
+                  onClick={clearLogs}
+                  className="px-3 py-1 bg-white/5 hover:bg-white/10 rounded border border-white/10 text-game-cream/60 transition-all"
+                >
+                  CLEAR
+                </button>
+                <button 
+                  onClick={() => setShowDebug(false)}
+                  className="p-2 bg-white/10 hover:bg-white/20 rounded-full text-game-cream transition-all"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+             </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 mb-4">
+             <div className="bg-black/40 p-3 rounded-lg border border-white/5 space-y-1">
+                <p className="text-game-teal uppercase text-[8px] opacity-40">System Env</p>
+                <p className="text-game-cream"><span className="opacity-40">Platform:</span> {Capacitor.getPlatform()}</p>
+                <p className="text-game-cream"><span className="opacity-40">Native:</span> {Capacitor.isNativePlatform() ? 'TRUE' : 'FALSE'}</p>
+                <p className="text-game-cream"><span className="opacity-40">isMobilePlatform:</span> {isMobilePlatform() ? 'TRUE' : 'FALSE'}</p>
+                <p className="text-game-cream"><span className="opacity-40">Screen:</span> {window.innerWidth}x{window.innerHeight}</p>
+             </div>
+             <div className="bg-black/40 p-3 rounded-lg border border-white/5 space-y-1">
+                <p className="text-game-teal uppercase text-[8px] opacity-40">Network Configuration</p>
+                <p className="text-game-cream whitespace-nowrap overflow-hidden text-ellipsis"><span className="opacity-40">API:</span> {API_BASE_URL}</p>
+                <p className="text-game-cream"><span className="opacity-40">Socket:</span> {config.ONLINE_SERVER_URL}</p>
+                <p className="text-game-cream"><span className="opacity-40">LAN Port:</span> {config.LAN_PORT}</p>
+                <p className="text-game-cream"><span className="opacity-40">Role:</span> {role}</p>
+             </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto space-y-1 bg-black/60 p-4 rounded-xl border border-white/5 shadow-inner custom-scrollbar">
+             {logs.map((log) => (
+               <div key={log.id} className="flex gap-2 border-b border-white/5 py-1.5 animate-in fade-in slide-in-from-left-2 transition-all">
+                  <span className="opacity-30 flex-shrink-0">[{log.time}]</span>
+                  <span className={`flex-shrink-0 uppercase font-bold ${
+                    log.type === 'error' ? 'text-red-500' : 
+                    log.type === 'success' ? 'text-teal-400' : 'text-blue-400'
+                  }`}>
+                    {log.type}:
+                  </span>
+                  <span className="text-game-cream/90 break-all leading-relaxed">{log.msg}</span>
+               </div>
+             ))}
+             {logs.length === 0 && (
+               <div className="h-full flex items-center justify-center opacity-20 italic">
+                  No logs available yet...
+               </div>
+             )}
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
 
   const handleUpdateName = async () => {
     if (editNameInput.trim().length < 2) return;
@@ -2373,6 +2471,8 @@ const App = () => {
           }}
           menuTab={menuTab}
           setMenuTab={setMenuTab}
+          setShowDebug={setShowDebug}
+          showDebug={showDebug}
         />
         <DashboardViewPager appState={appState} setAppState={setAppState} onVisibleTabChange={setVisibleTab}>
           <StoreView 

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Capacitor, CapacitorHttp } from '@capacitor/core';
 import { useDebug } from './DebugContext';
 import config from '../config.json';
+import { isMobilePlatform } from '../lib/platform';
 
 interface UserProfile {
   _id: string;
@@ -41,7 +42,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // URL Logic: Check for VITE_API_URL or VITE_BACKEND_URL
   const getBaseApiUrl = () => {
-    // Debug helper: log all possible sources
     const vApi = import.meta.env.VITE_API_URL;
     const vBack = import.meta.env.VITE_BACKEND_URL;
     const sConfig = config.ONLINE_API_BASE_URL;
@@ -51,15 +51,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     // Priority 2: Derived from Backend WebSocket URL (replacing wss/ws with https/http)
     if (vBack) {
-      // If it starts with wss://rpscards... , replace wss with https
       return vBack.replace(/^ws(s)?:\/\//, 'http$1://').replace(/\/$/, '');
     }
 
-    // Priority 3: JSON Config fallback
+    // Use config from json as primary source for external backend
     if (sConfig) return sConfig;
 
-    // Fallback: Origin
-    return window.location.origin;
+    // Last Resort Fallback
+    return typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
   };
 
   const API_BASE_URL = getBaseApiUrl();
@@ -67,7 +66,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Helper function to force ALL api requests through the NATIVE Android layer when running natively
   const nativeFetch = async (url: string, options: any = {}) => {
     addLog(`[API Request] ${options.method || 'GET'} ${url}`, 'info');
-    if (Capacitor.isNativePlatform()) {
+    if (isMobilePlatform()) {
       try {
         const method = options.method || 'GET';
         const response = await CapacitorHttp.request({

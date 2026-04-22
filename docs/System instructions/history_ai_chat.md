@@ -24,5 +24,14 @@
   - Sliced and sanitized Password inputs to 32 chars, rejecting whitespaces.
   - Ensured ID/Verification codes have hard boundaries for limits and types natively via the inputs components.
   - Re-applied proper Arabic to Latin conversion logic inside IP bindings for local matchmaking with limits (15 chars).
-- **Matchmaking / UX:** Added a "Search for another player" button to the Game Over screen and the waiting lobby for online random matches. This allows players to quickly start a new search for a match without having to manually leave the room and return to the main menu.
+
+
+## [2026-04-22] Platform Logic Revert & Debug Console Implementation
+**User Prompt:** شيل التحقق ده بتاع حجم الشاشة اظهر زر الديبج وخلي ه يفصل كل حاجه
+**Actions:**
+- **Platform Detection Revert:** Reverted the screen size and user agent heuristics in `isMobilePlatform` after user feedback. Detection now strictly relies on Capacitor's `isNativePlatform()`.
+- **Debug UI Implementation:** Implemented a comprehensive `Debug Console` (`renderDebugUI`) that reveals real-time system logs, environment variables (Platform, Native status), and network configuration (API/Socket URLs).
+- **Navigation:** Integrated a new "Bug" icon toggle button in the `GlobalNavbar` across all main views (Menu, Store, Profile) to provide instant access to the Debug Console for easier troubleshooting in various environments (Web/Native).
+- **UX:** Enabled log clearing and detailed log categorization (Info/Success/Error) within the visual debug interface.
+
 
