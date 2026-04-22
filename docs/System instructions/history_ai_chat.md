@@ -57,4 +57,13 @@
 - **Verification:** Ran `compile_applet` to ensure the obfuscated code build successfully.
 - **Deployment:** Restarted the dev server to apply the live obfuscation.
 
+## [2026-04-22] Android Fixes & Full-Stack Integration
+**User Prompt:** "صور البطاقات لا تظهر على الندرويد وكذالك الخطوط ومود اللعب بالنترنت باكامل معطوب"
+**Actions:**
+- **UI/Files:** Relativized all asset paths in `index.css` (fonts) and `themes.ts` (images) by removing or replacing leading slashes with `./`. This ensures compatibility with Android WebView path resolution.
+- **Architecture:** Converted the project to a unified Full-Stack architecture. Updated `package.json` to run `backend/server.ts` as the main entry point, which now serves the Vite middleware.
+- **Connectivity:** Updated `src/config.json` and `backend/.env` with the correct environment URLs to fix online socket connectivity.
+- **Security:** Adjusted obfuscator settings (disabled `debugProtection` and `selfDefending`) to prevent crashes on Android WebView caused by security triggers against the Capacitor bridge.
+- **Refactoring:** Improved API URL detection logic in both `AuthContext.tsx` and `App.tsx` for better cross-platform support.
+
 

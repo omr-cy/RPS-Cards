@@ -1,5 +1,5 @@
 {
-  "ONLINE_SERVER_URL": "ws://rpscards.duckdns.org:3000/game-socket",
-  "ONLINE_API_BASE_URL": "http://rpscards.duckdns.org:3000",
+  "ONLINE_SERVER_URL": "wss://ais-dev-qphhy77swp7b53a3dwhodi-306494194593.europe-west1.run.app/game-socket",
+  "ONLINE_API_BASE_URL": "https://ais-dev-qphhy77swp7b53a3dwhodi-306494194593.europe-west1.run.app",
   "LAN_PORT": 3000
 }

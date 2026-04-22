@@ -21,13 +21,15 @@ const getBaseApiUrl = () => {
   
   // Highest priority to explicit environment variables
   if (vApi) return vApi;
-  if (vBack) return vBack.replace(/^ws(s)?:\/\//, 'http$1://').replace(/\/$/, '');
+  if (vBack) return vBack.replace(/^ws(s)?:\/\//, 'http$1://').replace(/\/game-socket$/, '').replace(/\/$/, '');
   
   // Use config from json as primary source for external backend
-  if (sConfig) return sConfig;
+  if (sConfig && !sConfig.includes('localhost') && !sConfig.includes('127.0.0.1')) return sConfig;
   
   // Fallback
-  return typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+  return typeof window !== 'undefined' && !window.location.origin.includes('localhost')
+    ? window.location.origin 
+    : 'https://ais-dev-qphhy77swp7b53a3dwhodi-306494194593.europe-west1.run.app';
 };
 const API_BASE_URL = getBaseApiUrl();
 
