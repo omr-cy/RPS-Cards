@@ -1,43 +1,4 @@
-@font-face {
-  font-family: 'Pirata One';
-  src: url('./fonts/Pirata_One/PirataOne-Regular.ttf') format('truetype');
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'MedievalSharp';
-  src: url('./fonts/MedievalSharp/MedievalSharp-Regular.ttf') format('truetype');
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Lalezar';
-  src: url('./fonts/Lalezar/Lalezar-Regular.ttf') format('truetype');
-  font-weight: normal;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'Changa';
-  src: url('./fonts/Changa/Changa-VariableFont_wght.ttf') format('truetype-variations');
-  font-weight: 200 800;
-  font-style: normal;
-  font-display: swap;
-}
-
-@font-face {
-  font-family: 'JetBrains Mono';
-  src: url('./fonts/JetBrains_Mono/JetBrainsMono-VariableFont_wght.ttf') format('truetype-variations');
-  font-weight: 100 800;
-  font-style: normal;
-  font-display: swap;
-}
-
+@import url('https://fonts.googleapis.com/css2?family=Pirata+One&family=MedievalSharp&family=Lalezar&family=Changa:wght@400;700&family=JetBrains+Mono:wght@400;700&display=swap');
 @import "tailwindcss";
 
 @theme {

@@ -2,7 +2,6 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Capacitor, CapacitorHttp } from '@capacitor/core';
 import { useDebug } from './DebugContext';
 import config from '../config.json';
-import { isMobilePlatform } from '../lib/platform';
 
 interface UserProfile {
   _id: string;
@@ -42,6 +41,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // URL Logic: Check for VITE_API_URL or VITE_BACKEND_URL
   const getBaseApiUrl = () => {
+    // Debug helper: log all possible sources
     const vApi = import.meta.env.VITE_API_URL;
     const vBack = import.meta.env.VITE_BACKEND_URL;
     const sConfig = config.ONLINE_API_BASE_URL;
@@ -51,16 +51,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     // Priority 2: Derived from Backend WebSocket URL (replacing wss/ws with https/http)
     if (vBack) {
-      return vBack.replace(/^ws(s)?:\/\//, 'http$1://').replace(/\/game-socket$/, '').replace(/\/$/, '');
+      // If it starts with wss://rpscards... , replace wss with https
+      return vBack.replace(/^ws(s)?:\/\//, 'http$1://').replace(/\/$/, '');
     }
 
-    // Use config from json as primary source for external backend
-    if (sConfig && !sConfig.includes('localhost') && !sConfig.includes('127.0.0.1')) return sConfig;
+    // Priority 3: JSON Config fallback
+    if (sConfig) return sConfig;
 
-    // Last Resort Fallback
-    return typeof window !== 'undefined' && !window.location.origin.includes('localhost')
-      ? window.location.origin 
-      : 'https://ais-dev-qphhy77swp7b53a3dwhodi-306494194593.europe-west1.run.app';
+    // Fallback: Origin
+    return window.location.origin;
   };
 
   const API_BASE_URL = getBaseApiUrl();
@@ -68,7 +67,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Helper function to force ALL api requests through the NATIVE Android layer when running natively
   const nativeFetch = async (url: string, options: any = {}) => {
     addLog(`[API Request] ${options.method || 'GET'} ${url}`, 'info');
-    if (isMobilePlatform()) {
+    if (Capacitor.isNativePlatform()) {
       try {
         const method = options.method || 'GET';
         const response = await CapacitorHttp.request({
@@ -116,7 +115,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     addLog(`Config Detection - ONLINE_API_BASE_URL: ${config.ONLINE_API_BASE_URL ? 'FOUND' : 'MISSING'}`, 'info');
     
     // Try to load cached user immediately for offline support
-    const cachedUser = localStorage.getItem('rpscards_userProfile');
+    const cachedUser = localStorage.getItem('cardclash_userProfile');
     if (cachedUser) {
       try {
         const parsedUser = JSON.parse(cachedUser);
@@ -127,7 +126,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
 
-    const storedUserId = localStorage.getItem('rpscards_userId');
+    const storedUserId = localStorage.getItem('cardclash_userId');
     if (storedUserId) {
       fetchProfile(storedUserId);
     } else {
@@ -141,11 +140,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (response.ok) {
         const data = await response.json();
         setUser(data);
-        localStorage.setItem('rpscards_userProfile', JSON.stringify(data));
+        localStorage.setItem('cardclash_userProfile', JSON.stringify(data));
       } else {
         if (response.status === 401 || response.status === 404) {
-          localStorage.removeItem('rpscards_userId');
-          localStorage.removeItem('rpscards_userProfile');
+          localStorage.removeItem('cardclash_userId');
+          localStorage.removeItem('cardclash_userProfile');
           setUser(null);
         } else {
           console.error('Server error on fetch profile, not deleting token. Status:', response.status);
@@ -170,8 +169,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const data = await response.json();
       if (response.ok) {
         setUser(data);
-        localStorage.setItem('rpscards_userId', data._id);
-        localStorage.setItem('rpscards_userProfile', JSON.stringify(data));
+        localStorage.setItem('cardclash_userId', data._id);
+        localStorage.setItem('cardclash_userProfile', JSON.stringify(data));
         setPendingVerificationEmail(null);
       } else {
         if (response.status === 403) {
@@ -245,8 +244,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('rpscards_userId');
-    localStorage.removeItem('rpscards_userProfile');
+    localStorage.removeItem('cardclash_userId');
+    localStorage.removeItem('cardclash_userProfile');
   };
 
   const refreshProfile = async () => {
@@ -267,7 +266,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (response.ok) {
         const updatedUser = await response.json();
         setUser(updatedUser);
-        localStorage.setItem('rpscards_userProfile', JSON.stringify(updatedUser));
+        localStorage.setItem('cardclash_userProfile', JSON.stringify(updatedUser));
       }
     } catch (err) {
       console.error('Failed to update profile:', err);

@@ -9,27 +9,16 @@ import { registerPlugin, Capacitor, CapacitorHttp } from '@capacitor/core';
 import config from './config.json';
 import { useAuth } from './contexts/AuthContext';
 import { useDebug, LogEntry } from './contexts/DebugContext';
-import { GameServiceFactory } from './services/GameServiceFactory';
-import { IGameService } from './services/IGameService';
-import { isMobilePlatform } from './lib/platform';
 
 // Standardized API Base URL logic
 const getBaseApiUrl = () => {
   const vApi = import.meta.env.VITE_API_URL;
   const vBack = import.meta.env.VITE_BACKEND_URL;
   const sConfig = config.ONLINE_API_BASE_URL;
-  
-  // Highest priority to explicit environment variables
   if (vApi) return vApi;
-  if (vBack) return vBack.replace(/^ws(s)?:\/\//, 'http$1://').replace(/\/game-socket$/, '').replace(/\/$/, '');
-  
-  // Use config from json as primary source for external backend
-  if (sConfig && !sConfig.includes('localhost') && !sConfig.includes('127.0.0.1')) return sConfig;
-  
-  // Fallback
-  return typeof window !== 'undefined' && !window.location.origin.includes('localhost')
-    ? window.location.origin 
-    : 'https://ais-dev-qphhy77swp7b53a3dwhodi-306494194593.europe-west1.run.app';
+  if (vBack) return vBack.replace(/^ws(s)?:\/\//, 'http$1://').replace(/\/$/, '');
+  if (sConfig) return sConfig;
+  return typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
 };
 const API_BASE_URL = getBaseApiUrl();
 
@@ -266,7 +255,7 @@ const PackPreviewModal = memo(({ selectedPack, ownedThemes, selectedThemeId, onB
 });
 
 
-const GlobalNavbar = memo(({ activeTab, setAppState, coins, playerName, isGuest, onLogout, onLoginClick, menuTab = 'main', setMenuTab, setShowDebug, showDebug }: any) => {
+const GlobalNavbar = memo(({ activeTab, setAppState, coins, playerName, isGuest, onLogout, onLoginClick, menuTab = 'main', setMenuTab }: any) => {
   return (
     <nav 
       dir="rtl" 
@@ -279,15 +268,7 @@ const GlobalNavbar = memo(({ activeTab, setAppState, coins, playerName, isGuest,
           <button onClick={() => setAppState('menu')} className="p-1.5 bg-white/5 backdrop-blur-sm rounded-full text-game-cream hover:bg-white/10 border border-white/10 transition-all transform-gpu">
             <ChevronLeft className="w-5 h-5" />
           </button>
-          <div className="flex items-center gap-3">
-             <button 
-                onClick={() => setShowDebug(!showDebug)} 
-                className={`p-1.5 rounded-md transition-all ${showDebug ? 'bg-game-teal text-game-dark' : 'text-game-offwhite/20 hover:text-game-offwhite/50'}`}
-             >
-                <Bug className="w-4 h-4" />
-             </button>
-             <h1 className="text-lg sm:text-xl font-display text-game-offwhite tracking-wider">متجر الثيمات</h1>
-          </div>
+          <h1 className="text-lg sm:text-xl font-display text-game-offwhite tracking-wider">متجر الثيمات</h1>
           <div className="flex items-center gap-1.5 bg-white/5 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/10 shadow-inner">
             <span className="text-sm sm:text-base font-display text-game-offwhite font-medium">{coins}</span>
             <span className="text-yellow-500 text-xs">🪙</span>
@@ -299,12 +280,6 @@ const GlobalNavbar = memo(({ activeTab, setAppState, coins, playerName, isGuest,
           {menuTab === 'main' ? (
             <>
               <div className="flex items-center gap-3">
-                <button 
-                   onClick={() => setShowDebug(!showDebug)} 
-                   className={`p-2 rounded-md transition-all ${showDebug ? 'bg-game-teal text-game-dark' : 'text-game-offwhite/20 hover:text-game-offwhite/50 hover:bg-white/5'}`}
-                >
-                   <Bug className="w-5 h-5" />
-                </button>
                 <button 
                   onClick={() => setAppState('profile')}
                   className="flex items-center gap-2 hover:opacity-80 transition-opacity"
@@ -330,12 +305,7 @@ const GlobalNavbar = memo(({ activeTab, setAppState, coins, playerName, isGuest,
             </>
           ) : (
             <>
-               <button 
-                  onClick={() => setShowDebug(!showDebug)} 
-                  className={`p-2 rounded-md transition-all ${showDebug ? 'bg-game-teal text-game-dark' : 'text-game-offwhite/20 hover:text-game-offwhite/50 hover:bg-white/5'}`}
-               >
-                  <Bug className="w-4 h-4" />
-               </button>
+              <div className="w-8" />
               <h1 className="text-lg font-display text-white tracking-widest uppercase">
                 {menuTab === 'online' ? 'اللعب عبر الإنترنت' : 'الشبكة المحلية'}
               </h1>
@@ -349,15 +319,7 @@ const GlobalNavbar = memo(({ activeTab, setAppState, coins, playerName, isGuest,
           <button onClick={() => setAppState('menu')} className="p-1.5 bg-white/5 backdrop-blur-sm rounded-full text-game-cream hover:bg-white/10 border border-white/10 transition-all transform-gpu">
             <ChevronRight className="w-5 h-5" />
           </button>
-          <div className="flex items-center gap-3">
-             <button 
-                onClick={() => setShowDebug(!showDebug)} 
-                className={`p-1.5 rounded-md transition-all ${showDebug ? 'bg-game-teal text-game-dark' : 'text-game-offwhite/20 hover:text-game-offwhite/50'}`}
-             >
-                <Bug className="w-4 h-4" />
-             </button>
-             <h1 className="text-lg sm:text-xl font-display text-game-offwhite tracking-wider">الملف الشخصي</h1>
-          </div>
+          <h1 className="text-lg sm:text-xl font-display text-game-offwhite tracking-wider">الملف الشخصي</h1>
           {!isGuest ? (
             <button 
               onClick={onLogout}
@@ -396,7 +358,7 @@ const StoreView = memo(({ coins, ownedThemes, selectedThemeId, onBuy, onSelect, 
     dir="rtl" 
     className="w-full h-full flex flex-col font-body overflow-x-hidden overflow-y-auto smooth-scroll select-none relative pb-10"
   >
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-y-10 gap-x-4 max-w-md md:max-w-3xl lg:max-w-5xl mx-auto w-full px-4 sm:px-6 pt-28">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-y-10 gap-x-4 max-w-4xl mx-auto w-full px-4 sm:px-6 pt-28">
       {THEMES.map(theme => (
         <CardPack 
           key={theme.id}
@@ -440,7 +402,7 @@ const ProfileView = memo(({ playerName, coins, xp = 0, level = 1, ownedThemes, s
     dir="rtl" 
     className="w-full h-full flex flex-col font-body overflow-x-hidden overflow-y-auto smooth-scroll select-none pb-10"
   >
-    <div className="max-w-md md:max-w-3xl lg:max-w-5xl mx-auto w-full space-y-6 px-4 sm:px-6 pt-28">
+    <div className="max-w-md mx-auto w-full space-y-6 px-4 sm:px-6 pt-28">
       <div className="bg-gradient-to-br from-game-dark/95 to-game-dark/80 p-6 rounded-2xl border border-white/10 flex flex-col sm:flex-row items-center gap-4 relative shadow-2xl">
         <div className="relative">
           <div className="w-20 h-20 rounded-full bg-game-bg border-4 border-game-offwhite/5 flex items-center justify-center overflow-hidden shadow-inner">
@@ -474,7 +436,7 @@ const ProfileView = memo(({ playerName, coins, xp = 0, level = 1, ownedThemes, s
 
       <div>
         <h2 className="text-2xl font-display text-game-offwhite mb-6 border-b border-white/10 pb-2">مكتبة الثيمات</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-y-12 gap-x-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-y-12 gap-x-6">
           {THEMES.filter(t => ownedThemes.includes(t.id)).map(theme => (
             <CardPack 
               key={theme.id}
@@ -644,7 +606,7 @@ const LeaderboardView = memo(({ userId, onBack }: { userId: string | null, onBac
       >
         <div className="relative w-full h-12 flex items-center justify-center">
           <button 
-             className="absolute right-0 p-1.5 text-game-offwhite/50 hover:text-game-offwhite bg-white/5 rounded-lg border border-white/5 transition-all active:scale-90"
+             className="absolute right-4 p-1.5 text-game-offwhite/50 hover:text-game-offwhite transition-all active:scale-90"
              onClick={onBack}
           >
             <ArrowRight className="w-6 h-6" />
@@ -654,6 +616,23 @@ const LeaderboardView = memo(({ userId, onBack }: { userId: string | null, onBac
       </header>
 
       <div className="flex-1 w-full max-w-md mx-auto space-y-6 pt-28 pb-24 px-4 overflow-y-auto smooth-scroll">
+        {data?.userRank && (
+        <div className="bg-game-teal/10 border border-game-teal/30 p-4 rounded-2xl flex items-center justify-between shadow-xl">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-game-teal rounded-xl flex items-center justify-center font-display text-xl text-white shadow-lg">
+              #{data.userRank}
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-game-teal font-display uppercase tracking-wider">ترتيبك الحالي</p>
+              <p className="text-lg text-white font-bold leading-none mt-1">أنت الآن في المركز الـ {data.userRank}</p>
+            </div>
+          </div>
+          <div className="text-left">
+            <p className="text-xl font-display text-game-teal">{data.userScore?.xp || 0} XP</p>
+          </div>
+        </div>
+      )}
+
       <div className="space-y-3">
         {data?.topPlayers.map((player: any, idx: number) => {
           const isTop3 = idx < 3;
@@ -1074,6 +1053,7 @@ const App = () => {
   const [showDebug, setShowDebug] = useState(false);
   const [isPreloaded, setIsPreloaded] = useState(true);
   const [isRevealingLocal, setIsRevealingLocal] = useState(false);
+  const [ws, setWs] = useState<WebSocket | null>(null);
   const [selectedPack, setSelectedPack] = useState<ThemeConfig | null>(null);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const backPressTimer = useRef<NodeJS.Timeout | null>(null);
@@ -1118,8 +1098,6 @@ const App = () => {
   const appStateRef = useRef(appState);
   const roleRef = useRef(role);
   const onlineActionRef = useRef<any>(null);
-  const onlineGameServiceRef = useRef<IGameService | null>(null);
-  const lanGameServiceRef = useRef<IGameService | null>(null);
 
   useEffect(() => {
     roomIdRef.current = roomId;
@@ -1396,15 +1374,10 @@ const App = () => {
 
   const sendNativeAction = async (action: any) => {
     try {
-      if (roleRef.current === 'ONLINE' && onlineGameServiceRef.current) {
-        // Send via the new online service
-        onlineGameServiceRef.current.sendMessage(action);
-      } else if (lanGameServiceRef.current) {
-        // Send via the LAN service
-        lanGameServiceRef.current.sendMessage(action);
-      } else if (Capacitor.isNativePlatform()) {
-        // Fallback for native LAN
+      if (Capacitor.isNativePlatform()) {
         await LocalServer.sendMessage({ message: JSON.stringify(action) });
+      } else if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(action));
       } else {
         addLog(`Action skipped (no connection): ${action.type}`, 'info');
       }
@@ -1572,30 +1545,6 @@ const App = () => {
     fetchIp();
   }, []);
 
-  const initLANService = () => {
-    if (!lanGameServiceRef.current) {
-        const service = GameServiceFactory.createLANService();
-        lanGameServiceRef.current = service;
-        service.onMessage = (data: any) => {
-            handleNativeMessage(data);
-        };
-        service.onConnectionStateChange = (state, errMsg) => {
-            setConnectionStatus(state);
-            if (state === 'ERROR' && errMsg) {
-                setErrorMsg(errMsg);
-            } else if (state === 'DISCONNECTED') {
-                setAppState('menu');
-                setRoomId(null);
-                setRoomState(null);
-                setRole('NONE');
-                setErrorMsg(errMsg || 'تم قطع الاتصال بالسيرفر');
-            }
-        };
-        addLog(`Initializing LAN service: ${service.constructor.name}`, 'info');
-    }
-    return lanGameServiceRef.current;
-  };
-
   const hostGame = async () => {
     addLog('Host button clicked', 'info');
     if (!playerName.trim()) {
@@ -1607,8 +1556,8 @@ const App = () => {
       return;
     }
     try {
-      const service = initLANService();
-      await service.connect({ role: 'HOST' });
+      await LocalServer.startServer({ port: config.LAN_PORT });
+      // Native will send ROOM_READY when server is started
     } catch (e) {
       addLog(`Host failed: ${e}`, 'error');
       setErrorMsg('فشل بدء السيرفر');
@@ -1638,53 +1587,97 @@ const App = () => {
       return;
     }
     try {
-      const service = initLANService();
-      await service.connect({ role: 'CLIENT', ip: ipInput.trim() });
+      await LocalServer.connectToServer({ ip: ipInput.trim(), port: config.LAN_PORT });
+      // Native will send ROOM_READY after handshake is verified
     } catch (e) {
       addLog(`Join failed: ${e}`, 'error');
       setErrorMsg('فشل الاتصال بالسيرفر');
     }
   };
 
-  const connectToOnline = async (action?: any): Promise<void> => {
-    try {
-      if (!onlineGameServiceRef.current) {
-        // Initialize the appropriate service using the Factory
-        const service = GameServiceFactory.createOnlineService();
-        onlineGameServiceRef.current = service;
-
-        service.onMessage = (data: any) => {
-          handleOnlineMessage(data);
-        };
-
-        service.onConnectionStateChange = (state, errMsg) => {
-          setConnectionStatus(state);
-          if (state === 'ERROR' && errMsg) {
-            setErrorMsg(errMsg);
-          } else if (state === 'DISCONNECTED') {
-            setIsSearching(false);
-            if (appStateRef.current === 'inRoom' && roleRef.current === 'ONLINE') {
-              setAppState('menu');
-              setRoomId(null);
-              setRoomState(null);
-              setRole('NONE');
-              setErrorMsg(errMsg || 'تم قطع الاتصال بالسيرفر');
-            }
-          }
-        };
-
-        addLog(`Initializing online service: ${service.constructor.name}`, 'info');
+  const connectToOnline = (action?: any): Promise<WebSocket | void> => {
+    return new Promise(async (resolve, reject) => {
+      let serverUrl = import.meta.env.VITE_BACKEND_URL || config.ONLINE_SERVER_URL;
+      
+      // Fix: Don't force localhost if we are on Android Native, otherwise it breaks DuckDNS/External links
+      if (!Capacitor.isNativePlatform() && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+          serverUrl = `ws://${window.location.host}/game-socket`;
+      }
+      
+      if (Capacitor.isNativePlatform()) {
+        try {
+          addLog(`Connecting NATIVELY to online server: ${serverUrl}`, 'info');
+          if (action) onlineActionRef.current = action;
+          await LocalServer.connectToServer({ url: serverUrl, isOnline: true });
+          resolve();
+        } catch (e) {
+          addLog(`Native online connection failed: ${e}`, 'error');
+          setErrorMsg('فشل الاتصال عبر النيتف');
+          reject(e);
+        }
+        return;
       }
 
-      await onlineGameServiceRef.current.connect({
-        initialAction: action,
-        isOnline: true
-      });
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        if (action) ws.send(JSON.stringify(action));
+        resolve(ws);
+        return;
+      }
       
-    } catch (e) {
-      addLog(`Online connection failed: ${e}`, 'error');
-      setErrorMsg('فشل الاتصال بسيرفر اللعب عبر الإنترنت');
-    }
+      addLog(`Connecting to online server: ${serverUrl}`, 'info');
+      const socket = new WebSocket(serverUrl);
+      
+      const timeout = setTimeout(() => {
+        if (socket.readyState !== WebSocket.OPEN) {
+          socket.close();
+          addLog('Connection timeout', 'error');
+          setErrorMsg('انتهت مهلة المزامنة - تأكد من تشغيل السيرفر');
+          reject(new Error('Timeout'));
+        }
+      }, 5000);
+
+      socket.onopen = () => {
+        clearTimeout(timeout);
+        addLog('Connected to Cloud Server', 'success');
+        setWs(socket);
+        setConnectionStatus('CONNECTION_VERIFIED');
+        if (action) socket.send(JSON.stringify(action));
+        resolve(socket);
+      };
+      
+      socket.onerror = (e) => {
+        addLog(`WebSocket error: ${JSON.stringify(e)}`, 'error');
+        setErrorMsg('فشل الاتصال بسيرفر اللعب عبر الإنترنت');
+        reject(e);
+      };
+      
+      socket.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'PING') {
+            socket.send(JSON.stringify({ type: 'PONG' }));
+            return;
+          }
+          handleOnlineMessage(data);
+        } catch(err) {
+          addLog(`Received non-JSON message: ${event.data}`, 'info');
+        }
+      };
+      
+      socket.onclose = () => {
+        addLog('Disconnected from Cloud Server', 'info');
+        setWs(null);
+        setConnectionStatus('DISCONNECTED');
+        setIsSearching(false);
+        if (appStateRef.current === 'inRoom' && roleRef.current === 'ONLINE') {
+          setAppState('menu');
+          setRoomId(null);
+          setRoomState(null);
+          setRole('NONE');
+          setErrorMsg('تم قطع الاتصال بالسيرفر');
+        }
+      };
+    });
   };
 
   const handleOnlineMessage = (data: any) => {
@@ -1927,16 +1920,10 @@ const App = () => {
     setConnectionStatus('DISCONNECTED');
     setRole('NONE');
 
-    // Disconnect Services if active
-    if (onlineGameServiceRef.current) {
-      await onlineGameServiceRef.current.disconnect();
-      onlineGameServiceRef.current.cleanup();
-      onlineGameServiceRef.current = null;
-    }
-    if (lanGameServiceRef.current) {
-      await lanGameServiceRef.current.disconnect();
-      lanGameServiceRef.current.cleanup();
-      lanGameServiceRef.current = null;
+    // Close Web WebSocket if exists
+    if (ws) {
+      ws.close();
+      setWs(null);
     }
 
     // 2. Cleanup Native (Background)
@@ -2035,74 +2022,7 @@ const App = () => {
     </AnimatePresence>
   );
 
-  const renderDebugUI = () => (
-    <>
-      {showDebug && (
-        <div
-          className="fixed inset-0 z-[1000] bg-game-dark/95 backdrop-blur-xl flex flex-col p-6 font-mono text-[10px] overflow-hidden"
-          dir="ltr"
-        >
-          <div className="flex items-center justify-between mb-4 border-b border-white/10 pb-4">
-             <div className="flex items-center gap-4">
-                <Bug className="w-5 h-5 text-game-teal" />
-                <h2 className="text-lg font-display text-game-offwhite tracking-widest">DEBUG CONSOLE</h2>
-             </div>
-             <div className="flex items-center gap-3">
-                <button 
-                  onClick={clearLogs}
-                  className="px-3 py-1 bg-white/5 hover:bg-white/10 rounded border border-white/10 text-game-cream/60 transition-all"
-                >
-                  CLEAR
-                </button>
-                <button 
-                  onClick={() => setShowDebug(false)}
-                  className="p-2 bg-white/10 hover:bg-white/20 rounded-full text-game-cream transition-all"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-             </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4 mb-4">
-             <div className="bg-black/40 p-3 rounded-lg border border-white/5 space-y-1">
-                <p className="text-game-teal uppercase text-[8px] opacity-40">System Env</p>
-                <p className="text-game-cream"><span className="opacity-40">Platform:</span> {Capacitor.getPlatform()}</p>
-                <p className="text-game-cream"><span className="opacity-40">Native:</span> {Capacitor.isNativePlatform() ? 'TRUE' : 'FALSE'}</p>
-                <p className="text-game-cream"><span className="opacity-40">isMobilePlatform:</span> {isMobilePlatform() ? 'TRUE' : 'FALSE'}</p>
-                <p className="text-game-cream"><span className="opacity-40">Screen:</span> {window.innerWidth}x{window.innerHeight}</p>
-             </div>
-             <div className="bg-black/40 p-3 rounded-lg border border-white/5 space-y-1">
-                <p className="text-game-teal uppercase text-[8px] opacity-40">Network Configuration</p>
-                <p className="text-game-cream whitespace-nowrap overflow-hidden text-ellipsis"><span className="opacity-40">API:</span> {API_BASE_URL}</p>
-                <p className="text-game-cream"><span className="opacity-40">Socket:</span> {config.ONLINE_SERVER_URL}</p>
-                <p className="text-game-cream"><span className="opacity-40">LAN Port:</span> {config.LAN_PORT}</p>
-                <p className="text-game-cream"><span className="opacity-40">Role:</span> {role}</p>
-             </div>
-          </div>
-
-          <div className="flex-1 overflow-y-auto space-y-1 bg-black/60 p-4 rounded-xl border border-white/5 shadow-inner custom-scrollbar">
-             {logs.map((log) => (
-               <div key={log.id} className="flex gap-2 border-b border-white/5 py-1.5 animate-in fade-in slide-in-from-left-2 transition-all">
-                  <span className="opacity-30 flex-shrink-0">[{log.time}]</span>
-                  <span className={`flex-shrink-0 uppercase font-bold ${
-                    log.type === 'error' ? 'text-red-500' : 
-                    log.type === 'success' ? 'text-teal-400' : 'text-blue-400'
-                  }`}>
-                    {log.type}:
-                  </span>
-                  <span className="text-game-cream/90 break-all leading-relaxed">{log.msg}</span>
-               </div>
-             ))}
-             {logs.length === 0 && (
-               <div className="h-full flex items-center justify-center opacity-20 italic">
-                  No logs available yet...
-               </div>
-             )}
-          </div>
-        </div>
-      )}
-    </>
-  );
+  const renderDebugUI = () => null;
 
   const handleUpdateName = async () => {
     if (editNameInput.trim().length < 2) return;
@@ -2453,8 +2373,6 @@ const App = () => {
           }}
           menuTab={menuTab}
           setMenuTab={setMenuTab}
-          setShowDebug={setShowDebug}
-          showDebug={showDebug}
         />
         <DashboardViewPager appState={appState} setAppState={setAppState} onVisibleTabChange={setVisibleTab}>
           <StoreView 
@@ -2476,7 +2394,7 @@ const App = () => {
             className="w-full h-full flex flex-col font-body overflow-x-hidden overflow-y-auto smooth-scroll select-none"
           >
             <div
-              className="max-w-md md:max-w-2xl w-full text-center mx-auto py-8 px-6 pt-24 min-h-screen flex flex-col justify-center items-center"
+              className="max-w-md w-full text-center mx-auto py-8 px-6 pt-24 min-h-screen flex flex-col justify-center items-center"
             >
               <div className="mb-8"></div>
             
@@ -2559,12 +2477,12 @@ const App = () => {
                     key="online"
                     className="flex flex-col gap-5 w-full max-w-[340px] mx-auto px-2 relative"
                   >
-                    <div className="absolute -top-12 right-0 z-40 flex justify-end w-full px-2 mb-2">
+                    <div className="sticky top-24 z-40 flex justify-end w-full mb-2 px-4">
                        <button
                          onClick={() => setMenuTab('main')}
-                         className="flex items-center gap-1.5 text-game-cream/50 hover:text-game-cream transition-all px-2 py-1"
+                         className="flex items-center gap-2 text-game-cream hover:text-white transition-all px-2 py-1"
                        >
-                         <span className="font-display text-sm tracking-wide">العودة</span>
+                         <span className="font-display text-sm tracking-wide">العودة للقائمة</span>
                          <ArrowRight className="w-4 h-4" />
                        </button>
                     </div>
@@ -2689,12 +2607,12 @@ const App = () => {
                     key="local"
                     className="flex flex-col gap-6 w-full max-w-[340px] mx-auto px-2 relative"
                   >
-                    <div className="absolute -top-12 right-0 z-40 flex justify-end w-full px-2 mb-2">
+                    <div className="sticky top-24 z-40 flex justify-end w-full mb-2 px-4">
                        <button
                          onClick={() => setMenuTab('main')}
-                         className="flex items-center gap-1.5 text-game-cream/50 hover:text-game-cream transition-all px-2 py-1"
+                         className="flex items-center gap-2 text-game-cream hover:text-white transition-all px-2 py-1"
                        >
-                         <span className="font-display text-sm tracking-wide">العودة</span>
+                         <span className="font-display text-sm tracking-wide">العودة للقائمة</span>
                          <ArrowRight className="w-4 h-4" />
                        </button>
                     </div>
@@ -2887,7 +2805,7 @@ const App = () => {
           }}
         >
           <motion.div
-            className="bg-game-dark/90 p-8 rounded-xl border border-white/10 shadow-2xl max-w-sm md:max-w-md w-full text-center"
+            className="bg-game-dark/90 p-8 rounded-xl border border-white/10 shadow-2xl max-w-sm w-full text-center"
           >
             <div className="w-10 h-10 rounded-full border-2 border-white/10 border-t-white animate-spin mx-auto mb-8"></div>
             <h2 className="text-2xl font-display mb-3 text-game-offwhite tracking-widest">في انتظار الخصم...</h2>
@@ -2973,7 +2891,7 @@ const App = () => {
           }}
         >
           <motion.div
-            className="bg-game-dark/90 p-8 rounded-xl border border-white/10 shadow-2xl max-w-sm md:max-w-md w-full text-center relative overflow-hidden"
+            className="bg-game-dark/90 p-8 rounded-xl border border-white/10 shadow-2xl max-w-sm w-full text-center relative overflow-hidden"
           >
             <div className="relative z-10">
               <h2 className="text-3xl font-display mb-2 text-game-offwhite/40 tracking-widest uppercase"></h2>
@@ -3037,7 +2955,7 @@ const App = () => {
         paddingRight: 'env(safe-area-inset-right)'
       }}
     >
-      <div className="max-w-md md:max-w-2xl mx-auto w-full h-full flex flex-col flex-1 relative">
+      <div className="max-w-md mx-auto w-full h-full flex flex-col flex-1 relative">
         {/* Header */}
         <nav className="sticky top-0 z-50 bg-[#121212]/95 backdrop-blur-md border-b border-white/10 px-6 sm:px-8 py-2.5 flex justify-between items-center shadow-lg w-full shrink-0" style={{ paddingTop: 'max(1.25rem, env(safe-area-inset-top))' }}>
           <div className="flex items-center gap-2">

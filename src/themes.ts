@@ -23,7 +23,7 @@ export const THEMES: ThemeConfig[] = [
   {
     id: 'normal',
     name: 'عادي',
-    path: 'card_themes/normal',
+    path: '/card_themes/normal',
     price: 0,
     isDefault: true,
     frontColor: 'bg-[#6F5C57]',
@@ -38,7 +38,7 @@ export const THEMES: ThemeConfig[] = [
   {
     id: 'bone',
     name: 'عظمي',
-    path: 'card_themes/bones',
+    path: '/card_themes/bones',
     price: 0,
     frontColor: 'bg-[#121212]',
     backColor: 'bg-[#121212]',
@@ -52,7 +52,7 @@ export const THEMES: ThemeConfig[] = [
   {
     id: 'robot',
     name: 'روبوتي',
-    path: 'card_themes/robots',
+    path: '/card_themes/robots',
     price: 0,
     frontColor: 'bg-[#0E65A4]',
     backColor: 'bg-[#0E65A4]',
@@ -65,7 +65,7 @@ export const THEMES: ThemeConfig[] = [
   {
     id: 'toyes',
     name: 'العاب',
-    path: 'card_themes/toyes',
+    path: '/card_themes/toyes',
     price: 0,
     frontColor: 'bg-[#BC4A00]',
     backColor: 'bg-[#BC4A00]',
@@ -78,7 +78,7 @@ export const THEMES: ThemeConfig[] = [
   {
     id: 'cats',
     name: 'قطط',
-    path: 'card_themes/cats',
+    path: '/card_themes/cats',
     price: 0,
     frontColor: 'bg-[#C87874]',
     backColor: 'bg-[#C87874]',
@@ -91,7 +91,7 @@ export const THEMES: ThemeConfig[] = [
     {
     id: 'building_tools',
     name: 'أدوات بناء',
-    path: 'card_themes/building_tools',
+    path: '/card_themes/building_tools',
     price: 0,
     frontColor: 'bg-[#E9B41C]',
     backColor: 'bg-[#E9B41C]',

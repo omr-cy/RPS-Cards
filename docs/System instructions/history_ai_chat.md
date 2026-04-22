@@ -24,55 +24,31 @@
   - Sliced and sanitized Password inputs to 32 chars, rejecting whitespaces.
   - Ensured ID/Verification codes have hard boundaries for limits and types natively via the inputs components.
   - Re-applied proper Arabic to Latin conversion logic inside IP bindings for local matchmaking with limits (15 chars).
+- **Matchmaking / UX:** Added a "Search for another player" button to the Game Over screen and the waiting lobby for online random matches. This allows players to quickly start a new search for a match without having to manually leave the room and return to the main menu.
 
-
-## [2026-04-22] UI Refinement, Syntax Fix & Font Organization
-**User Prompts:** Multi-turn requests including: adding padding in themes store, tablet/mobile layout styling for library cards, removing "current rank" from leaderboard, fixing JSX syntax error in debug console, and organizing locally uploaded fonts.
+## [2026-04-22] UI Padding Adjustment
+**User Prompt:** خلي في باندج شوية بين اعلى البطاقات واسفل ناف التمجر
 **Actions:**
-- **UI/UX Refinement:** Increased top padding for card themes in the store to separate them from the navigation bar. 
-- **Responsive Layout:** Optimized the "Library" (Themes/Cards) view for tablets by adjusting grid spacing and sizing to ensure readability while maintaining perfect mobile compatibility.
-- **Leaderboard Update:** Removed the "Current Rank" card from the top of the Leaderboard view to prioritize the top players list directly.
-- **Fix:** Resolved a critical JSX syntax error in `App.tsx`'s `renderDebugUI` function. Replaced mismatched `motion` tags with standard `div` tags to disable animations as requested, ensuring the build succeeds.
-- **Organization & Optimization:** 
-    - Created a structured `/public/fonts` directory for all locally uploaded fonts.
-    - Organized `/public/card_themes` to contain theme assets directly (removed subdirectories).
-    - Updated `index.css` with local `@font-face` definitions pointing to `/fonts/`.
-    - Path Sync: Updated `src/themes.ts` to point to `/card_themes/` for theme assets.
-    - Cleanup: Removed temporary and redundant subfolders to ensure a clean public directory structure.
+- **UI:** Increased the top padding in `StoreView` from `pt-20` to `pt-28` to provide better visual spacing between the store navigation header and the theme card grid.
 
-## [2026-04-22] Backend Decoupling: Removing Vite Dependency
-**User Prompt:** "Make backend server independent of the frontend to fix ERR_MODULE_NOT_FOUND: Cannot find package 'vite'"
+## [2026-04-22] UI Padding Adjustment (ProfileView)
+**User Prompt:** كذالك في الملف الشخصي
 **Actions:**
-- **Backend:** Removed Vite middleware and dynamic `vite` import from `backend/server.ts` to make the backend server standalone and independent of frontend build tools.
-- **Serving:** Simplified the server to serve static files from `dist/` directly, removing the dev-time Vite integration.
-- **Log:** Updated `history_ai_chat.md` with these changes.
+- **UI:** Increased the top padding in `ProfileView` from `pt-20` to `pt-28` to align with the visual spacing applied earlier to `StoreView`, preventing overlapping content below the navigation bar.
 
-## [2026-04-22] Security Hardening: Maximum Obfuscation
-**User Prompt:** "إضافة المكتبات javascript-obfuscator و rollup-plugin-javascript-obfuscator كأدوات تطوير... ضبط الإعدادات لتكون قوية جداً... في وضع الديبج وفي وضع البرودكشون"
+## [2026-04-22] UI Interaction Improvement (Back Button)
+**User Prompt:** خلي زر العودة للقائمة الرئيسية بدون خلفية وعلى اليمين شوية
 **Actions:**
-- **Security:** Configured `rollup-plugin-javascript-obfuscator` with maximum settings:
-    - Enabled `selfDefending`, `debugProtection`, and `controlFlowFlattening` (Threshold: 1.0).
-    - Enabled `deadCodeInjection` (Threshold: 1.0).
-    - Removed `apply: 'build'` to enforce obfuscation in development mode as requested.
-- **Optimization:** Enabled `minify: 'esbuild'` in the Vite config to complement the obfuscator.
-- **Verification:** Ran `compile_applet` to ensure the obfuscated code build successfully.
-- **Deployment:** Restarted the dev server to apply the live obfuscation.
+- **UI:** Removed the background and border styling from the "Return to Main Menu" back button in `LeaderboardView` and shifted it 16px (`right-4`) to the right for a cleaner, minimalist look.
 
-## [2026-04-22] Android Fixes & Full-Stack Integration
-**User Prompt:** "صور البطاقات لا تظهر على الندرويد وكذالك الخطوط ومود اللعب بالنترنت باكامل معطوب"
+## [2026-04-22] Tablet Responsiveness Optimization
+**User Prompt:** خلي اللعبة تتناسب برضو مع التابلت من غير ما تبوظ ام الهاتف
 **Actions:**
-- **UI/Files:** Relativized all asset paths in `index.css` (fonts) and `themes.ts` (images) by removing or replacing leading slashes with `./`. This ensures compatibility with Android WebView path resolution.
-- **Architecture:** Converted the project to a unified Full-Stack architecture. Updated `package.json` to run `backend/server.ts` as the main entry point, which now serves the Vite middleware.
-- **Connectivity:** Updated `src/config.json` and `backend/.env` with the correct environment URLs to fix online socket connectivity.
-- **Security:** Adjusted obfuscator settings (disabled `debugProtection` and `selfDefending`) to prevent crashes on Android WebView caused by security triggers against the Capacitor bridge.
-- **Refactoring:** Improved API URL detection logic in both `AuthContext.tsx` and `App.tsx` for better cross-platform support.
+- **UI:** Optimized `StoreView` for tablet and desktop displays by updating the theme card grid from a single-column-mobile (two-col) to a responsive layout (`grid-cols-2 md:grid-cols-3 lg:grid-cols-4`) and increasing the maximum width constraint to `max-w-4xl`.
 
-## [2026-04-22] Android Asset & MongoDB Fixes
-**User Prompt:** "اولا صور البطاقات لا تظهر على الندرويد وكذالك الخطوط ومود اللعب بالنترنت باكامل معطوب"
+## [2026-04-22] Tablet Responsiveness Optimization (ProfileView)
+**User Prompt:** وبرضو في الملف الشخصي
 **Actions:**
-- **Capacitor Config:** Updated `capacitor.config.ts` to include `server: { androidScheme: 'https', cleartext: true }` to resolve asset loading issues on Android.
-- **MongoDB Debugging:** Identified that the online mode is broken due to a `MongooseServerSelectionError`. This is an IP Whitelisting issue on MongoDB Atlas.
-- **Guidance:** Provided clear instructions to the user to whitelist IP `0.0.0.0/0` in MongoDB Atlas Network Access.
-- **Sync:** Instructed the user to run `npx cap sync` to apply the Android configuration changes.
+- **UI:** Optimized the theme library grid in `ProfileView` for tablet and large screens by adding a fifth column for larger viewports (`grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5`) to improve grid density and aesthetic utilization of space.
 
 
