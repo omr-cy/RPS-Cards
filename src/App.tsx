@@ -394,7 +394,7 @@ const StoreView = memo(({ coins, ownedThemes, selectedThemeId, onBuy, onSelect, 
     dir="rtl" 
     className="w-full h-full flex flex-col font-body overflow-x-hidden overflow-y-auto smooth-scroll select-none relative pb-10"
   >
-    <div className="grid grid-cols-2 gap-y-10 gap-x-4 max-w-md mx-auto w-full px-4 sm:px-6 pt-20">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-y-10 gap-x-4 max-w-md md:max-w-3xl lg:max-w-5xl mx-auto w-full px-4 sm:px-6 pt-28">
       {THEMES.map(theme => (
         <CardPack 
           key={theme.id}
@@ -438,7 +438,7 @@ const ProfileView = memo(({ playerName, coins, xp = 0, level = 1, ownedThemes, s
     dir="rtl" 
     className="w-full h-full flex flex-col font-body overflow-x-hidden overflow-y-auto smooth-scroll select-none pb-10"
   >
-    <div className="max-w-md mx-auto w-full space-y-6 px-4 sm:px-6 pt-20">
+    <div className="max-w-md md:max-w-3xl lg:max-w-5xl mx-auto w-full space-y-6 px-4 sm:px-6 pt-28">
       <div className="bg-gradient-to-br from-game-dark/95 to-game-dark/80 p-6 rounded-2xl border border-white/10 flex flex-col sm:flex-row items-center gap-4 relative shadow-2xl">
         <div className="relative">
           <div className="w-20 h-20 rounded-full bg-game-bg border-4 border-game-offwhite/5 flex items-center justify-center overflow-hidden shadow-inner">
@@ -652,23 +652,6 @@ const LeaderboardView = memo(({ userId, onBack }: { userId: string | null, onBac
       </header>
 
       <div className="flex-1 w-full max-w-md mx-auto space-y-6 pt-28 pb-24 px-4 overflow-y-auto smooth-scroll">
-        {data?.userRank && (
-        <div className="bg-game-teal/10 border border-game-teal/30 p-4 rounded-2xl flex items-center justify-between shadow-xl">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-game-teal rounded-xl flex items-center justify-center font-display text-xl text-white shadow-lg">
-              #{data.userRank}
-            </div>
-            <div className="text-right">
-              <p className="text-xs text-game-teal font-display uppercase tracking-wider">ترتيبك الحالي</p>
-              <p className="text-lg text-white font-bold leading-none mt-1">أنت الآن في المركز الـ {data.userRank}</p>
-            </div>
-          </div>
-          <div className="text-left">
-            <p className="text-xl font-display text-game-teal">{data.userScore?.xp || 0} XP</p>
-          </div>
-        </div>
-      )}
-
       <div className="space-y-3">
         {data?.topPlayers.map((player: any, idx: number) => {
           const isTop3 = idx < 3;
@@ -2051,12 +2034,9 @@ const App = () => {
   );
 
   const renderDebugUI = () => (
-    <AnimatePresence>
+    <>
       {showDebug && (
-        <motion.div
-          initial={{ opacity: 0, y: 50 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 50 }}
+        <div
           className="fixed inset-0 z-[1000] bg-game-dark/95 backdrop-blur-xl flex flex-col p-6 font-mono text-[10px] overflow-hidden"
           dir="ltr"
         >
@@ -2117,9 +2097,9 @@ const App = () => {
                </div>
              )}
           </div>
-        </motion.div>
+        </div>
       )}
-    </AnimatePresence>
+    </>
   );
 
   const handleUpdateName = async () => {
@@ -2494,7 +2474,7 @@ const App = () => {
             className="w-full h-full flex flex-col font-body overflow-x-hidden overflow-y-auto smooth-scroll select-none"
           >
             <div
-              className="max-w-md w-full text-center mx-auto py-8 px-6 pt-24 min-h-screen flex flex-col justify-center items-center"
+              className="max-w-md md:max-w-2xl w-full text-center mx-auto py-8 px-6 pt-24 min-h-screen flex flex-col justify-center items-center"
             >
               <div className="mb-8"></div>
             
@@ -2577,13 +2557,13 @@ const App = () => {
                     key="online"
                     className="flex flex-col gap-5 w-full max-w-[340px] mx-auto px-2 relative"
                   >
-                    <div className="sticky top-24 z-40 flex justify-center w-full mb-2">
+                    <div className="absolute -top-12 right-0 z-40 flex justify-end w-full px-2 mb-2">
                        <button
                          onClick={() => setMenuTab('main')}
-                         className="flex items-center gap-2 bg-white/10 backdrop-blur-md hover:bg-white/20 border border-white/10 px-5 py-2.5 rounded-full text-game-cream shadow-lg transition-all"
+                         className="flex items-center gap-1.5 text-game-cream/50 hover:text-game-cream transition-all px-2 py-1"
                        >
+                         <span className="font-display text-sm tracking-wide">العودة</span>
                          <ArrowRight className="w-4 h-4" />
-                         <span className="font-display text-sm tracking-wide">العودة للقائمة</span>
                        </button>
                     </div>
 
@@ -2707,13 +2687,13 @@ const App = () => {
                     key="local"
                     className="flex flex-col gap-6 w-full max-w-[340px] mx-auto px-2 relative"
                   >
-                    <div className="sticky top-24 z-40 flex justify-center w-full mb-2">
+                    <div className="absolute -top-12 right-0 z-40 flex justify-end w-full px-2 mb-2">
                        <button
                          onClick={() => setMenuTab('main')}
-                         className="flex items-center gap-2 bg-white/10 backdrop-blur-md hover:bg-white/20 border border-white/10 px-5 py-2.5 rounded-full text-game-cream shadow-lg transition-all"
+                         className="flex items-center gap-1.5 text-game-cream/50 hover:text-game-cream transition-all px-2 py-1"
                        >
+                         <span className="font-display text-sm tracking-wide">العودة</span>
                          <ArrowRight className="w-4 h-4" />
-                         <span className="font-display text-sm tracking-wide">العودة للقائمة</span>
                        </button>
                     </div>
 
@@ -2905,7 +2885,7 @@ const App = () => {
           }}
         >
           <motion.div
-            className="bg-game-dark/90 p-8 rounded-xl border border-white/10 shadow-2xl max-w-sm w-full text-center"
+            className="bg-game-dark/90 p-8 rounded-xl border border-white/10 shadow-2xl max-w-sm md:max-w-md w-full text-center"
           >
             <div className="w-10 h-10 rounded-full border-2 border-white/10 border-t-white animate-spin mx-auto mb-8"></div>
             <h2 className="text-2xl font-display mb-3 text-game-offwhite tracking-widest">في انتظار الخصم...</h2>
@@ -2991,7 +2971,7 @@ const App = () => {
           }}
         >
           <motion.div
-            className="bg-game-dark/90 p-8 rounded-xl border border-white/10 shadow-2xl max-w-sm w-full text-center relative overflow-hidden"
+            className="bg-game-dark/90 p-8 rounded-xl border border-white/10 shadow-2xl max-w-sm md:max-w-md w-full text-center relative overflow-hidden"
           >
             <div className="relative z-10">
               <h2 className="text-3xl font-display mb-2 text-game-offwhite/40 tracking-widest uppercase"></h2>
@@ -3055,7 +3035,7 @@ const App = () => {
         paddingRight: 'env(safe-area-inset-right)'
       }}
     >
-      <div className="max-w-md mx-auto w-full h-full flex flex-col flex-1 relative">
+      <div className="max-w-md md:max-w-2xl mx-auto w-full h-full flex flex-col flex-1 relative">
         {/* Header */}
         <nav className="sticky top-0 z-50 bg-[#121212]/95 backdrop-blur-md border-b border-white/10 px-6 sm:px-8 py-2.5 flex justify-between items-center shadow-lg w-full shrink-0" style={{ paddingTop: 'max(1.25rem, env(safe-area-inset-top))' }}>
           <div className="flex items-center gap-2">

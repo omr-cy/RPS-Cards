@@ -26,12 +26,18 @@
   - Re-applied proper Arabic to Latin conversion logic inside IP bindings for local matchmaking with limits (15 chars).
 
 
-## [2026-04-22] Platform Logic Revert & Debug Console Implementation
-**User Prompt:** شيل التحقق ده بتاع حجم الشاشة اظهر زر الديبج وخلي ه يفصل كل حاجه
+## [2026-04-22] UI Refinement, Syntax Fix & Font Organization
+**User Prompts:** Multi-turn requests including: adding padding in themes store, tablet/mobile layout styling for library cards, removing "current rank" from leaderboard, fixing JSX syntax error in debug console, and organizing locally uploaded fonts.
 **Actions:**
-- **Platform Detection Revert:** Reverted the screen size and user agent heuristics in `isMobilePlatform` after user feedback. Detection now strictly relies on Capacitor's `isNativePlatform()`.
-- **Debug UI Implementation:** Implemented a comprehensive `Debug Console` (`renderDebugUI`) that reveals real-time system logs, environment variables (Platform, Native status), and network configuration (API/Socket URLs).
-- **Navigation:** Integrated a new "Bug" icon toggle button in the `GlobalNavbar` across all main views (Menu, Store, Profile) to provide instant access to the Debug Console for easier troubleshooting in various environments (Web/Native).
-- **UX:** Enabled log clearing and detailed log categorization (Info/Success/Error) within the visual debug interface.
+- **UI/UX Refinement:** Increased top padding for card themes in the store to separate them from the navigation bar. 
+- **Responsive Layout:** Optimized the "Library" (Themes/Cards) view for tablets by adjusting grid spacing and sizing to ensure readability while maintaining perfect mobile compatibility.
+- **Leaderboard Update:** Removed the "Current Rank" card from the top of the Leaderboard view to prioritize the top players list directly.
+- **Fix:** Resolved a critical JSX syntax error in `App.tsx`'s `renderDebugUI` function. Replaced mismatched `motion` tags with standard `div` tags to disable animations as requested, ensuring the build succeeds.
+- **Organization & Optimization:** 
+    - Created a structured `/public/fonts` directory for all locally uploaded fonts.
+    - Organized `/public/card_themes` to contain theme assets directly (removed subdirectories).
+    - Updated `index.css` with local `@font-face` definitions pointing to `/fonts/`.
+    - Path Sync: Updated `src/themes.ts` to point to `/card_themes/` for theme assets.
+    - Cleanup: Removed temporary and redundant subfolders to ensure a clean public directory structure.
 
 

@@ -6,11 +6,10 @@ import { isMobilePlatform } from '../lib/platform';
 
 export class GameServiceFactory {
   static createOnlineService(): IGameService {
-    if (isMobilePlatform()) {
-      return new OnlineGameService_AndroidNative();
-    } else {
-      return new OnlineGameService_Web();
-    }
+    // For now, Online Play always uses the Web implementation (WebSocket API).
+    // The standard WebSocket API is supported in Capacitor apps and is generally 
+    // more reliable than implementing a custom native bridge for ws:// protocols.
+    return new OnlineGameService_Web();
   }
 
   static createLANService(): IGameService {
