@@ -40,4 +40,21 @@
     - Path Sync: Updated `src/themes.ts` to point to `/card_themes/` for theme assets.
     - Cleanup: Removed temporary and redundant subfolders to ensure a clean public directory structure.
 
+## [2026-04-22] Architecture Discussion & Context Log
+**User Prompt:** "المشكلة اني ارى الكود في ملفات التطبيق الداخلية كما هو هنا لا انه معموله بلد هل يمكن لان هذا في وضع الديبج ناقشني"
+**Actions:**
+- **Clarification:** Explained the difference between Development Mode (Dev Server) and Production Build. Confirmed that the current visibility of source code is the intended "debug/development" behavior of the platform logic.
+- **Maintenance:** Updated the `history_ai_chat.md` log to maintain context for future turns.
+
+## [2026-04-22] Security Hardening: Maximum Obfuscation
+**User Prompt:** "إضافة المكتبات javascript-obfuscator و rollup-plugin-javascript-obfuscator كأدوات تطوير... ضبط الإعدادات لتكون قوية جداً... في وضع الديبج وفي وضع البرودكشون"
+**Actions:**
+- **Security:** Configured `rollup-plugin-javascript-obfuscator` with maximum settings:
+    - Enabled `selfDefending`, `debugProtection`, and `controlFlowFlattening` (Threshold: 1.0).
+    - Enabled `deadCodeInjection` (Threshold: 1.0).
+    - Removed `apply: 'build'` to enforce obfuscation in development mode as requested.
+- **Optimization:** Enabled `minify: 'esbuild'` in the Vite config to complement the obfuscator.
+- **Verification:** Ran `compile_applet` to ensure the obfuscated code build successfully.
+- **Deployment:** Restarted the dev server to apply the live obfuscation.
+
 
