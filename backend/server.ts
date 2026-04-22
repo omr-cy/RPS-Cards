@@ -870,7 +870,7 @@ async function startServer() {
   }, 2000);
 
   // Vite integration for full-stack SPA
-  if (process.env.NODE_ENV !== 'production' && false) { // Disabled
+  if (process.env.NODE_ENV !== 'production') {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },

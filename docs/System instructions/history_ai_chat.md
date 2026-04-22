@@ -24,3 +24,5 @@
   - Sliced and sanitized Password inputs to 32 chars, rejecting whitespaces.
   - Ensured ID/Verification codes have hard boundaries for limits and types natively via the inputs components.
   - Re-applied proper Arabic to Latin conversion logic inside IP bindings for local matchmaking with limits (15 chars).
+- **Matchmaking / UX:** Added a "Search for another player" button to the Game Over screen and the waiting lobby for online random matches. This allows players to quickly start a new search for a match without having to manually leave the room and return to the main menu.
+

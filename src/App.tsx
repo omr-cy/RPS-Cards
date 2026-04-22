@@ -1942,6 +1942,11 @@ const App = () => {
     }
   };
 
+  const findNewMatch = async () => {
+    await leaveRoom();
+    startQuickMatch();
+  };
+
   const buyTheme = async (theme: ThemeConfig) => {
     console.log('Attempting to buy:', theme, 'Coins:', coins);
     if (ownedThemes.includes(theme.id)) {
@@ -2831,6 +2836,14 @@ const App = () => {
             )}
             
             <div className="flex flex-col gap-3">
+              {roomState.isPublic && (
+                <button
+                  onClick={findNewMatch}
+                  className="w-full py-4 bg-game-teal hover:bg-emerald-600 text-game-dark rounded-lg font-display text-xl transition-all active:scale-95 shadow-lg flex items-center justify-center gap-2"
+                >
+                  <UserSearch className="w-5 h-5" /> البحث عن خصم آخر
+                </button>
+              )}
               {role === 'HOST' ? (
                 <button
                   onClick={() => navigator.clipboard.writeText(userIp)}
@@ -2906,6 +2919,14 @@ const App = () => {
                 >
                   {me.readyForNext ? 'في انتظار الخصم...' : 'العب مرة أخرى'}
                 </button>
+                {roomState.isPublic && (
+                  <button
+                    onClick={findNewMatch}
+                    className="w-full py-4 bg-game-teal hover:bg-emerald-600 text-game-dark rounded-lg font-display text-xl transition-all active:scale-95 shadow-lg flex items-center justify-center gap-2"
+                  >
+                    <UserSearch className="w-5 h-5" /> البحث عن خصم آخر
+                  </button>
+                )}
                 <button
                   onClick={leaveRoom}
                   className="w-full py-3 bg-game-slate hover:bg-slate-600 text-white rounded-lg font-display text-xl transition-all active:scale-95"
