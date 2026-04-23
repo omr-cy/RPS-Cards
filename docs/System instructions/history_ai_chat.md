@@ -85,6 +85,9 @@
 - **Backend:** Updated the server initialization to use `https.createServer` and `wss` if certificates are present.
 - **Frontend Configuration:** Updated `src/config.json` and `.env` to use the new domain `rps-cards.duckdns.org` and port `443` for standard HTTPS.
 - **Infrastructure:** Refined `server.ts` to use `BACKEND_PORT` from environment variables, allowing the server to bind directly to port 443 (required for running without Nginx).
+- **Development Environment:** Implemented an internal proxy in `vite.config.ts` for both HTTP (`/remote-api`) and WebSockets (`/game-socket-proxy`) to bypass browser SSL/CORS security blocks when running in AI Studio.
+- **Android Stability:** Fixed a critical package conflict in Android files where the Java package declaration (`com.omr.rpscards`) did not match the file content, causing crashes on native devices.
+- **Environment Isolation:** Created `src/env_config.ts` to strictly separate URL fetching logic. For Android/iOS (Native), it ALWAYS uses the direct `config.json` URLs. For the AI Studio web environment, it uses the secure proxy routes (`/remote-api`, `/game-socket-proxy`). This prevents development-specific code from leaking into the APK build.
 
 
 

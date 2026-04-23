@@ -7,26 +7,11 @@ import { Network } from '@capacitor/network';
 import { App as CapApp } from '@capacitor/app';
 import { registerPlugin, Capacitor, CapacitorHttp } from '@capacitor/core';
 import config from './config.json';
+import { getApiUrl } from './env_config';
 import { useAuth } from './contexts/AuthContext';
 import { useDebug, LogEntry } from './contexts/DebugContext';
 
-// Standardized API Base URL logic
-const getBaseApiUrl = () => {
-  const sConfig = config.ONLINE_API_BASE_URL;
-  const vApi = import.meta.env.VITE_API_URL;
-  const vBack = import.meta.env.VITE_BACKEND_URL;
-  
-  // Use proxy in AI Studio dev environment to bypass browser SSL/CORS issues
-  if (typeof window !== 'undefined' && window.location.hostname.includes('run.app')) {
-    return '/remote-api';
-  }
-
-  if (sConfig) return sConfig;
-  if (vApi) return vApi;
-  if (vBack) return vBack.replace(/^ws(s)?:\/\//, 'http$1://').replace(/\/$/, '');
-  return typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
-};
-const API_BASE_URL = getBaseApiUrl();
+const API_BASE_URL = getApiUrl();
 
 export interface LocalServerPlugin {
   startServer(options: { port: number }): Promise<{ status: string; port: number }>;

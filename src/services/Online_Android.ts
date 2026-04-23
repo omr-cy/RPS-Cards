@@ -1,5 +1,5 @@
 import { Capacitor } from '@capacitor/core';
-import config from '../config.json';
+import { getSocketUrl } from '../env_config';
 import { LocalServer } from '../App';
 
 export const OnlineAndroidService = {
@@ -29,7 +29,7 @@ export const OnlineAndroidService = {
     } = options;
 
     return new Promise(async (resolve, reject) => {
-      let serverUrl = config.ONLINE_SERVER_URL || import.meta.env.VITE_BACKEND_URL;
+      const serverUrl = getSocketUrl();
       
       if (Capacitor.isNativePlatform()) {
         try {

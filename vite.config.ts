@@ -70,6 +70,13 @@ export default defineConfig(({mode}) => {
           changeOrigin: true,
           secure: false,
           rewrite: (path) => path.replace(/^\/remote-api/, '')
+        },
+        '/game-socket-proxy': {
+          target: 'wss://rps-cards.duckdns.org',
+          ws: true,
+          changeOrigin: true,
+          secure: false,
+          rewrite: (path) => path.replace(/^\/game-socket-proxy/, '/game-socket')
         }
       }
     },
