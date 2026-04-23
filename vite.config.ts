@@ -65,18 +65,46 @@ export default defineConfig(({mode}) => {
       port: 3000,
       host: '0.0.0.0',
       proxy: {
+        '/api': {
+          target: 'https://rps-cards.duckdns.org',
+          changeOrigin: true,
+          secure: false,
+          timeout: 60000,
+          configure: (proxy, _options) => {
+            proxy.on('error', (err, _req, _res) => {
+              console.log('proxy api error', err);
+            });
+          }
+        },
         '/remote-api': {
           target: 'https://rps-cards.duckdns.org',
           changeOrigin: true,
           secure: false,
-          rewrite: (path) => path.replace(/^\/remote-api/, '')
+          timeout: 60000,
+          rewrite: (path) => path.replace(/^\/remote-api/, ''),
+          configure: (proxy, _options) => {
+            proxy.on('error', (err, _req, _res) => {
+              console.log('proxy error', err);
+            });
+          }
         },
         '/game-socket-proxy': {
           target: 'wss://rps-cards.duckdns.org',
           ws: true,
           changeOrigin: true,
           secure: false,
-          rewrite: (path) => path.replace(/^\/game-socket-proxy/, '/game-socket')
+          timeout: 60000,
+          rewrite: (path) => path.replace(/^\/game-socket-proxy/, '/game-socket'),
+          configure: (proxy, _options) => {
+            proxy.on('error', (err, _req, _res) => {
+              console.log('proxy websocket error', err);
+            });
+            proxy.on('proxyReqWs', (proxyReq, req, socket, options, head) => {
+              socket.on('error', (err) => {
+                console.error('WebSocket socket error:', err);
+              });
+            });
+          }
         }
       }
     },

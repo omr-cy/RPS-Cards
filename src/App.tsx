@@ -173,7 +173,7 @@ const CardPack = memo(({ theme, isOwned, isSelected, onClick, onSelect, userLeve
             <p className="text-game-teal font-display text-[10px] sm:text-xs">فز على الروبوت لفتحه</p>
           ) : (
             <p className="text-game-teal font-display text-xs flex items-center gap-1">
-              {theme.price} <Activity className="w-3.5 h-3.5 text-game-teal" />
+              {theme.price} <Activity className="w-3.5 h-3.5 text-game-teal rotate-90" />
             </p>
           )
         ) : (
@@ -234,7 +234,7 @@ const PackPreviewModal = memo(({ selectedPack, ownedThemes, selectedThemeId, onB
                 onClick={() => onBuy(selectedPack)}
                 className="w-full py-3.5 bg-white/15 backdrop-blur-md border border-white/20 hover:bg-white/20 text-white rounded-xl font-display text-xl transition-all active:scale-95 flex items-center justify-center gap-3 outline-none transform-gpu"
               >
-                شراء المجموعة <span className="text-yellow-400 flex items-center gap-1">{selectedPack.price} <Activity className="w-4 h-4 text-game-teal inline" /></span>
+                شراء المجموعة <span className="text-yellow-400 flex items-center gap-1">{selectedPack.price} <Activity className="w-4 h-4 text-game-teal inline rotate-90" /></span>
               </button>
             )}
             <button 
@@ -250,16 +250,213 @@ const PackPreviewModal = memo(({ selectedPack, ownedThemes, selectedThemeId, onB
   );
 });
 
-
-const GlobalNavbar = memo(({ activeTab, setAppState, coins, playerName, isGuest, onLogout, onLoginClick, menuTab = 'main', setMenuTab }: any) => {
+const PrivateRoomLobbyView = memo(({ 
+  isLoading, 
+  roomCode, 
+  onCancel 
+}: { 
+  isLoading: boolean, 
+  roomCode: string | null, 
+  onCancel: () => void 
+}) => {
   return (
-    <nav 
-      dir="rtl" 
-      className="fixed top-0 inset-x-0 z-[60] bg-game-dark/95 border-b border-white/10 shadow-lg" 
-      style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}
+    <div className="fixed inset-0 z-[250] wood-texture flex flex-col items-center justify-center p-6 overflow-hidden">
+      {/* Overlay and background elements identical to MatchmakingView */}
+      <div className="absolute inset-0 bg-game-bg/60 backdrop-blur-[2px]" />
+      <div className="absolute inset-0 opacity-30 pointer-events-none">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-radial-gradient from-game-teal/10 via-transparent to-transparent" />
+        <div className="absolute top-1/4 left-0 w-80 h-80 bg-game-teal/15 blur-[120px] rounded-full" />
+        <div className="absolute bottom-1/4 right-0 w-80 h-80 bg-game-red/10 blur-[120px] rounded-full" />
+      </div>
+
+      <div className="relative z-10 w-full max-w-sm flex flex-col items-center">
+        {isLoading ? (
+          <div
+            className="flex flex-col items-center gap-8 relative z-10"
+          >
+            <Activity className="w-12 h-12 text-game-teal animate-spin" />
+            <div className="text-center space-y-2">
+              <h2 className="text-3xl font-display text-game-offwhite tracking-widest text-shadow-lg">جاري إعداد الغرفة...</h2>
+              <p className="text-game-offwhite/40 font-body text-sm italic">يرجى الانتظار بينما نقوم بفتح بوابات الأونلاين</p>
+            </div>
+          </div>
+        ) : (
+          <div
+            className="flex flex-col items-center gap-8 relative z-10 w-full"
+          >
+            <div className="flex flex-col items-center gap-1">
+              <h3 className="text-game-offwhite text-xl font-display text-shadow-lg mt-3">رمز الدخول الخاص بك</h3>
+            </div>
+            
+            <div className="bg-black/60 border border-white/10 rounded-2xl p-6 w-full shadow-inner flex flex-col items-center justify-center">
+              <span className="text-6xl font-mono text-game-offwhite font-bold tracking-[0.2em] drop-shadow-[0_0_15px_rgba(255,255,255,0.2)]">
+                {roomCode}
+              </span>
+            </div>
+
+            <button 
+              onClick={() => {
+                if (roomCode) navigator.clipboard.writeText(roomCode);
+              }}
+              className="flex items-center justify-center gap-3 bg-white/5 hover:bg-white/10 border border-white/10 py-3 px-6 rounded-xl text-game-offwhite transition-all active:scale-95 text-sm font-display w-full"
+            >
+              <Copy className="w-4 h-4" /> نسخ الرمز للمشاركة
+            </button>
+
+            <div className="flex flex-col items-center gap-3 mt-4">
+               <div className="flex gap-1.5">
+                  {[0, 1, 2].map(i => (
+                    <motion.div 
+                      key={i}
+                      animate={{ scale: [1, 1.3, 1], opacity: [0.3, 1, 0.3] }}
+                      transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.3, ease: "easeInOut" }}
+                      className="w-2 h-2 bg-game-teal rounded-full"
+                    />
+                  ))}
+               </div>
+               <p className="text-game-offwhite/40 font-display text-[11px] tracking-widest italic">بانتظار انضمام الطرف الآخر...</p>
+            </div>
+          </div>
+        )}
+
+        <button 
+          onClick={onCancel}
+          className="mt-10 px-8 w-full py-3 border-2 border-game-red/40 text-game-red hover:bg-game-red hover:text-white rounded-xl font-display text-xl transition-all shadow-[0_0_20px_rgba(139,26,26,0.2)] active:scale-95 flex items-center justify-center gap-3"
+        >
+          <XCircle className="w-5 h-5" /> إلغاء وإغلاق الغرفة
+        </button>
+      </div>
+    </div>
+  );
+});
+
+const MatchmakingView = memo(({ 
+  isSearching, 
+  onCancel, 
+  matchFound, 
+  opponent,
+  playerName,
+  playerLevel,
+  playerThemeId,
+  canCancel
+}: { 
+  isSearching: boolean, 
+  onCancel: () => void, 
+  matchFound: boolean,
+  opponent: any,
+  playerName: string,
+  playerLevel: number,
+  playerThemeId: string,
+  canCancel: boolean
+}) => {
+  if (!isSearching && !matchFound) return null;
+
+  const opponentTheme = opponent ? getTheme(opponent.themeId) : THEMES[0];
+  const playerTheme = getTheme(playerThemeId);
+
+  return (
+    <div
+      className="fixed inset-0 z-[200] wood-texture flex flex-col items-center justify-center p-6 overflow-hidden"
     >
-      <div className="relative w-full h-10">
-        {/* --- STORE NAVBAR --- */}
+      {/* Overlay and background elements */}
+      <div className="absolute inset-0 bg-game-bg/60 backdrop-blur-[2px]" />
+      <div className="absolute inset-0 opacity-30 pointer-events-none">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-radial-gradient from-game-teal/10 via-transparent to-transparent" />
+        <div className="absolute top-1/4 left-0 w-80 h-80 bg-game-teal/15 blur-[120px] rounded-full" />
+        <div className="absolute bottom-1/4 right-0 w-80 h-80 bg-game-red/10 blur-[120px] rounded-full" />
+      </div>
+
+      <>
+        {!matchFound ? (
+          <div
+            key="searching"
+            className="flex flex-col items-center gap-8 relative z-10"
+          >
+            <Activity className="w-12 h-12 text-game-teal animate-spin" />
+            
+            <div className="text-center space-y-2">
+              <h2 className="text-3xl font-display text-game-offwhite tracking-widest">جاري البحث...</h2>
+              <p className="text-game-offwhite/40 font-body text-sm">يتم الآن البحث عن اللاعبين المناسبين لنفس مستواك</p>
+            </div>
+
+            <button 
+              onClick={onCancel}
+              disabled={!canCancel}
+              className={`mt-8 px-10 py-3 border-2 border-game-red/40 text-game-red rounded-xl font-display text-xl transition-all shadow-[0_0_20px_rgba(139,26,26,0.2)] ${!canCancel ? 'opacity-30 cursor-not-allowed scale-95' : 'hover:bg-game-red hover:text-white active:scale-95'}`}
+            >
+              إلغاء البحث
+            </button>
+          </div>
+        ) : (
+          <div
+            key="match-found"
+            className="w-full max-w-2xl flex flex-col items-center gap-12 relative z-10"
+          >
+            <div
+              className="bg-game-teal text-game-dark px-8 py-3 rounded-2xl font-display text-3xl shadow-[0_0_40px_rgba(45,212,191,0.5)] transform -rotate-2"
+            >
+              تم العثور على خصم!
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-8 sm:gap-20 w-full">
+              {/* Me */}
+              <div 
+                className="flex flex-col items-center gap-4"
+              >
+                <div className={`w-32 h-32 rounded-3xl ${playerTheme.frontColor} border-4 border-white/20 flex items-center justify-center shadow-2xl relative`}>
+                  <User className="w-16 h-16 text-white/20" />
+                  <div className="absolute -bottom-3 -right-3 bg-white text-game-dark font-black px-3 py-1 rounded-xl shadow-lg border-2 border-game-dark font-mono text-xl">
+                    {playerLevel}
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-display text-white">{playerName}</div>
+                  <div className="text-xs text-game-teal font-display uppercase tracking-tighter">أنت</div>
+                </div>
+              </div>
+
+              <div className="text-5xl font-display text-game-offwhite/20 italic select-none">VS</div>
+
+              {/* Opponent */}
+              <div 
+                className="flex flex-col items-center gap-4"
+              >
+                <div className={`w-32 h-32 rounded-3xl ${opponentTheme.frontColor} border-4 border-white/20 flex items-center justify-center shadow-2xl relative`}>
+                  <Bot className="w-16 h-16 text-white/20" />
+                  <div className="absolute -bottom-3 -left-3 bg-game-red text-white font-black px-3 py-1 rounded-xl shadow-lg border-2 border-game-dark font-mono text-xl">
+                    {opponent.level || '?'}
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-display text-white">{opponent.name}</div>
+                  <div className="text-xs text-game-red font-display uppercase tracking-tighter">الخصم</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </>
+    </div>
+  );
+});
+
+
+const GlobalNavbar = memo(({ activeTab, setAppState, coins, playerName, isGuest, onLogout, onLoginClick, menuTab = 'main', setMenuTab, isOnline }: any) => {
+  return (
+    <>
+      {!isOnline && (
+        <div className="fixed top-0 inset-x-0 z-[70] bg-red-900/90 text-white text-[10px] sm:text-xs font-display flex items-center justify-center gap-2 py-0.5" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+          <Wifi className="w-3 h-3 text-red-300" />
+          وضع عدم الاتصال بالإنترنت - يتم اللعب محلياً
+        </div>
+      )}
+      <nav 
+        dir="rtl" 
+        className="fixed top-0 inset-x-0 z-[60] bg-game-dark/95 border-b border-white/10 shadow-lg transition-all" 
+        style={{ paddingTop: isOnline ? 'max(0.75rem, env(safe-area-inset-top))' : 'max(1.75rem, calc(env(safe-area-inset-top) + 1rem))' }}
+      >
+        <div className="relative w-full h-10">
+          {/* --- STORE NAVBAR --- */}
         <div className={`absolute inset-0 flex justify-between items-center px-6 sm:px-8 transition-opacity duration-300 ${activeTab === 'store' ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
           <button onClick={() => setAppState('menu')} className="p-1.5 bg-white/5 backdrop-blur-sm rounded-full text-game-cream hover:bg-white/10 border border-white/10 transition-all transform-gpu">
             <ChevronLeft className="w-5 h-5" />
@@ -267,7 +464,7 @@ const GlobalNavbar = memo(({ activeTab, setAppState, coins, playerName, isGuest,
           <h1 className="text-lg sm:text-xl font-display text-game-offwhite tracking-wider">متجر الثيمات</h1>
           <div className="flex items-center gap-1.5 bg-white/5 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/10 shadow-inner">
             <span className="text-sm sm:text-base font-display text-game-teal font-medium">{coins}</span>
-            <Activity className="w-3.5 h-3.5 text-game-teal rotate-180" />
+            <Activity className="w-3.5 h-3.5 text-game-teal rotate-90" />
           </div>
         </div>
 
@@ -294,7 +491,7 @@ const GlobalNavbar = memo(({ activeTab, setAppState, coins, playerName, isGuest,
                   className="flex items-center gap-1 bg-white/5 backdrop-blur-sm px-2.5 py-1 rounded-full border border-white/10 hover:bg-white/10 transition-all group transform-gpu"
                 >
                   <span className="text-sm sm:text-base font-display text-game-teal font-medium group-hover:scale-105 transition-transform">{coins}</span>
-                  <Activity className="w-3 h-3 text-game-teal rotate-180" />
+                  <Activity className="w-3 h-3 text-game-teal rotate-90" />
                 </button>
               </div>
             </>
@@ -335,6 +532,7 @@ const GlobalNavbar = memo(({ activeTab, setAppState, coins, playerName, isGuest,
         </div>
       </div>
     </nav>
+    </>
   );
 });
 
@@ -352,7 +550,7 @@ const StoreView = memo(({ coins, ownedThemes, selectedThemeId, onBuy, onSelect, 
   const [activeTab, setActiveTab] = useState<'level' | 'special'>('level');
   
   const filteredThemes = THEMES.filter(theme => 
-    activeTab === 'level' ? theme.requiredLevel <= 8 : theme.requiredLevel > 8
+    theme.category === activeTab
   );
 
   return (
@@ -412,7 +610,7 @@ const StoreView = memo(({ coins, ownedThemes, selectedThemeId, onBuy, onSelect, 
   </div>
 );
 });
-const ProfileView = memo(({ playerName, coins, xp = 0, level = 1, ownedThemes, selectedThemeId, onSelect, onBuy, selectedPack, setSelectedPack, onEditName }: {
+const ProfileView = memo(({ playerName, coins, xp = 0, level = 1, ownedThemes, selectedThemeId, onSelect, onBuy, selectedPack, setSelectedPack, onEditName, userId, onLoginClick }: {
   playerName: string,
   coins: number,
   xp?: number,
@@ -424,8 +622,24 @@ const ProfileView = memo(({ playerName, coins, xp = 0, level = 1, ownedThemes, s
   selectedPack: ThemeConfig | null,
   setSelectedPack: (theme: ThemeConfig | null) => void,
   onEditName: () => void,
+  userId?: string | null,
+  onLoginClick?: () => void,
 }) => {
   const [activeTab, setActiveTab] = useState<'profile' | 'themes' | 'gift'>('profile');
+  const [userRank, setUserRank] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (userId && activeTab === 'profile') {
+      fetch(`${API_BASE_URL}/api/leaderboard?userId=${userId}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.userRank) {
+            setUserRank(data.userRank);
+          }
+        })
+        .catch(err => console.error('Failed to fetch rank:', err));
+    }
+  }, [userId, activeTab]);
 
   return (
     <div 
@@ -495,7 +709,7 @@ const ProfileView = memo(({ playerName, coins, xp = 0, level = 1, ownedThemes, s
                     <XPBar xp={xp} level={level} />
 
                     <div className="flex items-center gap-2 bg-black/40 px-5 py-1.5 rounded-xl border border-white/5 shadow-inner">
-                      <Activity className="w-5 h-5 text-game-teal rotate-180" />
+                      <Activity className="w-5 h-5 text-game-teal rotate-90" />
                       <div className="flex flex-col items-start leading-none">
                         <span className="text-xl font-black text-game-teal font-display">{coins}</span>
                         <span className="text-[9px] text-game-offwhite/40 font-display uppercase tracking-widest">رصيد العملات</span>
@@ -509,14 +723,18 @@ const ProfileView = memo(({ playerName, coins, xp = 0, level = 1, ownedThemes, s
                     <Info className="w-3.5 h-3.5 text-game-teal/50" />
                     <h3 className="text-[10px] font-display text-game-offwhite/40 uppercase tracking-widest">إحصائيات المعارك</h3>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-black/30 p-3 rounded-xl border border-white/5 text-center">
-                      <div className="text-xl font-black text-game-offwhite font-display">--</div>
-                      <div className="text-[9px] text-game-offwhite/30 uppercase tracking-tighter">المباريات</div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="bg-black/30 p-2 rounded-xl border border-white/5 text-center flex flex-col justify-center">
+                      <div className="text-lg font-black text-game-teal font-display">{userRank ? `#${userRank}` : '--'}</div>
+                      <div className="text-[8px] text-game-offwhite/50 uppercase tracking-tighter mt-0.5">الترتيب</div>
                     </div>
-                    <div className="bg-black/30 p-3 rounded-xl border border-white/5 text-center">
-                      <div className="text-xl font-black text-game-teal font-display">--</div>
-                      <div className="text-[9px] text-game-offwhite/30 uppercase tracking-tighter">الانتصارات</div>
+                    <div className="bg-black/30 p-2 rounded-xl border border-white/5 text-center flex flex-col justify-center">
+                      <div className="text-lg font-black text-game-offwhite font-display">--</div>
+                      <div className="text-[8px] text-game-offwhite/30 uppercase tracking-tighter mt-0.5">المباريات</div>
+                    </div>
+                    <div className="bg-black/30 p-2 rounded-xl border border-white/5 text-center flex flex-col justify-center">
+                      <div className="text-lg font-black text-game-offwhite font-display">--</div>
+                      <div className="text-[8px] text-game-offwhite/30 uppercase tracking-tighter mt-0.5">الانتصارات</div>
                     </div>
                   </div>
                 </div>
@@ -574,38 +792,61 @@ const ProfileView = memo(({ playerName, coins, xp = 0, level = 1, ownedThemes, s
               <div 
                 className="space-y-6 flex flex-col items-center justify-center py-6"
               >
-                <div className="w-32 h-32 bg-game-teal/20 rounded-full flex items-center justify-center border-2 border-game-teal/30">
-                  <Gift className="w-16 h-16 text-game-teal" />
-                </div>
-
-                <div className="text-center space-y-2">
-                  <h2 className="text-3xl font-display text-game-offwhite">الهدية اليومية</h2>
-                  <p className="text-game-offwhite/60 font-body max-w-[250px]">عد إلينا غداً لتحصل على مكافأة جديدة من العملات الذهبية ونقاط الخبرة!</p>
-                </div>
-
-                <div className="w-full bg-game-dark/40 p-6 rounded-3xl border border-white/5 space-y-6">
-                  <div className="flex items-center justify-between">
-                    <span className="text-game-offwhite/50 text-sm">الحالة الآن</span>
-                    <span className="bg-game-teal/10 text-game-teal px-3 py-1 rounded-full text-xs font-display border border-game-teal/20">تم الاستلام ✅</span>
-                  </div>
-                  
-                  <div className="space-y-3">
-                    <div className="h-1.5 w-full bg-game-dark/50 rounded-full overflow-hidden">
-                       <div className="h-full bg-game-teal w-full" />
+                {!userId ? (
+                  <>
+                    <div className="w-32 h-32 bg-slate-700/50 rounded-full flex items-center justify-center border-2 border-white/5">
+                      <Gift className="w-16 h-16 text-game-offwhite/20" />
                     </div>
-                    <div className="flex justify-between text-[10px] text-game-offwhite/30 font-display uppercase tracking-widest">
-                       <span>عد غداً</span>
-                       <span>24 ساعة</span>
+                    <div className="text-center space-y-2">
+                      <h2 className="text-2xl font-display text-game-offwhite/80">سجل الدخول لاستلام الهدية</h2>
+                      <p className="text-game-offwhite/50 font-body max-w-[250px] text-sm">قم بتسجيل الدخول أو إنشاء حساب جديد لتتمكن من استلام الهدية اليومية.</p>
                     </div>
-                  </div>
-                </div>
+                    {onLoginClick && (
+                      <button 
+                        onClick={onLoginClick}
+                        className="mt-4 w-full py-4 bg-game-teal text-game-dark rounded-2xl font-display text-xl transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2"
+                      >
+                        <User className="w-5 h-5" />
+                        تسجيل الدخول / إنشاء حساب
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <div className="w-32 h-32 bg-game-teal/20 rounded-full flex items-center justify-center border-2 border-game-teal/30">
+                      <Gift className="w-16 h-16 text-game-teal" />
+                    </div>
 
-                <button 
-                  disabled
-                  className="w-full py-4 bg-game-slate opacity-50 text-white rounded-2xl font-display text-xl cursor-not-allowed"
-                >
-                  استلام المكافأة
-                </button>
+                    <div className="text-center space-y-2">
+                      <h2 className="text-3xl font-display text-game-offwhite">الهدية اليومية</h2>
+                      <p className="text-game-offwhite/60 font-body max-w-[250px]">عد إلينا غداً لتحصل على مكافأة جديدة من العملات الذهبية ونقاط الخبرة!</p>
+                    </div>
+
+                    <div className="w-full bg-game-dark/40 p-6 rounded-3xl border border-white/5 space-y-6">
+                      <div className="flex items-center justify-between">
+                        <span className="text-game-offwhite/50 text-sm">الحالة الآن</span>
+                        <span className="bg-game-teal/10 text-game-teal px-3 py-1 rounded-full text-xs font-display border border-game-teal/20">تم الاستلام ✅</span>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        <div className="h-1.5 w-full bg-game-dark/50 rounded-full overflow-hidden">
+                           <div className="h-full bg-game-teal w-full" />
+                        </div>
+                        <div className="flex justify-between text-[10px] text-game-offwhite/30 font-display uppercase tracking-widest">
+                           <span>عد غداً</span>
+                           <span>24 ساعة</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <button 
+                      disabled
+                      className="w-full py-4 bg-game-slate opacity-50 text-white rounded-2xl font-display text-xl cursor-not-allowed"
+                    >
+                      استلام المكافأة
+                    </button>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -836,93 +1077,101 @@ const LeaderboardView = memo(({ userId, onBack }: { userId: string | null, onBac
 
 const DashboardViewPager = ({ appState, setAppState, onVisibleTabChange, children }: { appState: string, setAppState: (state: any) => void, onVisibleTabChange: (tab: string) => void, children: React.ReactNode }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const scrollTimeout = useRef<number | null>(null);
-  const uiTimeout = useRef<number | null>(null);
   const isProgrammaticScroll = useRef(false);
-  const [isReady, setIsReady] = useState(false);
+  const isInitialMount = useRef(true);
+  const lastVisibleTab = useRef('menu');
 
-  // Immediate Initial Scroll to Menu (Index 1) on Mount
+  // Initial Sync
   useLayoutEffect(() => {
+    isProgrammaticScroll.current = true;
     const container = scrollRef.current;
-    if (container && container.children[1]) {
-      // Force immediate non-smooth jump to middle child
-      container.children[1].scrollIntoView({ behavior: 'auto', inline: 'center', block: 'nearest' });
-      // Short delay to ensure browser processed the scroll before showing
-      setTimeout(() => setIsReady(true), 50);
-    }
+    
+    const snapToMenu = () => {
+      if (container && container.children[1]) {
+        container.style.scrollBehavior = 'auto';
+        container.children[1].scrollIntoView({ behavior: 'auto', inline: 'center', block: 'nearest' });
+        // Clean up inline style to allow CSS smooth scrolling if any
+        container.style.scrollBehavior = '';
+      }
+    };
+
+    snapToMenu();
+    
+    requestAnimationFrame(() => {
+      snapToMenu();
+      setTimeout(() => {
+        isProgrammaticScroll.current = false;
+        isInitialMount.current = false;
+      }, 100);
+    });
   }, []);
 
-  // Sync React State -> Scroll Position (only if needed)
+  // Sync React State -> Scroll Position
   useEffect(() => {
-    if (!isReady) return; // Wait for initial mount scroll
-    
-    // If we're loading, default to the main menu (index 1) to avoid flash of store
     const idx = appState === 'store' ? 0 : (appState === 'menu' || appState === 'loading') ? 1 : 2;
     const container = scrollRef.current;
     if (!container || !container.children[idx]) return;
 
     const child = container.children[idx] as HTMLElement;
-    
-    // Instead of getBoundingClientRect, calculate based on scrollLeft
     const scrollAbs = Math.abs(container.scrollLeft);
     const clientWidth = container.clientWidth;
+    if (clientWidth === 0) return;
     const expectedScrollAbs = idx * clientWidth;
 
-    if (Math.abs(scrollAbs - expectedScrollAbs) > 10) {
+    if (Math.abs(scrollAbs - expectedScrollAbs) > 5) {
       isProgrammaticScroll.current = true;
       child.scrollIntoView({ 
-        behavior: 'auto', 
+        behavior: isInitialMount.current ? 'auto' : 'smooth', 
         inline: 'center', 
         block: 'nearest' 
       });
       
-      // Lock scroll tracking temporarily (shorter lock since auto is instant)
       setTimeout(() => {
         isProgrammaticScroll.current = false;
-      }, 50); 
+      }, 500); 
     }
-  }, [appState, isReady]);
+  }, [appState]);
 
-  // Sync Native Scroll Position -> React State (debounced)
+  // Sync Native Scroll Position -> React State
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    if (!isReady) return;
-    // If the scroll was triggered by our own buttons, ignore it to prevent loops
     if (isProgrammaticScroll.current) return;
 
-    if (uiTimeout.current) clearTimeout(uiTimeout.current);
-    if (scrollTimeout.current) clearTimeout(scrollTimeout.current);
-    
     const container = e.currentTarget;
-
-    // Use fast native scrollLeft instead of getBoundingClientRect to avoid layout thrashing
     const scrollAbs = Math.abs(container.scrollLeft);
     const clientWidth = container.clientWidth;
+    if (clientWidth === 0) return;
+    
     const closestIdx = Math.round(scrollAbs / clientWidth);
     const visibleTab = closestIdx === 0 ? 'store' : closestIdx === 1 ? 'menu' : 'profile';
 
-    // Fast update for Navbar visually
-    uiTimeout.current = window.setTimeout(() => {
-      if (isProgrammaticScroll.current) return;
+    // Only set if changed to avoid massive re-renders
+    if (lastVisibleTab.current !== visibleTab) {
+      lastVisibleTab.current = visibleTab;
       onVisibleTabChange(visibleTab);
-    }, 20);
-
-    // Deep debounce for AppState programmatic logic
-    scrollTimeout.current = window.setTimeout(() => {
-      if (isProgrammaticScroll.current) return;
+    }
+    
+    // Only dispatch appState change if we've actually snapped to prevent bouncy useEffect loops
+    if (Math.abs(scrollAbs - (closestIdx * clientWidth)) < 5) {
       if (visibleTab !== appState) {
+         isProgrammaticScroll.current = true;
          setAppState(visibleTab);
+         setTimeout(() => {
+           isProgrammaticScroll.current = false;
+         }, 50);
       }
-    }, 150);
+    }
   };
 
   return (
     <div 
       ref={scrollRef}
       onScroll={handleScroll}
-      className={`fixed inset-0 w-full h-full flex overflow-x-auto overflow-y-hidden snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] z-0 wood-texture text-game-cream font-body`}
+      className="fixed inset-0 w-full h-full flex overflow-x-auto overflow-y-hidden snap-x snap-mandatory scroll-smooth [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] z-0 wood-texture text-game-cream font-body overscroll-behavior-x-none transform-gpu"
       dir="rtl"
-      // Remove smooth-scroll class to fix lagging on manual taps
-      style={{ scrollBehavior: 'auto' }}
+      style={{ 
+        WebkitOverflowScrolling: 'touch',
+        willChange: 'scroll-position'
+      }}
     >
       {React.Children.toArray(children).map((child, idx) => (
         <div key={idx} className="w-full h-full shrink-0 snap-center snap-always relative overflow-hidden transform-gpu">
@@ -962,6 +1211,7 @@ const App = () => {
   const [showLevelUp, setShowLevelUp] = useState<number | null>(null);
   const [isOnline, setIsOnline] = useState(true);
   const [isBotLoading, setIsBotLoading] = useState(false);
+  const [isWaitingInPrivateRoom, setIsWaitingInPrivateRoom] = useState(false);
 
   // Network Status Listener
   useEffect(() => {
@@ -1185,6 +1435,9 @@ const App = () => {
   const [isResending, setIsResending] = useState(false);
   const [userIp, setUserIp] = useState<string>('جاري التحميل...');
   const [isSearching, setIsSearching] = useState(false);
+  const [matchmakingCanCancel, setMatchmakingCanCancel] = useState(false);
+  const [matchmakingOpponent, setMatchmakingOpponent] = useState<any>(null);
+  const [showMatchmakingResult, setShowMatchmakingResult] = useState(false);
   const [isActionLoading, setIsActionLoading] = useState(false);
   
   // Native Networking State
@@ -1499,7 +1752,7 @@ const App = () => {
          sendNativeAction(onlineActionRef.current);
          onlineActionRef.current = null;
       }
-    } else if (data.type === 'matchmaking_status' || data.type === 'match_found' || data.type === 'joined_room_success') {
+    } else if (data.type === 'matchmaking_status' || data.type === 'match_found' || data.type === 'joined_room_success' || data.type === 'pong' || data.type === 'PONG' || data.type === 'HANDSHAKE_OK') {
       handleOnlineMessage(data);
     } else if (data.type === 'room_state') {
       setRoomState(data.state);
@@ -1737,13 +1990,19 @@ const App = () => {
       setErrorMsg,
       setShowLevelUp,
       refreshProfile,
-      appStateRef
+      appStateRef,
+      setMatchmakingOpponent,
+      setShowMatchmakingResult,
+      setIsWaitingInPrivateRoom,
+      roleRef,
+      setMatchmakingCanCancel
     });
   };
 
   const startQuickMatch = () => {
     if (!playerNameRef.current.trim()) return setErrorMsg('يرجى إدخال اسمك أولاً');
     setIsSearching(true);
+    setMatchmakingCanCancel(false);
     connectToOnline({ 
       type: 'quick_match', 
       playerName: playerNameRef.current.trim(), 
@@ -1758,18 +2017,24 @@ const App = () => {
   const cancelSearch = () => {
     sendNativeAction({ type: 'cancel_matchmaking' });
     setIsSearching(false);
+    setShowMatchmakingResult(false);
+    setMatchmakingOpponent(null);
+    leaveRoom();
   };
 
   const createOnlineRoom = () => {
     if (!playerNameRef.current.trim()) return setErrorMsg('يرجى إدخال اسمك أولاً');
-    setIsActionLoading(true);
+    setIsActionLoading(false); // Ensure old overlay is hidden
+    setIsWaitingInPrivateRoom(true);
+    setMatchmakingCanCancel(false);
     connectToOnline({ 
       type: 'create_room', 
       playerName: playerNameRef.current.trim(), 
       playerId: playerIdRef.current,
       themeId: selectedThemeIdRef.current 
-    }).catch(() => {
-      setIsActionLoading(false);
+    }).catch((err) => {
+      setIsWaitingInPrivateRoom(false);
+      setErrorMsg(err.message || 'فشل إنشاء الغرفة');
     });
   };
 
@@ -1986,7 +2251,6 @@ const App = () => {
       }
     } catch (e) {
       console.warn('Native cleanup failed:', e);
-      addLog(`Native cleanup failed: ${e}`, 'error');
     }
   };
 
@@ -1996,7 +2260,6 @@ const App = () => {
   };
 
   const buyTheme = async (theme: ThemeConfig) => {
-    console.log('Attempting to buy:', theme, 'Coins:', coins);
     if (ownedThemes.includes(theme.id)) {
       setErrorMsg('أنت تمتلك هذه المجموعة بالفعل');
       return;
@@ -2010,64 +2273,52 @@ const App = () => {
       return;
     }
 
-    console.log('Sufficient coins, processing purchase');
     const newCoins = coins - theme.price;
     const newOwned = [...ownedThemes, theme.id];
     
-    // تحديث الحالة المحلية فوراً لتجربة مستخدم سريعة (تعمل أوفلاين)
     setCoinsState(newCoins);
     setOwnedThemesState(newOwned);
     setSuccessMsg(`تم شراء مجموعة ${theme.name} بنجاح!`);
-    setTimeout(() => setSuccessMsg(null), 4000);
     
     addLog(`تم شراء ثيم ${theme.name} (محلياً وسيتم المزامنة تلقائياً)`, 'success');
   };
 
   const currentTheme = getTheme(selectedThemeId);
 
-  const renderErrorToast = () => (
+  const renderErrorToast = () => {
+    // Suppress intrusive network error toasts since we have the top offline bar
+    const isNetworkError = errorMsg && (errorMsg.includes('فشل الاتصال') || errorMsg.includes('تأكد من تشغيل السيرفر') || errorMsg.includes('Network Error') || errorMsg.includes('Network request failed'));
+    if (isNetworkError) return null;
+
+    return (
     <AnimatePresence>
       {(errorMsg || successMsg) && (
         <motion.div
-          initial={{ opacity: 0, scale: 0.9, y: -40 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.9, y: -40 }}
-          className="fixed top-8 left-1/2 -translate-x-1/2 z-[300] w-[90%] max-w-sm"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          className="fixed top-6 left-1/2 -translate-x-1/2 z-[300] w-auto min-w-[280px] max-w-[90vw]"
         >
-          <div className={`${errorMsg ? 'bg-game-red/95' : 'bg-game-teal/95'} backdrop-blur-xl text-game-dark p-1 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/20`}>
-            <div className="flex items-center gap-4 p-3 pr-4 text-right">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-inner ${errorMsg ? 'bg-black/10' : 'bg-white/10'}`}>
-                {errorMsg ? <XCircle className="w-6 h-6" /> : <Sparkles className="w-6 h-6" />}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-[10px] font-display tracking-[0.2em] uppercase opacity-60 mb-0.5">
-                  {errorMsg ? 'تنبيه بالنظام' : 'عملية ناجحة'}
-                </p>
-                <p className="text-sm font-body font-bold leading-tight truncate">
-                  {errorMsg || successMsg}
-                </p>
-              </div>
-              <button 
-                onClick={() => { setErrorMsg(null); setSuccessMsg(null); }} 
-                className="w-8 h-8 rounded-lg hover:bg-black/5 flex items-center justify-center transition-colors"
-                dir="ltr"
-              >
-                <X className="w-4 h-4 opacity-40 hover:opacity-100" />
-              </button>
-            </div>
-            
-            <motion.div 
-               initial={{ width: '100%' }}
-               animate={{ width: '0%' }}
-               transition={{ duration: 4, ease: "linear" }}
-               onAnimationComplete={() => { setErrorMsg(null); setSuccessMsg(null); }}
-               className={`h-1 rounded-full ${errorMsg ? 'bg-black/20' : 'bg-white/20'}`}
-            />
+          <div className={`bg-game-dark/80 backdrop-blur-xl border ${errorMsg ? 'border-game-red/30' : 'border-game-teal/30'} rounded-full py-2 px-6 flex items-center gap-3 shadow-2xl shadow-black/50`}>
+            {errorMsg ? (
+              <div className="w-2 h-2 rounded-full bg-game-red shadow-[0_0_8px_rgba(139,26,26,0.6)] shrink-0" />
+            ) : (
+              <div className="w-2 h-2 rounded-full bg-game-teal shadow-[0_0_8px_rgba(20,184,166,0.6)] shrink-0" />
+            )}
+            <p className="text-game-offwhite font-body text-sm font-medium tracking-wide text-right">
+              {errorMsg || successMsg}
+            </p>
+            <button 
+              onClick={() => { setErrorMsg(null); setSuccessMsg(null); }}
+              className="ml-auto text-game-offwhite/30 hover:text-game-offwhite transition-colors"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
           </div>
         </motion.div>
       )}
     </AnimatePresence>
-  );
+  )};
 
   const renderDebugUI = () => null;
 
@@ -2413,6 +2664,7 @@ const App = () => {
           coins={coins}
           playerName={playerName}
           isGuest={!user}
+          isOnline={isOnline}
           onLogout={handleLogout}
           onLoginClick={() => {
             setAppState('auth');
@@ -2466,14 +2718,6 @@ const App = () => {
                           >
                             <User className="w-3.5 h-3.5" /> تسجيل الدخول أو إنشاء حساب
                           </button>
-                        </div>
-                      </div>
-                    ) : !isOnline ? (
-                      <div className="bg-blue-500/10 border border-blue-500/30 p-3 sm:p-4 rounded-xl flex items-start gap-3 w-full sm:w-[90%] mx-auto text-right">
-                        <Wifi className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
-                        <div className="space-y-2 w-full">
-                          <p className="text-sm text-blue-400 font-display">وضع الأوفلاين (مسجل دخول)</p>
-                          <p className="text-[11px] text-game-cream/60 leading-relaxed font-body">أنت تلعب بحسابك <span className="text-blue-400">{user.displayName}</span>. سيتم مزامنة أي تقدم تحرزه فور عودة الاتصال بالإنترنت.</p>
                         </div>
                       </div>
                     ) : null}
@@ -2530,7 +2774,13 @@ const App = () => {
                   >
                     <div className="flex justify-end w-full mb-2">
                        <button
-                         onClick={() => setMenuTab('main')}
+                         onClick={() => {
+                            if (isWaitingInPrivateRoom) {
+                                setIsWaitingInPrivateRoom(false);
+                                leaveRoom();
+                            }
+                            setMenuTab('main');
+                         }}
                          className="flex items-center gap-2 text-game-cream hover:text-white transition-all px-2 py-1"
                        >
                          <span className="font-display text-sm tracking-wide">العودة للقائمة</span>
@@ -2541,138 +2791,104 @@ const App = () => {
                     <div className="p-5 sm:p-6 overflow-y-auto smooth-scroll max-h-[75vh] sm:max-h-[85vh] relative z-0 custom-scrollbar">
                       <div className="relative flex flex-col gap-6">
                         <>
-                          {isSearching && (
-                            <div
-                              className="absolute inset-0 z-50 bg-black/95 flex flex-col items-center justify-center rounded-xl border border-game-teal/30 shadow-[0_0_30px_rgba(20,184,166,0.15)]"
-                            >
-                              <Activity className="w-12 h-12 text-game-teal animate-spin mb-4" />
-                              <p className="text-game-teal font-display text-lg tracking-widest animate-pulse">جاري البحث عن خصم...</p>
-                              <p className="text-game-offwhite/40 font-body text-xs mt-2 mb-6 text-center px-4">يرجى الانتظار، سيتم توجيهك للمباراة تلقائياً</p>
-                              <button 
-                                onClick={cancelSearch} 
-                                className="px-6 py-2 border-2 border-game-red/30 text-game-red hover:bg-game-red hover:text-white rounded-lg font-display text-sm transition-all shadow-md active:scale-95"
-                              >
-                                إلغاء البحث
-                              </button>
-                            </div>
-                          )}
-
-                          {isActionLoading && (
-                            <div
-                              className="absolute inset-0 z-50 bg-slate-900/90 backdrop-blur-md flex flex-col items-center justify-center rounded-xl border border-white/10"
-                            >
-                              <div className="relative">
-                                <div className="w-16 h-16 rounded-2xl border-2 border-game-teal/20 animate-[spin_3s_linear_infinite]" />
-                                <Activity className="absolute inset-0 m-auto w-8 h-8 text-game-teal animate-pulse" />
-                              </div>
-                              <p className="text-game-offwhite font-display text-lg mt-6 tracking-widest">جاري إعداد الغرفة...</p>
-                              <p className="text-game-offwhite/30 text-[10px] mt-2 font-body italic text-center">يتم الآن تجهيز الرزم الورقية والاتصال بالخادم</p>
-                              <button 
-                                onClick={() => { setIsActionLoading(false); setAppState('menu'); }}
-                                className="mt-6 px-6 py-2 border-2 border-game-red/30 text-game-red hover:bg-game-red hover:text-white rounded-lg font-display text-sm transition-all shadow-md active:scale-95"
-                              >
-                                إلغاء
-                              </button>
-                            </div>
-                          )}
-
                           {/* Leaderboard Button */}
                           <div 
                             onClick={() => setAppState('leaderboard')}
-                            className="bg-slate-900/60 border border-yellow-500/20 p-4 rounded-xl shadow-xl cursor-pointer hover:bg-white/5 transition-all group"
-                          >
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-3">
-                                <div className="p-2 bg-yellow-500/10 rounded-lg border border-yellow-500/20 group-hover:bg-yellow-500/20 transition-all">
-                                  <Trophy className="w-5 h-5 text-yellow-500" />
+                              className="bg-slate-900/60 border border-yellow-500/20 p-4 rounded-xl shadow-xl cursor-pointer hover:bg-white/5 transition-all group"
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <div className="p-2 bg-yellow-500/10 rounded-lg border border-yellow-500/20 group-hover:bg-yellow-500/20 transition-all">
+                                    <Trophy className="w-5 h-5 text-yellow-500" />
+                                  </div>
+                                  <div className="text-right">
+                                    <h3 className="text-yellow-500 font-display text-sm tracking-widest">لوحة الصدارة</h3>
+                                    <p className="text-[9px] text-game-cream/40 font-body italic underline decoration-yellow-500/30">شاهد ترتيب أبطال العالم</p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-1.5 opacity-40 group-hover:opacity-100 transition-all">
+                                  <Sparkles className="w-3 h-3 text-yellow-500" />
+                                  <ChevronLeft className="w-4 h-4 text-game-offwhite" />
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="bg-slate-900/60 border border-white/5 p-5 rounded-xl shadow-lg">
+                              <div className="flex items-center gap-3 mb-4">
+                                <div className="p-1.5 bg-white/5 rounded-lg border border-game-teal/20">
+                                  <UserSearch className="w-5 h-5 text-game-teal" />
                                 </div>
                                 <div className="text-right">
-                                  <h3 className="text-yellow-500 font-display text-sm tracking-widest">لوحة الصدارة</h3>
-                                  <p className="text-[9px] text-game-cream/40 font-body italic underline decoration-yellow-500/30">شاهد ترتيب أبطال العالم</p>
+                                  <h3 className="text-game-cream font-display text-base tracking-widest leading-none">بحث عشوائي</h3>
+                                  <p className="text-[10px] text-game-cream/40 font-body italic mt-1">اللعب ضد خصم عشوائي عالمياً</p>
                                 </div>
                               </div>
-                              <div className="flex items-center gap-1.5 opacity-40 group-hover:opacity-100 transition-all">
-                                <Sparkles className="w-3 h-3 text-yellow-500" />
-                                <ChevronLeft className="w-4 h-4 text-game-offwhite" />
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="bg-slate-900/60 border border-white/5 p-5 rounded-xl shadow-lg">
-                            <div className="flex items-center gap-3 mb-4">
-                              <div className="p-1.5 bg-white/5 rounded-lg border border-game-teal/20">
-                                <UserSearch className="w-5 h-5 text-game-teal" />
-                              </div>
-                              <div className="text-right">
-                                <h3 className="text-game-cream font-display text-base tracking-widest leading-none">بحث عشوائي</h3>
-                                <p className="text-[10px] text-game-cream/40 font-body italic mt-1">اللعب ضد خصم عشوائي عالمياً</p>
-                              </div>
-                            </div>
-                            <button
-                               onClick={startQuickMatch}
-                               disabled={isSearching || isActionLoading}
-                               className="w-full py-3 bg-white/10 backdrop-blur-md border border-white/15 text-game-offwhite hover:bg-white/15 hover:border-white/20 rounded-xl font-display text-xl transition-all active:scale-95 disabled:opacity-50 outline-none transform-gpu"
-                            >
-                              مباراة سريعة
-                            </button>
-                          </div>
-
-                          <div className="bg-slate-900/60 border border-white/5 p-5 rounded-xl shadow-lg">
-                            <div className="flex items-center gap-3 mb-4">
-                              <div className="p-1.5 bg-white/5 rounded-lg border border-white/10">
-                                <Users className="w-5 h-5 text-game-offwhite" />
-                              </div>
-                              <div className="text-right">
-                                <h3 className="text-game-cream font-display text-base tracking-widest leading-none">غرفة خاصة</h3>
-                                <p className="text-[10px] text-game-cream/40 font-body italic mt-1">العب مع أصدقائك برمز سري</p>
-                              </div>
-                            </div>
-
-                            <button
-                               onClick={createOnlineRoom}
-                               disabled={isSearching || isActionLoading}
-                               className="w-full py-2.5 mb-4 bg-white/10 backdrop-blur-md border border-white/15 text-game-offwhite hover:bg-white/15 hover:border-white/20 rounded-lg font-display text-base transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 outline-none transform-gpu"
-                            >
-                               {isActionLoading ? <Activity className="w-4 h-4 animate-spin" /> : <><PlusCircle className="w-4 h-4" /> إنشاء غرفة جديدة</>}
-                            </button>
-                            
-                            <div className="relative flex items-center mb-4">
-                              <div className="flex-grow border-t border-white/5"></div>
-                              <span className="flex-shrink-0 mx-3 text-white/20 font-display text-[10px]">أو انضمام برمز</span>
-                              <div className="flex-grow border-t border-white/5"></div>
-                            </div>
-
-                            <div className="relative">
-                              <input
-                                 type="text"
-                                 placeholder="الرمز"
-                                 value={roomIdInput}
-                                 onChange={(e) => setRoomIdInput(e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 4))}
-                                 className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-center text-2xl font-mono text-game-offwhite focus:outline-none focus:border-game-teal/50 focus:bg-white/10 transition-all placeholder:text-white/10 uppercase tracking-[0.2em]"
-                                 maxLength={4}
+                              <button
+                                 onClick={startQuickMatch}
                                  disabled={isSearching || isActionLoading}
-                                 dir="ltr"
-                              />
-                              <AnimatePresence>
-                                {roomIdInput.length === 4 && (
-                                  <motion.button
-                                    initial={{ opacity: 0, x: 10, scale: 0.9 }}
-                                    animate={{ opacity: 1, x: 0, scale: 1 }}
-                                    exit={{ opacity: 0, x: 10, scale: 0.9 }}
-                                    onClick={joinOnlineRoom}
-                                    disabled={isSearching || isActionLoading}
-                                    className="absolute left-1.5 top-1.5 bottom-1.5 px-6 bg-game-teal text-game-dark hover:bg-emerald-400 rounded-lg font-display text-sm transition-all active:scale-95 shadow-lg flex items-center justify-center z-10"
-                                  >
-                                    {isActionLoading ? <Activity className="w-4 h-4 animate-spin" /> : 'دخول'}
-                                  </motion.button>
-                                )}
-                              </AnimatePresence>
+                                 className="w-full py-3 bg-white/10 backdrop-blur-md border border-white/15 text-game-offwhite hover:bg-white/15 hover:border-white/20 rounded-xl font-display text-xl transition-all active:scale-95 disabled:opacity-50 outline-none transform-gpu"
+                              >
+                                مباراة سريعة
+                              </button>
                             </div>
-                          </div>
-                        </>
+
+                            <div className="bg-slate-900/60 border border-white/5 p-5 rounded-xl shadow-lg">
+                              <div className="flex items-center gap-3 mb-4">
+                                <div className="p-1.5 bg-white/5 rounded-lg border border-white/10">
+                                  <Users className="w-5 h-5 text-game-offwhite" />
+                                </div>
+                                <div className="text-right">
+                                  <h3 className="text-game-cream font-display text-base tracking-widest leading-none">غرفة خاصة</h3>
+                                  <p className="text-[10px] text-game-cream/40 font-body italic mt-1">العب مع أصدقائك برمز سري</p>
+                                </div>
+                              </div>
+
+                              <button
+                                 onClick={createOnlineRoom}
+                                 disabled={isSearching || isActionLoading}
+                                 className="w-full py-2.5 mb-4 bg-white/10 backdrop-blur-md border border-white/15 text-game-offwhite hover:bg-white/15 hover:border-white/20 rounded-lg font-display text-base transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 outline-none transform-gpu"
+                              >
+                                 {isActionLoading ? <Activity className="w-4 h-4 animate-spin" /> : <><PlusCircle className="w-4 h-4" /> إنشاء غرفة جديدة</>}
+                              </button>
+                              
+                              <div className="relative flex items-center mb-4">
+                                <div className="flex-grow border-t border-white/5"></div>
+                                <span className="flex-shrink-0 mx-3 text-white/20 font-display text-[10px]">أو انضمام برمز</span>
+                                <div className="flex-grow border-t border-white/5"></div>
+                              </div>
+
+                              <div className="relative">
+                                <input
+                                   type="text"
+                                   placeholder="الرمز"
+                                   value={roomIdInput}
+                                   onChange={(e) => setRoomIdInput(e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 4))}
+                                   className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-center text-2xl font-mono text-game-offwhite focus:outline-none focus:border-game-teal/50 focus:bg-white/10 transition-all placeholder:text-white/10 uppercase tracking-[0.2em]"
+                                   maxLength={4}
+                                   disabled={isSearching || isActionLoading}
+                                   dir="ltr"
+                                />
+                                <AnimatePresence>
+                                  {roomIdInput.length === 4 && (
+                                    <motion.button
+                                      initial={{ opacity: 0, x: 10, scale: 0.9 }}
+                                      animate={{ opacity: 1, x: 0, scale: 1 }}
+                                      exit={{ opacity: 0, x: 10, scale: 0.9 }}
+                                      onClick={joinOnlineRoom}
+                                      disabled={isSearching || isActionLoading}
+                                      className="absolute left-1.5 top-1.5 bottom-1.5 px-6 bg-game-teal text-game-dark hover:bg-emerald-400 rounded-lg font-display text-sm transition-all active:scale-95 shadow-lg flex items-center justify-center z-10"
+                                    >
+                                      {isActionLoading ? <Activity className="w-4 h-4 animate-spin" /> : 'دخول'}
+                                    </motion.button>
+                                  )}
+                                </AnimatePresence>
+                              </div>
+                            </div>
+                          </>
                       </div>
                     </div>
                   </div>
+
                 )}
 
                 {menuTab === 'local' && (
@@ -2800,6 +3016,7 @@ const App = () => {
                 setEditNameInput(playerName);
                 setShowEditNameDialog(true);
               }}
+              userId={user?._id || null}
             />
           </DashboardViewPager>
           
@@ -2813,6 +3030,36 @@ const App = () => {
           </AnimatePresence>
           {renderNameEditDialog()}
           {renderDebugUI()}
+          <AnimatePresence>
+            {(isWaitingInPrivateRoom || (appState === 'inRoom' && roomState?.gameState === 'waiting' && !roomState.isBotRoom)) && (
+              <PrivateRoomLobbyView 
+                 key="private-lobby-global"
+                 isLoading={!roomId || (!roomState && appState === 'menu')}
+                 roomCode={roomId}
+                 onCancel={() => {
+                   setIsWaitingInPrivateRoom(false);
+                   if (appState === 'inRoom') setAppState('menu');
+                   setMenuTab('online');
+                   leaveRoom();
+                 }}
+              />
+            )}
+          </AnimatePresence>
+          <AnimatePresence>
+            {(isSearching || showMatchmakingResult) && (
+              <MatchmakingView 
+                key="matchmaking"
+                isSearching={isSearching}
+                onCancel={cancelSearch}
+                matchFound={showMatchmakingResult}
+                opponent={matchmakingOpponent}
+                playerName={playerName}
+                playerLevel={level}
+                playerThemeId={selectedThemeId}
+                canCancel={matchmakingCanCancel}
+              />
+            )}
+          </AnimatePresence>
         </>
     );
   }
@@ -2861,89 +3108,16 @@ const App = () => {
 
   if (roomState.gameState === 'waiting') {
     return (
-      <>
-        <div 
-          dir="rtl" 
-          className="fixed inset-0 w-full h-full wood-texture text-game-cream flex flex-col items-center justify-center p-4 sm:p-6 font-body overflow-hidden select-none"
-          style={{
-            paddingTop: 'env(safe-area-inset-top)',
-            paddingBottom: 'env(safe-area-inset-bottom)',
-            paddingLeft: 'env(safe-area-inset-left)',
-            paddingRight: 'env(safe-area-inset-right)'
-          }}
-        >
-          <motion.div
-            className="bg-game-dark/90 p-8 rounded-xl border border-white/10 shadow-2xl max-w-sm w-full text-center"
-          >
-            <div className="w-10 h-10 rounded-full border-2 border-white/10 border-t-white animate-spin mx-auto mb-8"></div>
-            <h2 className="text-2xl font-display mb-3 text-game-offwhite tracking-widest">في انتظار الخصم...</h2>
-            
-            <div className="flex items-center justify-center gap-2 mb-8">
-              <div className={`w-2 h-2 rounded-full ${connectionStatus === 'CONNECTION_VERIFIED' ? 'bg-green-400 animate-pulse' : 'bg-game-slate'}`}></div>
-              <span className="text-[10px] text-game-offwhite/40 font-display tracking-widest italic">
-                {connectionStatus === 'CONNECTION_VERIFIED' ? 'اتصال مؤمن' : 'جاري تأمين الاتصال'}
-              </span>
-            </div>
-            
-            {role === 'HOST' ? (
-              <>
-                <p className="text-game-offwhite/60 mb-6 text-xs px-4 font-body italic">أنت الآن تستضيف اللعبة. اطلب من صديقك إدخال الـ IP الخاص بك للاتصال.</p>
-                <div className="bg-white/5 p-4 rounded-lg border border-white/10 mb-8">
-                  <div className="text-[10px] text-game-offwhite/40 mb-2 font-display tracking-widest uppercase">عنوان الـ IP الخاص بك</div>
-                  <div className="text-2xl font-mono font-black text-game-offwhite select-all">{userIp}</div>
-                </div>
-              </>
-            ) : roomState.isPublic ? (
-              <div className="mb-8">
-                <p className="text-game-offwhite/60 text-xs px-6 font-body italic leading-relaxed">
-                  يتم البحث تلقائياً عن خصم جديد للمنافسة!
-                </p>
-              </div>
-            ) : (
-              <>
-                <p className="text-game-offwhite/60 mb-6 text-xs px-4 font-body italic">شارك كود الغرفة مع صديقك للعب عبر الإنترنت</p>
-                <div className="bg-white/5 p-4 rounded-lg border border-white/10 mb-8">
-                  <div className="text-[10px] text-game-offwhite/40 mb-2 font-display tracking-widest uppercase">كود الغرفة</div>
-                  <div className="text-3xl font-mono font-black tracking-widest text-game-offwhite">{roomId}</div>
-                </div>
-              </>
-            )}
-            
-            <div className="flex flex-col gap-3">
-              {roomState.isPublic && (
-                <button
-                  onClick={findNewMatch}
-                  className="w-full py-4 bg-game-teal hover:bg-emerald-600 text-game-dark rounded-lg font-display text-xl transition-all active:scale-95 shadow-lg flex items-center justify-center gap-2"
-                >
-                  <UserSearch className="w-5 h-5" /> البحث عن خصم آخر
-                </button>
-              )}
-              {role === 'HOST' ? (
-                <button
-                  onClick={() => navigator.clipboard.writeText(userIp || '')}
-                  className="w-full py-4 bg-game-offwhite hover:bg-white text-black rounded-lg font-display text-xl transition-all active:scale-95 flex items-center justify-center gap-2"
-                >
-                  <Copy className="w-4 h-4" /> نسخ عنوان الـ IP
-                </button>
-              ) : !roomState.isPublic && (
-                <button
-                  onClick={copyRoomId}
-                  className="w-full py-4 bg-game-offwhite hover:bg-white text-black rounded-lg font-display text-xl transition-all active:scale-95 flex items-center justify-center gap-2"
-                >
-                  <Copy className="w-4 h-4" /> نسخ كود الغرفة
-                </button>
-              )}
-              <button
-                onClick={leaveRoom}
-                className="w-full py-3 mt-2 bg-game-slate hover:bg-slate-600 text-white rounded-lg font-display text-lg transition-all active:scale-95"
-              >
-                إلغاء والرجوع
-              </button>
-            </div>
-          </motion.div>
-        </div>
-        {renderDebugUI()}
-      </>
+      <PrivateRoomLobbyView 
+        isLoading={!roomId}
+        roomCode={roomId}
+        onCancel={() => {
+          setIsWaitingInPrivateRoom(false);
+          setAppState('menu');
+          setMenuTab('online');
+          leaveRoom();
+        }}
+      />
     );
   }
 

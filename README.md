@@ -1,10 +1,9 @@
-# Card Clash | صراع البطاقات 🃏
 
-![Card Clash Banner](public/icon.png)
+![RPS Cards Banner](assets/icon.png)
 
 ## 🌐 English Description
 
-**Card Clash** is a modern, fast-paced, real-time multiplayer implementation of the classic Rock-Paper-Scissors game, reimagined with a limited deck of cards strategy. Built with web technologies, it runs natively on Android via Capacitor and seamlessly in the browser.
+**RPS Cards** is a modern, fast-paced, real-time multiplayer implementation of the classic Rock-Paper-Scissors game, reimagined with a limited deck of cards strategy. Built with web technologies, it runs natively on Android via Capacitor and seamlessly in the browser.
 
 ### ✨ Key Features
 - **🎮 Multiple Game Modes:**
@@ -31,7 +30,7 @@
 
 ## 🇸🇦 الوصف باللغة العربية
 
-**صراع البطاقات (Card Clash)** هي نسخة عصرية وسريعة من اللعبة الكلاسيكية "حجر ورقة مقص" ولكن باستخدام استراتيجية البطاقات المحدودة. تم بناء اللعبة باستخدام تقنيات الويب الحديثة لتعمل كتطبيق أندرويد متكامل بسلاسة، بالإضافة إلى دعم التشغيل عبر المتصفح.
+ هي نسخة عصرية وسريعة من اللعبة الكلاسيكية "حجر ورقة مقص" ولكن باستخدام استراتيجية البطاقات المحدودة. تم بناء اللعبة باستخدام تقنيات الويب الحديثة لتعمل كتطبيق أندرويد متكامل بسلاسة، بالإضافة إلى دعم التشغيل عبر المتصفح.
 
 ### ✨ المميزات الأساسية
 - **🎮 أطوار لعب متعددة:**

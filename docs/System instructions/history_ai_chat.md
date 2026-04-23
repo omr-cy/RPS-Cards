@@ -99,3 +99,16 @@
 - **Automation:** Developed a centralized version update script (`scripts/update-version.js`) that synchronizes version strings across the root `package.json`, `backend/package.json`, and `android/app/build.gradle`.
 - **CI/CD:** Created a GitHub Action workflow (`.github/workflows/update-version.yml`) allowing the user to trigger a version bump directly from the GitHub online interface with an optional manual `versionCode` override (defaults to auto-increment).
 - **Documentation:** Rewrote `to_update.md` to serve as the main manual for the new automated versioning system.
+
+## [2026-04-23] Proxy Timeout Fix
+**User Prompt:** Fix the following errors: proxy error Error: connect ETIMEDOUT 156.223.183.83:443 (and related)
+**Actions:**
+- **Fix:** Added missing proxy configuration for `/api` in `vite.config.ts` to allow authentication requests to be proxied.
+- **Performance:** Increased `timeout` to 60000ms for all proxy configurations (`/api`, `/remote-api`, `/game-socket-proxy`) to resolve ETIMEDOUT issues.
+- **Verification:** Restarted the development server to apply changes.
+
+## [2026-04-23] Backend Database Connection Fix
+**User Prompt:** MongooseError: Operation users.find() buffering timed out
+**Actions:**
+- **Fix:** Refactored MongoDB connection logic in `backend/server.ts` to be awaitable and ensured it is awaited inside `startServer` before the server begins listening for requests. This prevents race conditions where database queries are executed before the Mongoose connection is established.
+- **Verification:** Restarted the development server.

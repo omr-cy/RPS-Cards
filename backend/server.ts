@@ -27,17 +27,21 @@ import crypto from 'crypto';
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/rpscards_db';
 
 console.log("[Startup] Connecting to MongoDB at:", MONGODB_URI.includes('srv') ? 'Atlas Cluster' : 'Local Database (Fallback)');
-mongoose.connect(MONGODB_URI)
-  .then(async () => {
-    console.log('✅ Connected to MongoDB');
+const connectDB = async () => {
     try {
-      await mongoose.connection.collection('users').dropIndex('uid_1');
-      console.log('✅ Dropped problematic index: uid_1');
-    } catch (e) {
-      console.log('ℹ️ Index uid_1 not found, skipping drop.');
+        await mongoose.connect(MONGODB_URI);
+        console.log('✅ Connected to MongoDB');
+        try {
+            await mongoose.connection.collection('users').dropIndex('uid_1');
+            console.log('✅ Dropped problematic index: uid_1');
+        } catch (e) {
+            console.log('ℹ️ Index uid_1 not found, skipping drop.');
+        }
+    } catch (err) {
+        console.error('❌ MongoDB connection error:', err);
+        process.exit(1);
     }
-  })
-  .catch(err => console.error('❌ MongoDB connection error:', err));
+};
 
 // User Schema
 const userSchema = new mongoose.Schema({
@@ -397,6 +401,7 @@ async function startNextRound(roomId: string) {
 }
 
 async function startServer() {
+  await connectDB();
   const app = express();
   const PORT = process.env.BACKEND_PORT || 3000;
   
@@ -736,7 +741,10 @@ async function startServer() {
 
         console.log(`[WS] Message from ${effectivePlayerId}:`, message.type);
         
-        if (message.type === 'PONG') return;
+        if (message.type === 'PONG') {
+          ws.send(JSON.stringify({ type: 'HANDSHAKE_OK' }));
+          return;
+        }
 
         if (message.type === 'create_room') {
           const roomId = generateRoomCode();

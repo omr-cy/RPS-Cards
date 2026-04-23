@@ -119,25 +119,76 @@ export const OnlineAndroidService = {
       setShowLevelUp: Function;
       refreshProfile: Function;
       appStateRef: any;
+      setMatchmakingOpponent: Function;
+      setShowMatchmakingResult: Function;
+      setIsWaitingInPrivateRoom: Function;
+      roleRef: any;
+      setMatchmakingCanCancel: Function;
     }
   ) => {
     const { 
       setIsSearching, setRole, setRoomId, setAppState, 
-      setRoomState, setErrorMsg, setShowLevelUp, refreshProfile, appStateRef 
+      setRoomState, setErrorMsg, setShowLevelUp, refreshProfile, appStateRef,
+      setMatchmakingOpponent, setShowMatchmakingResult,
+      setIsWaitingInPrivateRoom, roleRef, setMatchmakingCanCancel
     } = options;
 
     if (data.type === 'matchmaking_status') {
       setIsSearching(true);
+      setShowMatchmakingResult(false);
+      setMatchmakingOpponent(null);
+      setMatchmakingCanCancel(true);
+    } else if (data.type === 'pong' || data.type === 'PONG' || data.type === 'HANDSHAKE_OK') {
+      setMatchmakingCanCancel(true);
     } else if (data.type === 'match_found' || data.type === 'joined_room_success' || data.type === 'room_created') {
-      setIsSearching(false);
       setRole('ONLINE');
       setRoomId(data.roomId);
+      
+      if (data.type === 'room_created') {
+        setIsWaitingInPrivateRoom(true);
+      }
       if (data.roomCode) setRoomId(data.roomCode);
-      setAppState('inRoom');
+      
+      // If we are searching, we wait for room_state to show the opponent
+      if (data.type === 'match_found' || data.type === 'room_created') {
+        // Keep searching/menu state true till room_state arrival
+        setIsSearching(data.type === 'match_found');
+      } else {
+        setIsSearching(false);
+        setAppState('inRoom');
+      }
     } else if (data.type === 'room_state') {
       setRoomState(data.state);
       setRoomId(data.state.id);
-      if (appStateRef.current !== 'inRoom') setAppState('inRoom');
+      setIsWaitingInPrivateRoom(false);
+      
+      // If we were in matchmaking, show the result first
+      const isActuallySearching = appStateRef.current === 'menu' && (data.state.players && Object.keys(data.state.players).length === 2);
+      
+      if (isActuallySearching) {
+        // Find opponent info
+        const meId = localStorage.getItem('cardclash_userId');
+        const players = data.state.players;
+        const opponentId = Object.keys(players).find(id => id !== meId);
+        if (opponentId) {
+          const opponent = players[opponentId];
+          setMatchmakingOpponent(opponent);
+          setShowMatchmakingResult(true);
+          
+          // Wait 2 seconds before entering
+          setTimeout(() => {
+            if (roleRef.current === 'NONE') return; // User cancelled
+            setIsSearching(false);
+            setShowMatchmakingResult(false);
+            setAppState('inRoom');
+          }, 2000);
+        } else {
+          setAppState('inRoom');
+          setIsSearching(false);
+        }
+      } else {
+        if (appStateRef.current !== 'inRoom') setAppState('inRoom');
+      }
     } else if (data.type === 'error_msg') {
       setErrorMsg(data.msg);
       setIsSearching(false);

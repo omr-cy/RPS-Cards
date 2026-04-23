@@ -298,7 +298,11 @@ public class LocalServerPlugin extends Plugin {
                     connectionStatus = "CONNECTION_VERIFIED";
                     logToReact("Handshake verified with client", "success");
                     updateStatusToReact();
-                    // Host is already ready, but we can notify again if needed
+                    try {
+                        JSONObject ack = new JSONObject();
+                        ack.put("type", "HANDSHAKE_OK");
+                        conn.send(ack.toString());
+                    } catch (JSONException e) { e.printStackTrace(); }
                     return;
                 }
 

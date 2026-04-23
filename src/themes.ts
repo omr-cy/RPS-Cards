@@ -16,6 +16,7 @@ export interface ThemeConfig {
   isDefault?: boolean;
   iconScale?: number; // percentage, e.g. 100 for 100%
   requiredLevel?: number;
+  category?: 'level' | 'special';
 }
 
 export const THEMES: ThemeConfig[] = [
@@ -33,7 +34,8 @@ export const THEMES: ThemeConfig[] = [
     counterTextColor: 'text-[#F5F5F5]',
     extension: 'svg',
     iconScale: 125,
-    requiredLevel: 1
+    requiredLevel: 1,
+    category: 'level'
   },
   {
     id: 'bone',
@@ -47,7 +49,8 @@ export const THEMES: ThemeConfig[] = [
     counterTextColor: 'text-[#F5F5F5]',
     extension: 'svg',
     iconScale: 100,
-    requiredLevel: 3
+    requiredLevel: 3,
+    category: 'level'
   },
   {
     id: 'robot',
@@ -60,7 +63,8 @@ export const THEMES: ThemeConfig[] = [
     counterBgColor: 'bg-[#0E65A4]',
     counterTextColor: 'text-[#F5F5F5]',
     iconScale: 100,
-    requiredLevel: 5
+    requiredLevel: 5,
+    category: 'level'
   },
   {
     id: 'toyes',
@@ -73,7 +77,8 @@ export const THEMES: ThemeConfig[] = [
     counterBgColor: 'bg-[#BC4A00]',
     counterTextColor: 'text-[#F5F5F5]',
     iconScale: 100,
-    requiredLevel: 7
+    requiredLevel: 7,
+    category: 'level'
   },
   {
     id: 'cats',
@@ -86,7 +91,8 @@ export const THEMES: ThemeConfig[] = [
     counterBgColor: 'bg-[#C87874]',
     counterTextColor: 'text-[#F5F5F5]',
     iconScale: 100,
-    requiredLevel: 10
+    requiredLevel: 10,
+    category: 'level'
   },
     {
     id: 'building_tools',
@@ -99,7 +105,8 @@ export const THEMES: ThemeConfig[] = [
     counterBgColor: 'bg-[#E9B41C]',
     counterTextColor: 'text-[#121212]',
     iconScale: 100,
-    requiredLevel: 15
+    requiredLevel: 15,
+    category: 'level'
   },
   // {
   //   id: 'bone',
