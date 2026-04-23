@@ -5,6 +5,7 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -13,11 +14,26 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: true
       
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+
+      - name: Sync Versions from Script
+        run: |
+          # تشغيل السكربت الذي يحتوي على المتغيرات التي قمت بتعديلها
+          node scripts/update-version.js
+          
+          # مزامنة التغييرات مع المستودع (اختياري لكن مفضل)
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "chore: sync versions from update-version.js" || echo "No changes to commit"
+          git push || echo "No changes to push"
           
       - name: Install dependencies
         run: npm install
@@ -89,8 +105,9 @@ jobs:
 
       - name: Upload APK to Google Drive
         run: |
-          TIMESTAMP=$(date +%Y-%m-%d_%H:%M:%S)
-          NEW_NAME="RPS-Cards_$TIMESTAMP.apk"
+          VERSION=$(node -p "require('./package.json').version")
+          TIMESTAMP=$(date +%Y-%m-%d_%H%M)
+          NEW_NAME="RPS-Cards_v${VERSION}_${TIMESTAMP}.apk"
           cp android/app/build/outputs/apk/debug/app-debug.apk ./$NEW_NAME
           rclone copy ./$NEW_NAME gdrive:/RPS-Cards_Builds
 

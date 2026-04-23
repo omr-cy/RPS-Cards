@@ -1,10 +1,32 @@
+# Version Update Guide
 
-android/app/build.gradle:
-        versionCode 2
-        versionName "0.1.1"
+هذه الملفات يجب تحديثها يدوياً أو باستخدام السكربت للمحافظة على تزامن الإصدارات في المشروع:
 
-./package.json
-"version": "0.1.1",
+1. **android/app/build.gradle**:
+   - `versionCode`: رقم الإصدار الداخلي للأندرويد.
+   - `versionName`: نص الإصدار الظاهري.
 
-backend/package.json:
-"version": "0.1.1",
+2. **./package.json**:
+   - `version`: إصدار تطبيق الويب.
+
+3. **backend/package.json**:
+   - `version`: إصدار السيرفر الخلفي.
+
+---
+
+### 🚀 التحديث التلقائي (Automation)
+يمكنك تحديث كل هذه الملفات دفعة واحدة وبطريقة آمنة:
+
+1. **GitHub Actions (الموصى به):**
+   - اذهب إلى تبويب **Actions** في ريبو الـ GitHub.
+   - اختر ورك فلو **"Build Android APK"**.
+   - اضغط على **Run workflow**.
+   - (اختياري) ادخل رقم الإصدار الجديد في حقل `version`. إذا تركته فارغاً، سيتم بناء التطبيق بالإصدار الحالي.
+   - إذا اخترت إدخال إصدار جديد، فسيقوم الأكشن بتحديث الملفات وعمل Commit لها تلقائياً قبل بدء البناء.
+
+2. **السكربت المحلي:**
+   - نفذ الأمر التالي في المحطة (Terminal):
+     ```bash
+     node scripts/update-version.js 0.1.2
+     ```
+   *ملاحظة: السكربت سيقوم بزيادة `versionCode` تلقائياً إذا لم تقم بإدخاله كمتغير ثاني.*

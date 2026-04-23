@@ -286,6 +286,41 @@ async function resolveRound(roomId: string) {
   }, 3000); 
 }
 
+async function awardRewards(room: Room, winnerId: string | null) {
+  const playersArr = Object.values(room.players);
+  for (const p of playersArr) {
+    if (mongoose.Types.ObjectId.isValid(p.id)) {
+      try {
+        const user = await User.findById(p.id);
+        if (user) {
+          const oldLevel = user.level || 1;
+          
+          const isWinner = p.id === winnerId;
+          const xpGain = isWinner ? 50 : 20;
+          const coinGain = isWinner ? 15 : 5;
+
+          if (room.isPublic) {
+            user.xp = (user.xp || 0) + xpGain;
+            user.level = calculateLevel(user.xp);
+          }
+          
+          user.coins = (user.coins || 0) + coinGain;
+          await user.save();
+          
+          if (user.level > oldLevel) {
+            p.ws.send(JSON.stringify({ 
+              type: 'level_up', 
+              newLevel: user.level 
+            }));
+          }
+        }
+      } catch (err) {
+        console.error(`[Rewards Error] Player ID: ${p.id}`, err);
+      }
+    }
+  }
+}
+
 async function startNextRound(roomId: string) {
   const room = rooms[roomId];
   if (!room) return;
@@ -610,7 +645,7 @@ async function startServer() {
       delete userResponse.password;
       res.json(userResponse);
     } catch (err) {
-      res.status(500).json({ error: 'حدث خطأ أثناء جلب الملف الشخصي' });
+      res.status(500).json({ error: 'حدث خطأ أثناء جلب بيانات الحقيبة' });
     }
   });
 
@@ -648,7 +683,7 @@ async function startServer() {
       res.json(userResponse);
     } catch (err) {
       console.error('[Profile Update Error]:', err);
-      res.status(500).json({ error: 'حدث خطأ أثناء تحديث الملف الشخصي' });
+      res.status(500).json({ error: 'حدث خطأ أثناء تحديث بيانات الحقيبة' });
     }
   });
 
@@ -820,12 +855,12 @@ async function startServer() {
       handleDisconnect(effectivePlayerId);
     });
 
-    function handleDisconnect(id: string, specificRoomId?: string) {
+    async function handleDisconnect(id: string, specificRoomId?: string) {
       const queueIdx = matchmakingQueue.findIndex(p => p.id === id);
       if (queueIdx !== -1) matchmakingQueue.splice(queueIdx, 1);
 
       const roomIds = specificRoomId ? [specificRoomId] : Object.keys(rooms);
-      roomIds.forEach(rid => {
+      for (const rid of roomIds) {
         const room = rooms[rid];
         if (room && room.players[id]) {
           delete room.players[id];
@@ -834,15 +869,22 @@ async function startServer() {
           if (Object.keys(room.players).length === 0) {
             delete rooms[rid];
           } else {
-            // Only go to waiting if we were playing. If gameOver, stay in gameOver.
-            if (room.gameState !== 'gameOver') {
+            // If game was active, give victory to remaining player
+            if (['playing', 'revealing', 'roundResult'].includes(room.gameState)) {
+              room.gameState = 'opponentLeft' as any;
+              const remainingPlayerId = Object.keys(room.players)[0];
+              if (remainingPlayerId) {
+                await awardRewards(room, remainingPlayerId);
+              }
+            } else if (room.gameState !== 'gameOver') {
               room.gameState = 'waiting';
             }
+            
             broadcastToRoom(rid, { type: 'error_msg', msg: 'الخصم غادر الغرفة' });
             broadcastToRoom(rid, { type: 'room_state', state: room });
           }
         }
-      });
+      }
     }
   });
 

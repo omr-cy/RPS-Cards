@@ -89,5 +89,13 @@
 - **Android Stability:** Fixed a critical package conflict in Android files where the Java package declaration (`com.omr.rpscards`) did not match the file content, causing crashes on native devices.
 - **Environment Isolation:** Created `src/env_config.ts` to strictly separate URL fetching logic. For Android/iOS (Native), it ALWAYS uses the direct `config.json` URLs. For the AI Studio web environment, it uses the secure proxy routes (`/remote-api`, `/game-socket-proxy`). This prevents development-specific code from leaking into the APK build.
 
-
-
+## [2026-04-23] UI Polishing, Room Creation Fix & Versioning Automation
+**User Prompt:** هو ليه زر إنشاء غرفة بيفتح مباراة سريعة / خلي اشعارات الاخطاء شكلها يبقى موحد / نظام تحديث تلقائي لإصدار rps الداخلي
+**Actions:**
+- **Bug Fix:** Fixed a UI logic error where the "Create Room" button incorrectly triggered the full-screen matchmaking search overlay.
+- **UX:** Introduced `isActionLoading` state to distinguish between "Searching for random opponents" and "Manually creating/joining a room".
+- **UI:** Added a modern, semi-transparent overlay for room creation actions with a specific message: "جاري إعداد الغرفة... يتم الآن تجهيز الرزم الورقية والاتصال بالخادم".
+- **UI/UX Polishing:** Redesigned the notification system (Error/Success Toasts) to use a unified "Glassy" design with a visual progress bar that indicates the auto-dismiss timer (4 seconds).
+- **Automation:** Developed a centralized version update script (`scripts/update-version.js`) that synchronizes version strings across the root `package.json`, `backend/package.json`, and `android/app/build.gradle`.
+- **CI/CD:** Created a GitHub Action workflow (`.github/workflows/update-version.yml`) allowing the user to trigger a version bump directly from the GitHub online interface with an optional manual `versionCode` override (defaults to auto-increment).
+- **Documentation:** Rewrote `to_update.md` to serve as the main manual for the new automated versioning system.

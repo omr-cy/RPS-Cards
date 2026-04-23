@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, memo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Bot, Globe, Home, Trophy, XCircle, CheckCircle2, Minus, Copy, Edit2, Bug, X, Wifi, ShieldCheck, Activity, ShoppingCart, User, LogIn, LogOut, Users, UserSearch, PlusCircle, Mail, Lock, UserPlus, Info, ArrowRight, ArrowLeft, ChevronRight, ChevronLeft, Network as NetworkIcon, PlugZap, Star, Zap, Sparkles } from 'lucide-react';
+import { Bot, Globe, Home, Trophy, XCircle, CheckCircle2, Minus, Copy, Edit2, Bug, X, Wifi, ShieldCheck, Activity, ShoppingCart, User, LogIn, LogOut, Users, UserSearch, PlusCircle, Mail, Lock, UserPlus, Info, ArrowRight, ArrowLeft, ChevronRight, ChevronLeft, Network as NetworkIcon, PlugZap, Star, Zap, Sparkles, UserMinus, Gift, Library, Backpack } from 'lucide-react';
+import { TbCardsFilled } from 'react-icons/tb';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { SplashScreen } from '@capacitor/splash-screen';
 import { Network } from '@capacitor/network';
@@ -54,7 +55,7 @@ interface Room {
   id: string;
   isBotRoom?: boolean;
   players: Record<string, Player>;
-  gameState: 'waiting' | 'playing' | 'revealing' | 'roundResult' | 'gameOver';
+  gameState: 'waiting' | 'playing' | 'revealing' | 'roundResult' | 'gameOver' | 'opponentLeft';
   round: number;
   roundWinner: string | 'draw' | null;
   timeLeft?: number;
@@ -253,9 +254,9 @@ const GlobalNavbar = memo(({ activeTab, setAppState, coins, playerName, isGuest,
     <nav 
       dir="rtl" 
       className="fixed top-0 inset-x-0 z-[60] bg-game-dark/95 border-b border-white/10 shadow-lg" 
-      style={{ paddingTop: 'max(1.25rem, env(safe-area-inset-top))' }}
+      style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}
     >
-      <div className="relative w-full h-12">
+      <div className="relative w-full h-10">
         {/* --- STORE NAVBAR --- */}
         <div className={`absolute inset-0 flex justify-between items-center px-6 sm:px-8 transition-opacity duration-300 ${activeTab === 'store' ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
           <button onClick={() => setAppState('menu')} className="p-1.5 bg-white/5 backdrop-blur-sm rounded-full text-game-cream hover:bg-white/10 border border-white/10 transition-all transform-gpu">
@@ -312,7 +313,7 @@ const GlobalNavbar = memo(({ activeTab, setAppState, coins, playerName, isGuest,
           <button onClick={() => setAppState('menu')} className="p-1.5 bg-white/5 backdrop-blur-sm rounded-full text-game-cream hover:bg-white/10 border border-white/10 transition-all transform-gpu">
             <ChevronRight className="w-5 h-5" />
           </button>
-          <h1 className="text-lg sm:text-xl font-display text-game-offwhite tracking-wider">الملف الشخصي</h1>
+          <h1 className="text-lg sm:text-xl font-display text-game-offwhite tracking-wider">الحقيبة الشخصية</h1>
           {!isGuest ? (
             <button 
               onClick={onLogout}
@@ -351,7 +352,7 @@ const StoreView = memo(({ coins, ownedThemes, selectedThemeId, onBuy, onSelect, 
     dir="rtl" 
     className="w-full h-full flex flex-col font-body overflow-x-hidden overflow-y-auto smooth-scroll select-none relative pb-10"
   >
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-y-10 gap-x-4 max-w-4xl mx-auto w-full px-4 sm:px-6 pt-28">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-y-10 gap-x-4 max-w-4xl mx-auto w-full px-4 sm:px-6 pt-20">
       {THEMES.map(theme => (
         <CardPack 
           key={theme.id}
@@ -390,60 +391,193 @@ const ProfileView = memo(({ playerName, coins, xp = 0, level = 1, ownedThemes, s
   selectedPack: ThemeConfig | null,
   setSelectedPack: (theme: ThemeConfig | null) => void,
   onEditName: () => void,
-}) => (
-  <div 
-    dir="rtl" 
-    className="w-full h-full flex flex-col font-body overflow-x-hidden overflow-y-auto smooth-scroll select-none pb-10"
-  >
-    <div className="max-w-md mx-auto w-full space-y-6 px-4 sm:px-6 pt-28">
-      <div className="bg-gradient-to-br from-game-dark/95 to-game-dark/80 p-6 rounded-2xl border border-white/10 flex flex-col sm:flex-row items-center gap-4 relative shadow-2xl">
-        <div className="relative">
-          <div className="w-20 h-20 rounded-full bg-game-bg border-4 border-game-offwhite/5 flex items-center justify-center overflow-hidden shadow-inner">
-            <User className="w-10 h-10 text-game-offwhite/20" />
-          </div>
-          <div className="absolute -bottom-1 -right-1 bg-game-teal text-white w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border-2 border-game-dark shadow-md font-mono">
-            {level}
-          </div>
-        </div>
-        <div className="flex-1 flex flex-col items-center sm:items-start text-center sm:text-right gap-3 w-full">
-          <div className="flex items-center gap-3">
-            <h2 className="text-2xl font-display text-game-offwhite">{playerName}</h2>
-            <button 
-              onClick={onEditName}
-              className="p-2 text-game-offwhite/40 hover:text-game-offwhite transition-all bg-white/5 rounded-lg border border-white/5"
-              title="تعديل الاسم"
-            >
-              <Edit2 className="w-4 h-4" />
-            </button>
-          </div>
+}) => {
+  const [activeTab, setActiveTab] = useState<'profile' | 'themes' | 'gift'>('profile');
+
+  return (
+    <div 
+      dir="rtl" 
+      className="w-full h-full flex flex-col font-body overflow-hidden select-none bg-game-bg/20"
+    >
+      <div className="flex-1 overflow-hidden pt-24 pb-6 px-4 sm:px-6 flex flex-col max-w-md mx-auto w-full">
+        
+        {/* TABS (Protruding Bumps) */}
+        <div className="flex gap-2 px-3 relative z-10 -mb-[1px]">
+          <button 
+            onClick={() => setActiveTab('profile')}
+            className={`flex-1 py-3 px-2 rounded-t-2xl font-display text-xs transition-all flex flex-col items-center gap-1 relative ${activeTab === 'profile' ? 'bg-slate-800 text-game-teal z-20' : 'bg-slate-800/50 text-game-offwhite/40 hover:bg-slate-800/70 hover:text-game-offwhite z-10 translate-y-1'}`}
+          >
+            <User className="w-4 h-4" />
+            حسابي
+            {activeTab === 'profile' && <div className="absolute -bottom-[2px] left-0 right-0 h-[3px] bg-slate-800 z-30" />}
+          </button>
           
-          <XPBar xp={xp} level={level} />
+          <button 
+            onClick={() => setActiveTab('themes')}
+            className={`flex-1 py-3 px-2 rounded-t-2xl font-display text-xs transition-all flex flex-col items-center gap-1 relative ${activeTab === 'themes' ? 'bg-slate-800 text-game-teal z-20' : 'bg-slate-800/50 text-game-offwhite/40 hover:bg-slate-800/70 hover:text-game-offwhite z-10 translate-y-1'}`}
+          >
+            {/* @ts-ignore - react-icons typings issue */}
+            <TbCardsFilled className="w-4 h-4" />
+            الثيمات
+            {activeTab === 'themes' && <div className="absolute -bottom-[2px] left-0 right-0 h-[3px] bg-slate-800 z-30" />}
+          </button>
+          
+          <button 
+            onClick={() => setActiveTab('gift')}
+            className={`flex-1 py-3 px-2 rounded-t-2xl font-display text-xs transition-all flex flex-col items-center gap-1 relative ${activeTab === 'gift' ? 'bg-slate-800 text-game-teal z-20' : 'bg-slate-800/50 text-game-offwhite/40 hover:bg-slate-800/70 hover:text-game-offwhite z-10 translate-y-1'}`}
+          >
+            <Gift className="w-4 h-4" />
+            الهدية
+            {activeTab === 'gift' && <div className="absolute -bottom-[2px] left-0 right-0 h-[3px] bg-slate-800 z-30" />}
+          </button>
+        </div>
 
-          <div className="flex items-center gap-2 bg-black/20 px-4 py-1.5 rounded-full border border-white/5">
-            <Trophy className="w-4 h-4 text-yellow-500" />
-            <span className="text-xl font-display text-yellow-500">{coins}</span>
-            <span className="text-sm text-game-offwhite/60 font-body">عملة ذهبية</span>
+        {/* CONTENT AREA (Scrolling Inside Frame) */}
+        <div className="flex-1 flex flex-col bg-slate-800 rounded-3xl shadow-2xl overflow-hidden relative z-0">
+          <div className="flex-1 overflow-y-auto smooth-scroll px-5 py-6">
+            <div className="min-h-full pb-10">
+              {activeTab === 'profile' && (
+              <div className="space-y-4">
+                <div className="bg-gradient-to-br from-game-dark/95 to-game-dark/80 p-5 rounded-2xl border border-white/10 flex flex-col sm:flex-row items-center gap-4 relative shadow-md overflow-hidden">
+                  <div className="relative">
+                    <div className="w-20 h-20 rounded-2xl bg-game-bg border-[3px] border-white/5 flex items-center justify-center overflow-hidden shadow-inner rotate-3">
+                      <User className="w-10 h-10 text-game-offwhite/10" />
+                    </div>
+                    <div className="absolute -bottom-2 -left-2 bg-game-teal text-game-dark w-7 h-7 rounded-xl flex items-center justify-center text-sm font-black border-2 border-game-dark shadow-xl font-mono -rotate-6">
+                      {level}
+                    </div>
+                  </div>
+                  <div className="flex-1 flex flex-col items-center sm:items-start text-center sm:text-right gap-3 w-full">
+                    <div className="flex items-center gap-2">
+                       <h2 className="text-2xl font-display text-game-offwhite">{playerName}</h2>
+                       <button 
+                         onClick={onEditName}
+                         className="p-1.5 text-game-offwhite/40 hover:text-game-offwhite transition-all bg-white/5 rounded-lg border border-white/10 shadow-sm"
+                         title="تعديل الاسم"
+                       >
+                         <Edit2 className="w-3.5 h-3.5" />
+                       </button>
+                    </div>
+                    
+                    <XPBar xp={xp} level={level} />
+
+                    <div className="flex items-center gap-2 bg-black/40 px-5 py-1.5 rounded-xl border border-white/5 shadow-inner">
+                      <Trophy className="w-4 h-4 text-yellow-500" />
+                      <div className="flex flex-col items-start leading-none">
+                        <span className="text-xl font-black text-yellow-500 font-display">{coins}</span>
+                        <span className="text-[9px] text-game-offwhite/40 font-display uppercase tracking-widest">رصيد العملات</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-game-dark/40 p-4 rounded-2xl border border-white/5 space-y-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Info className="w-3.5 h-3.5 text-game-teal/50" />
+                    <h3 className="text-[10px] font-display text-game-offwhite/40 uppercase tracking-widest">إحصائيات المعارك</h3>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-black/30 p-3 rounded-xl border border-white/5 text-center">
+                      <div className="text-xl font-black text-game-offwhite font-display">--</div>
+                      <div className="text-[9px] text-game-offwhite/30 uppercase tracking-tighter">المباريات</div>
+                    </div>
+                    <div className="bg-black/30 p-3 rounded-xl border border-white/5 text-center">
+                      <div className="text-xl font-black text-game-teal font-display">--</div>
+                      <div className="text-[9px] text-game-offwhite/30 uppercase tracking-tighter">الانتصارات</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'themes' && (
+              <div className="space-y-6">
+                {/* ACTIVE THEME SPOTLIGHT */}
+                <div className="bg-gradient-to-t from-game-teal/5 to-transparent p-5 rounded-2xl border border-game-teal/20 flex flex-col items-center shadow-lg relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-game-teal/5 -mr-16 -mt-16 rounded-full blur-2xl pointer-events-none" />
+                  <div className="absolute bottom-0 left-0 w-32 h-32 bg-game-teal/5 -ml-16 -mb-16 rounded-full blur-2xl pointer-events-none" />
+                  
+                  <div className="flex items-center gap-2 mb-6 relative z-10">
+                     <CheckCircle2 className="w-4 h-4 text-game-teal" />
+                     <span className="text-xs font-display text-game-teal uppercase tracking-widest">المجموعة المُفعلة حالياً</span>
+                  </div>
+                  <div className="flex justify-center items-center gap-2 sm:gap-4 w-full mb-5 px-2 relative z-10">
+                    {['scissors', 'paper', 'rock'].map((type, idx) => {
+                       const activeConfig = THEMES.find(t => t.id === selectedThemeId);
+                       if (!activeConfig) return null;
+                       return <FloatingCard key={`${activeConfig.id}-${type}`} theme={activeConfig} type={type as CardType} idx={idx} />
+                    })}
+                  </div>
+                  <h3 className="text-xl font-display text-game-offwhite relative z-10">{THEMES.find(t => t.id === selectedThemeId)?.name}</h3>
+                </div>
+
+                {/* SECPARATOR OR TITLE FOR OWNED GRID */}
+                <div className="flex items-center gap-3">
+                   <div className="w-8 h-8 bg-slate-700/50 rounded-lg flex items-center justify-center border border-white/10">
+                     {/* @ts-ignore */}
+                     <TbCardsFilled className="w-4 h-4 text-game-offwhite/70" />
+                   </div>
+                   <div className="flex-1 border-b border-white/5"></div>
+                   <h3 className="text-game-offwhite font-display text-xs">مجموعات تمتلكها</h3>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-y-10 gap-x-4">
+                  {THEMES.filter(t => ownedThemes.includes(t.id) && t.id !== selectedThemeId).map(theme => (
+                    <CardPack 
+                      key={theme.id}
+                      theme={theme}
+                      isOwned={true}
+                      isSelected={false}
+                      userLevel={level}
+                      onClick={() => setSelectedPack(theme)}
+                      onSelect={() => onSelect(theme.id)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'gift' && (
+              <div 
+                className="space-y-6 flex flex-col items-center justify-center py-6"
+              >
+                <div className="w-32 h-32 bg-game-teal/20 rounded-full flex items-center justify-center border-2 border-game-teal/30">
+                  <Gift className="w-16 h-16 text-game-teal" />
+                </div>
+
+                <div className="text-center space-y-2">
+                  <h2 className="text-3xl font-display text-game-offwhite">الهدية اليومية</h2>
+                  <p className="text-game-offwhite/60 font-body max-w-[250px]">عد إلينا غداً لتحصل على مكافأة جديدة من العملات الذهبية ونقاط الخبرة!</p>
+                </div>
+
+                <div className="w-full bg-game-dark/40 p-6 rounded-3xl border border-white/5 space-y-6">
+                  <div className="flex items-center justify-between">
+                    <span className="text-game-offwhite/50 text-sm">الحالة الآن</span>
+                    <span className="bg-game-teal/10 text-game-teal px-3 py-1 rounded-full text-xs font-display border border-game-teal/20">تم الاستلام ✅</span>
+                  </div>
+                  
+                  <div className="space-y-3">
+                    <div className="h-1.5 w-full bg-game-dark/50 rounded-full overflow-hidden">
+                       <div className="h-full bg-game-teal w-full" />
+                    </div>
+                    <div className="flex justify-between text-[10px] text-game-offwhite/30 font-display uppercase tracking-widest">
+                       <span>عد غداً</span>
+                       <span>24 ساعة</span>
+                    </div>
+                  </div>
+                </div>
+
+                <button 
+                  disabled
+                  className="w-full py-4 bg-game-slate opacity-50 text-white rounded-2xl font-display text-xl cursor-not-allowed"
+                >
+                  استلام المكافأة
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
-
-      <div>
-        <h2 className="text-2xl font-display text-game-offwhite mb-6 border-b border-white/10 pb-2">مكتبة الثيمات</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-y-12 gap-x-6">
-          {THEMES.filter(t => ownedThemes.includes(t.id)).map(theme => (
-            <CardPack 
-              key={theme.id}
-              theme={theme}
-              isOwned={true}
-              isSelected={selectedThemeId === theme.id}
-              userLevel={level}
-              onClick={() => setSelectedPack(theme)}
-              onSelect={() => onSelect(theme.id)}
-            />
-          ))}
-        </div>
-      </div>
-    </div>
 
       {selectedPack && (
         <PackPreviewModal 
@@ -455,8 +589,10 @@ const ProfileView = memo(({ playerName, coins, xp = 0, level = 1, ownedThemes, s
           onClose={() => setSelectedPack(null)}
         />
       )}
-  </div>
-));
+    </div>
+    </div>
+  );
+});
 
 const XPBar = memo(({ xp = 0, level = 1 }: { xp: number, level: number }) => {
   const safeLevel = Math.max(1, level);
@@ -782,7 +918,7 @@ const DashboardViewPager = ({ appState, setAppState, onVisibleTabChange, childre
       dir="rtl"
     >
       {React.Children.toArray(children).map((child, idx) => (
-        <div key={idx} className="w-full h-full shrink-0 snap-center relative overflow-hidden">
+        <div key={idx} className="w-full h-full shrink-0 snap-center snap-always relative overflow-hidden">
           {child}
         </div>
       ))}
@@ -1042,6 +1178,7 @@ const App = () => {
   const [isResending, setIsResending] = useState(false);
   const [userIp, setUserIp] = useState<string>('جاري التحميل...');
   const [isSearching, setIsSearching] = useState(false);
+  const [isActionLoading, setIsActionLoading] = useState(false);
   
   // Native Networking State
   const [connectionStatus, setConnectionStatus] = useState<'DISCONNECTED' | 'CONNECTING' | 'SERVER_STARTED' | 'CONNECTION_VERIFIED'>('DISCONNECTED');
@@ -1360,14 +1497,19 @@ const App = () => {
     } else if (data.type === 'room_state') {
       setRoomState(data.state);
       setRoomId(data.state.id);
+      setIsSearching(false);
+      setIsActionLoading(false);
       setAppState('inRoom');
     } else if (data.type === 'room_created') {
       setRoomId(data.roomId);
+      setIsSearching(false);
+      setIsActionLoading(false);
       if (roleRef.current === 'ONLINE') setAppState('inRoom');
     } else if (data.type === 'error_msg') {
       setErrorMsg(data.msg);
       addLog(`Server Error: ${data.msg}`, 'error');
       setIsSearching(false);
+      setIsActionLoading(false);
     }
   };
 
@@ -1613,21 +1755,21 @@ const App = () => {
 
   const createOnlineRoom = () => {
     if (!playerNameRef.current.trim()) return setErrorMsg('يرجى إدخال اسمك أولاً');
-    setIsSearching(true);
+    setIsActionLoading(true);
     connectToOnline({ 
       type: 'create_room', 
       playerName: playerNameRef.current.trim(), 
       playerId: playerIdRef.current,
       themeId: selectedThemeIdRef.current 
     }).catch(() => {
-      setIsSearching(false);
+      setIsActionLoading(false);
     });
   };
 
   const joinOnlineRoom = () => {
     if (!roomIdInput.trim()) return setErrorMsg('يرجى إدخال رمز الغرفة');
     if (!playerNameRef.current.trim()) return setErrorMsg('يرجى إدخال اسمك أولاً');
-    setIsSearching(true);
+    setIsActionLoading(true);
     connectToOnline({ 
       type: 'join_room_by_code', 
       roomCode: roomIdInput.trim(), 
@@ -1635,7 +1777,7 @@ const App = () => {
       playerId: playerIdRef.current,
       themeId: selectedThemeIdRef.current 
     }).catch(() => {
-      setIsSearching(false);
+      setIsActionLoading(false);
     });
   };
 
@@ -1878,43 +2020,42 @@ const App = () => {
 
   const renderErrorToast = () => (
     <AnimatePresence>
-      {errorMsg && (
+      {(errorMsg || successMsg) && (
         <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: -20 }}
+          initial={{ opacity: 0, scale: 0.9, y: -40 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: -20 }}
-          className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] w-[90%] max-w-md"
+          exit={{ opacity: 0, scale: 0.9, y: -40 }}
+          className="fixed top-8 left-1/2 -translate-x-1/2 z-[300] w-[90%] max-w-sm"
         >
-          <div className="bg-game-red text-game-cream px-4 py-3 rounded-lg shadow-2xl flex items-center justify-between gap-3 border-4 border-game-dark">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-game-dark/30 flex items-center justify-center flex-shrink-0 border border-game-cream/20">
-                <XCircle className="w-5 h-5" />
+          <div className={`${errorMsg ? 'bg-game-red/95' : 'bg-game-teal/95'} backdrop-blur-xl text-game-dark p-1 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/20`}>
+            <div className="flex items-center gap-4 p-3 pr-4 text-right">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-inner ${errorMsg ? 'bg-black/10' : 'bg-white/10'}`}>
+                {errorMsg ? <XCircle className="w-6 h-6" /> : <Sparkles className="w-6 h-6" />}
               </div>
-              <p className="text-sm font-display tracking-widest leading-tight text-right">{errorMsg}</p>
-            </div>
-            <button onClick={() => setErrorMsg(null)} className="p-1.5 hover:bg-game-dark/20 rounded-md">
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-        </motion.div>
-      )}
-      {successMsg && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: -20 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: -20 }}
-          className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] w-[90%] max-w-md"
-        >
-          <div className="bg-game-teal text-game-dark px-4 py-3 rounded-lg shadow-2xl flex items-center justify-between gap-3 border-4 border-game-dark">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-black/20 flex items-center justify-center flex-shrink-0 border border-game-dark/20">
-                <CheckCircle2 className="w-5 h-5" />
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-display tracking-[0.2em] uppercase opacity-60 mb-0.5">
+                  {errorMsg ? 'تنبيه بالنظام' : 'عملية ناجحة'}
+                </p>
+                <p className="text-sm font-body font-bold leading-tight truncate">
+                  {errorMsg || successMsg}
+                </p>
               </div>
-              <p className="text-sm font-display tracking-widest leading-tight text-right">{successMsg}</p>
+              <button 
+                onClick={() => { setErrorMsg(null); setSuccessMsg(null); }} 
+                className="w-8 h-8 rounded-lg hover:bg-black/5 flex items-center justify-center transition-colors"
+                dir="ltr"
+              >
+                <X className="w-4 h-4 opacity-40 hover:opacity-100" />
+              </button>
             </div>
-            <button onClick={() => setSuccessMsg(null)} className="p-1.5 hover:bg-black/10 rounded-md">
-              <X className="w-5 h-5" />
-            </button>
+            
+            <motion.div 
+               initial={{ width: '100%' }}
+               animate={{ width: '0%' }}
+               transition={{ duration: 4, ease: "linear" }}
+               onAnimationComplete={() => { setErrorMsg(null); setSuccessMsg(null); }}
+               className={`h-1 rounded-full ${errorMsg ? 'bg-black/20' : 'bg-white/20'}`}
+            />
           </div>
         </motion.div>
       )}
@@ -2290,10 +2431,10 @@ const App = () => {
           />
           <div 
             dir="rtl" 
-            className="w-full h-full flex flex-col font-body overflow-x-hidden overflow-y-auto smooth-scroll select-none"
+            className="w-full h-full flex flex-col font-body overflow-x-hidden overflow-y-auto smooth-scroll select-none custom-scrollbar"
           >
             <div
-              className="max-w-md w-full text-center mx-auto py-8 px-6 pt-24 min-h-screen flex flex-col justify-center items-center"
+              className="max-w-md w-full text-center mx-auto py-8 px-6 pt-16 min-h-screen flex flex-col justify-center items-center"
             >
               <div className="mb-8"></div>
             
@@ -2356,16 +2497,18 @@ const App = () => {
                       <motion.button
                         whileTap={{ scale: 0.94 }}
                         onClick={() => setAppState('store')}
-                        className="flex-1 py-3 bg-white/5 backdrop-blur-md border border-white/10 text-game-cream/80 hover:bg-white/10 hover:text-white hover:border-white/20 rounded-lg font-display text-lg sm:text-xl transition-all flex items-center justify-center gap-2 outline-none transform-gpu"
+                        className="flex-1 py-3 bg-white/5 backdrop-blur-md border border-white/10 text-game-cream/80 hover:bg-white/10 hover:text-white hover:border-white/20 rounded-lg font-display transition-all flex items-center justify-center outline-none transform-gpu"
+                        title="المتجر"
                       >
-                        <ShoppingCart className="w-4 h-4 sm:w-5 sm:h-5" /> المتجر
+                        <ShoppingCart className="w-5 h-5" />
                       </motion.button>
                       <motion.button
                         whileTap={{ scale: 0.94 }}
                         onClick={() => setAppState('profile')}
-                        className="flex-1 py-3 bg-white/5 backdrop-blur-md border border-white/10 text-game-cream/80 hover:bg-white/10 hover:text-white hover:border-white/20 rounded-lg font-display text-lg sm:text-xl transition-all flex items-center justify-center gap-2 outline-none transform-gpu"
+                        className="flex-1 py-3 bg-white/5 backdrop-blur-md border border-white/10 text-game-cream/80 hover:bg-white/10 hover:text-white hover:border-white/20 rounded-lg font-display transition-all flex items-center justify-center outline-none transform-gpu"
+                        title="الحقيبة الشخصية"
                       >
-                        <User className="w-4 h-4 sm:w-5 sm:h-5" /> حسابي
+                        <Backpack className="w-5 h-5" />
                       </motion.button>
                     </div>
                   </div>
@@ -2374,9 +2517,9 @@ const App = () => {
                 {menuTab === 'online' && (
                   <div
                     key="online"
-                    className="flex flex-col gap-5 w-full max-w-[340px] mx-auto px-2 relative"
+                    className="flex flex-col gap-5 w-full max-w-[400px] mx-auto px-4 relative"
                   >
-                    <div className="sticky top-24 z-40 flex justify-end w-full mb-2 px-4">
+                    <div className="flex justify-end w-full mb-2">
                        <button
                          onClick={() => setMenuTab('main')}
                          className="flex items-center gap-2 text-game-cream hover:text-white transition-all px-2 py-1"
@@ -2386,7 +2529,8 @@ const App = () => {
                        </button>
                     </div>
 
-                    <div className="relative flex flex-col gap-6">
+                    <div className="bg-slate-800 rounded-3xl shadow-2xl p-5 sm:p-6 overflow-y-auto smooth-scroll max-h-[60vh] sm:max-h-[65vh] relative z-0 border border-white/5 custom-scrollbar">
+                      <div className="relative flex flex-col gap-6">
                         <>
                           {isSearching && (
                             <div
@@ -2394,7 +2538,7 @@ const App = () => {
                             >
                               <Activity className="w-12 h-12 text-game-teal animate-spin mb-4" />
                               <p className="text-game-teal font-display text-lg tracking-widest animate-pulse">جاري البحث عن خصم...</p>
-                              <p className="text-game-offwhite/40 font-body text-xs mt-2 mb-6">يرجى الانتظار، سيتم توجيهك للمباراة تلقائياً</p>
+                              <p className="text-game-offwhite/40 font-body text-xs mt-2 mb-6 text-center px-4">يرجى الانتظار، سيتم توجيهك للمباراة تلقائياً</p>
                               <button 
                                 onClick={cancelSearch} 
                                 className="px-6 py-2 border-2 border-game-red/30 text-game-red hover:bg-game-red hover:text-white rounded-lg font-display text-sm transition-all shadow-md active:scale-95"
@@ -2404,9 +2548,23 @@ const App = () => {
                             </div>
                           )}
 
+                          {isActionLoading && (
+                            <div
+                              className="absolute inset-0 z-50 bg-slate-900/90 backdrop-blur-md flex flex-col items-center justify-center rounded-xl border border-white/10"
+                            >
+                              <div className="relative">
+                                <div className="w-16 h-16 rounded-2xl border-2 border-game-teal/20 animate-[spin_3s_linear_infinite]" />
+                                <Activity className="absolute inset-0 m-auto w-8 h-8 text-game-teal animate-pulse" />
+                              </div>
+                              <p className="text-game-offwhite font-display text-lg mt-6 tracking-widest">جاري إعداد الغرفة...</p>
+                              <p className="text-game-offwhite/30 text-[10px] mt-2 font-body italic text-center">يتم الآن تجهيز الرزم الورقية والاتصال بالخادم</p>
+                            </div>
+                          )}
+
+                          {/* Leaderboard Button */}
                           <div 
                             onClick={() => setAppState('leaderboard')}
-                            className="bg-game-dark/90 border border-yellow-500/20 p-4 rounded-xl shadow-xl cursor-pointer hover:bg-white/5 transition-all group"
+                            className="bg-slate-900/60 border border-yellow-500/20 p-4 rounded-xl shadow-xl cursor-pointer hover:bg-white/5 transition-all group"
                           >
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-3">
@@ -2425,7 +2583,7 @@ const App = () => {
                             </div>
                           </div>
 
-                          <div className="bg-game-dark/80 border border-white/10 p-5 rounded-xl shadow-xl">
+                          <div className="bg-slate-900/60 border border-white/5 p-5 rounded-xl shadow-lg">
                             <div className="flex items-center gap-3 mb-4">
                               <div className="p-1.5 bg-white/5 rounded-lg border border-game-teal/20">
                                 <UserSearch className="w-5 h-5 text-game-teal" />
@@ -2437,14 +2595,14 @@ const App = () => {
                             </div>
                             <button
                                onClick={startQuickMatch}
-                               disabled={isSearching}
+                               disabled={isSearching || isActionLoading}
                                className="w-full py-3 bg-white/10 backdrop-blur-md border border-white/15 text-game-offwhite hover:bg-white/15 hover:border-white/20 rounded-xl font-display text-xl transition-all active:scale-95 disabled:opacity-50 outline-none transform-gpu"
                             >
                               مباراة سريعة
                             </button>
                           </div>
 
-                          <div className="bg-game-dark/80 border border-white/10 p-5 rounded-xl shadow-xl">
+                          <div className="bg-slate-900/60 border border-white/5 p-5 rounded-xl shadow-lg">
                             <div className="flex items-center gap-3 mb-4">
                               <div className="p-1.5 bg-white/5 rounded-lg border border-white/10">
                                 <Users className="w-5 h-5 text-game-offwhite" />
@@ -2457,10 +2615,10 @@ const App = () => {
 
                             <button
                                onClick={createOnlineRoom}
-                               disabled={isSearching}
+                               disabled={isSearching || isActionLoading}
                                className="w-full py-2.5 mb-4 bg-white/10 backdrop-blur-md border border-white/15 text-game-offwhite hover:bg-white/15 hover:border-white/20 rounded-lg font-display text-base transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 outline-none transform-gpu"
                             >
-                              <PlusCircle className="w-4 h-4" /> إنشاء غرفة جديدة
+                               {isActionLoading ? <Activity className="w-4 h-4 animate-spin" /> : <><PlusCircle className="w-4 h-4" /> إنشاء غرفة جديدة</>}
                             </button>
                             
                             <div className="relative flex items-center mb-4">
@@ -2477,7 +2635,7 @@ const App = () => {
                                  onChange={(e) => setRoomIdInput(e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 4))}
                                  className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-center text-2xl font-mono text-game-offwhite focus:outline-none focus:border-game-teal/50 focus:bg-white/10 transition-all placeholder:text-white/10 uppercase tracking-[0.2em]"
                                  maxLength={4}
-                                 disabled={isSearching}
+                                 disabled={isSearching || isActionLoading}
                                  dir="ltr"
                               />
                               <AnimatePresence>
@@ -2487,16 +2645,17 @@ const App = () => {
                                     animate={{ opacity: 1, x: 0, scale: 1 }}
                                     exit={{ opacity: 0, x: 10, scale: 0.9 }}
                                     onClick={joinOnlineRoom}
-                                    disabled={isSearching}
+                                    disabled={isSearching || isActionLoading}
                                     className="absolute left-1.5 top-1.5 bottom-1.5 px-6 bg-game-teal text-game-dark hover:bg-emerald-400 rounded-lg font-display text-sm transition-all active:scale-95 shadow-lg flex items-center justify-center z-10"
                                   >
-                                    دخول
+                                    {isActionLoading ? <Activity className="w-4 h-4 animate-spin" /> : 'دخول'}
                                   </motion.button>
                                 )}
                               </AnimatePresence>
                             </div>
                           </div>
                         </>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -2504,9 +2663,9 @@ const App = () => {
                 {menuTab === 'local' && (
                   <div
                     key="local"
-                    className="flex flex-col gap-6 w-full max-w-[340px] mx-auto px-2 relative"
+                    className="flex flex-col gap-5 w-full max-w-[400px] mx-auto px-4 relative"
                   >
-                    <div className="sticky top-24 z-40 flex justify-end w-full mb-2 px-4">
+                    <div className="flex justify-end w-full mb-2">
                        <button
                          onClick={() => setMenuTab('main')}
                          className="flex items-center gap-2 text-game-cream hover:text-white transition-all px-2 py-1"
@@ -2516,11 +2675,12 @@ const App = () => {
                        </button>
                     </div>
 
-                    <div className="relative flex flex-col gap-6">
-                      {connectionStatus === 'CONNECTING' && (
-                        <div
-                          className="absolute inset-0 z-50 bg-black/90 flex flex-col items-center justify-center rounded-xl border border-white/10"
-                        >
+                    <div className="bg-slate-800 rounded-3xl shadow-2xl p-5 sm:p-6 overflow-y-auto smooth-scroll max-h-[60vh] sm:max-h-[65vh] relative z-0 border border-white/5 custom-scrollbar">
+                      <div className="relative flex flex-col gap-6">
+                        {connectionStatus === 'CONNECTING' && (
+                          <div
+                            className="absolute inset-0 z-50 bg-black/90 flex flex-col items-center justify-center rounded-xl border border-white/10"
+                          >
                           <div className="w-10 h-10 rounded-full border-2 border-white/10 border-t-white animate-spin mb-4"></div>
                           <p className="text-game-offwhite font-display text-lg tracking-widest animate-pulse">جاري الاتصال...</p>
                           <button 
@@ -2538,73 +2698,74 @@ const App = () => {
                       )}
 
                       {/* Host Section */}
-                    <div className="bg-game-dark/90 border border-white/10 p-6 rounded-xl shadow-2xl">
-                      <div className="flex items-center justify-between mb-5">
-                        <div className="flex items-center gap-3">
+                      <div className="bg-slate-900/60 border border-white/10 p-5 rounded-xl shadow-lg">
+                        <div className="flex items-center justify-between mb-5">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-white/5 rounded-lg border border-white/10">
+                              <NetworkIcon className="w-5 h-5 text-game-offwhite" />
+                            </div>
+                            <div className="text-right">
+                              <h3 className="text-game-cream font-display text-lg tracking-widest mt-1 leading-none">استضافة لعبة</h3>
+                              <p className="text-[10px] text-game-cream/40 font-body italic mt-1">حول جهازك إلى خادم</p>
+                            </div>
+                          </div>
+                          <button 
+                            onClick={fetchIp}
+                            className="p-2 hover:bg-white/5 rounded-md transition-colors text-game-cream/40 hover:text-game-teal border border-transparent hover:border-game-teal/30"
+                            title="تحديث الـ IP"
+                          >
+                            <Bug className="w-4 h-4" />
+                          </button>
+                        </div>
+                        
+                        <button
+                          onClick={hostGame}
+                          className="w-full py-3 bg-white/10 backdrop-blur-md border border-white/15 text-game-offwhite hover:bg-white/15 hover:border-white/20 rounded-xl font-display text-xl transition-all active:scale-95 flex items-center justify-center gap-2 outline-none transform-gpu"
+                        >
+                          بدء الاستضافة
+                        </button>
+                        
+                        <p className="text-[10px] text-game-cream/40 text-center mt-3 px-2 leading-relaxed opacity-70 font-body italic">
+                          سيظهر الـ IP الخاص بك للاعبين الآخرين على نفس الشبكة للاتصال بك.
+                        </p>
+                      </div>
+
+                      {/* Join Section */}
+                      <div className="bg-slate-900/60 border border-white/10 p-5 rounded-xl shadow-lg">
+                        <div className="flex items-center gap-3 mb-5">
                           <div className="p-2 bg-white/5 rounded-lg border border-white/10">
-                            <NetworkIcon className="w-5 h-5 text-game-offwhite" />
+                            <PlugZap className="w-5 h-5 text-game-offwhite" />
                           </div>
                           <div className="text-right">
-                            <h3 className="text-game-cream font-display text-lg tracking-widest">استضافة لعبة</h3>
-                            <p className="text-[10px] text-game-cream/40 font-body italic">حول جهازك إلى خادم محلي</p>
+                            <h3 className="text-game-cream font-display text-lg tracking-widest mt-1 leading-none">انضمام لصديق</h3>
+                            <p className="text-[10px] text-game-cream/40 font-body italic mt-1">الاتصال بجهاز صديقك عبر الـ IP</p>
                           </div>
                         </div>
-                        <button 
-                          onClick={fetchIp}
-                          className="p-2 hover:bg-game-bg rounded-md transition-colors text-game-cream/40 hover:text-game-teal border border-transparent hover:border-game-teal/30"
-                          title="تحديث الـ IP"
-                        >
-                          <Bug className="w-4 h-4" />
-                        </button>
-                      </div>
-                      
-                      <button
-                        onClick={hostGame}
-                        className="w-full py-3.5 bg-white/15 backdrop-blur-md border border-white/20 text-game-offwhite hover:bg-white/20 hover:border-white/30 rounded-lg font-display text-xl transition-all active:scale-95 flex items-center justify-center gap-2 outline-none transform-gpu"
-                      >
-                        بدء الاستضافة
-                      </button>
-                      
-                      <p className="text-[10px] text-game-cream/40 text-center mt-3 px-2 leading-relaxed opacity-70 font-body italic">
-                        سيظهر الـ IP الخاص بك للاعبين الآخرين على نفس الشبكة للاتصال بك.
-                      </p>
-                    </div>
 
-                    {/* Join Section */}
-                    <div className="bg-game-dark/90 border border-white/10 p-6 rounded-xl shadow-2xl">
-                      <div className="flex items-center gap-3 mb-5">
-                        <div className="p-2 bg-white/5 rounded-lg border border-white/10">
-                          <PlugZap className="w-5 h-5 text-game-offwhite" />
-                        </div>
-                        <div className="text-right">
-                          <h3 className="text-game-cream font-display text-lg tracking-widest">انضمام لصديق</h3>
-                          <p className="text-[10px] text-game-cream/40 font-body italic">الاتصال بجهاز صديقك عبر الـ IP</p>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-col gap-3">
-                        <input
-                          type="text"
-                          inputMode="decimal"
-                          placeholder="مثال: 192.168.1.5"
-                          value={ipInput}
-                          onChange={handleIpChange}
-                          className="w-full bg-black/30 border border-white/10 rounded-lg py-2.5 px-3 text-center text-xl font-mono text-game-offwhite focus:outline-none focus:border-game-teal transition-all placeholder:text-white/10"
-                          maxLength={15}
-                          dir="ltr"
-                        />
-                        {isValidIp(ipInput.trim()) && (
-                          <div
-                            style={{ transformOrigin: 'top' }}
-                          >
-                            <button
-                              onClick={joinGame}
-                              className="w-full py-3 bg-white/15 backdrop-blur-md border border-white/20 text-game-offwhite hover:bg-white/20 hover:border-white/30 rounded-lg font-display text-xl transition-all active:scale-95 outline-none transform-gpu"
+                        <div className="flex flex-col gap-3">
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            placeholder="مثال: 192.168.1.5"
+                            value={ipInput}
+                            onChange={handleIpChange}
+                            className="w-full bg-black/40 border border-white/10 rounded-xl py-3 px-4 text-center text-xl font-mono text-game-offwhite focus:outline-none focus:border-game-teal transition-all placeholder:text-white/20 font-bold"
+                            maxLength={15}
+                            dir="ltr"
+                          />
+                          {isValidIp(ipInput.trim()) && (
+                            <div
+                              style={{ transformOrigin: 'top' }}
                             >
-                              اتصال
-                            </button>
-                          </div>
-                        )}
+                              <button
+                                onClick={joinGame}
+                                className="w-full py-3 bg-game-teal/20 backdrop-blur-md border border-game-teal/30 text-game-teal hover:bg-game-teal hover:text-game-dark rounded-xl font-display text-xl transition-all active:scale-95 outline-none transform-gpu shadow-md"
+                              >
+                                اتصال
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -2775,6 +2936,42 @@ const App = () => {
         </div>
         {renderDebugUI()}
       </>
+    );
+  }
+
+  if (roomState.gameState === 'opponentLeft') {
+    return (
+      <div className="fixed inset-0 w-full h-full wood-texture flex items-center justify-center p-4 z-50">
+        <motion.div 
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="bg-game-dark/95 p-8 rounded-2xl border-2 border-game-teal shadow-2xl max-w-sm w-full text-center"
+        >
+          <div className="w-20 h-20 bg-game-teal/20 rounded-full flex items-center justify-center mx-auto mb-6">
+            <UserMinus className="w-10 h-10 text-game-teal" />
+          </div>
+          <h2 className="text-3xl font-display text-game-teal mb-2">انسحاب الخصم!</h2>
+          <p className="text-game-offwhite/80 mb-6">لقد غادر الخصم اللعبة. أنت الفائز تلقائياً!</p>
+          
+          <div className="bg-white/5 p-4 rounded-xl border border-white/10 mb-8 flex justify-around">
+            <div className="text-center">
+              <div className="text-[10px] text-game-offwhite/40 uppercase tracking-widest mb-1">الذهب</div>
+              <div className="text-xl font-bold text-yellow-400">+15</div>
+            </div>
+            <div className="text-center">
+              <div className="text-[10px] text-game-offwhite/40 uppercase tracking-widest mb-1">الخبرة</div>
+              <div className="text-xl font-bold text-game-teal">{roomState.isPublic ? '+50' : '+0'}</div>
+            </div>
+          </div>
+
+          <button
+            onClick={leaveRoom}
+            className="w-full py-4 bg-game-teal text-game-dark rounded-xl font-display text-xl hover:bg-emerald-600 transition-all active:scale-95 shadow-lg"
+          >
+            العودة للقائمة
+          </button>
+        </motion.div>
+      </div>
     );
   }
 
