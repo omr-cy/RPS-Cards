@@ -78,5 +78,13 @@
 - **UX Fix:** Modified `App.tsx` to set `isSearching` to `true` immediately upon clicking online action buttons (Quick Match, Create Room, Join Room). This provides instant visual feedback and prevents the "dead time" where the UI didn't respond while waiting for the initial server connection.
 - **Safety:** Added `.catch()` blocks to reset the searching state if the connection fails, ensuring buttons become interactive again.
 
+## [2026-04-23] SSL Integration & Secure URL Configuration
+**User Prompt:** حطيتهم في backend/certs
+**Actions:**
+- **Security:** Integrated SSL certificates (`private.key`, `certificate.crt`, `ca_bundle.crt`) into `backend/server.ts`.
+- **Backend:** Updated the server initialization to use `https.createServer` and `wss` if certificates are present.
+- **Frontend Configuration:** Updated `src/config.json` and `.env` to use the new domain `rps-cards.duckdns.org` and port `443` for standard HTTPS.
+- **Infrastructure:** Refined `server.ts` to use `BACKEND_PORT` from environment variables, allowing the server to bind directly to port 443 (required for running without Nginx).
+
 
 

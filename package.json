@@ -4,11 +4,11 @@
   "version": "0.1.1",
   "type": "module",
   "scripts": {
+    "dev": "vite --host 0.0.0.0 --port 3000",
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist",
-    "lint": "tsc --noEmit",
-    "start": "NODE_ENV=production tsx backend/server.ts"
+    "lint": "tsc --noEmit"
   },
   "dependencies": {
     "@capacitor/android": "^8.3.0",

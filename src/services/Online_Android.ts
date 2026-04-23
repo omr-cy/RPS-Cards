@@ -29,12 +29,7 @@ export const OnlineAndroidService = {
     } = options;
 
     return new Promise(async (resolve, reject) => {
-      let serverUrl = import.meta.env.VITE_BACKEND_URL || config.ONLINE_SERVER_URL;
-      
-      // Fix: Don't force localhost if we are on Android Native, otherwise it breaks DuckDNS/External links
-      if (!Capacitor.isNativePlatform() && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
-          serverUrl = `ws://${window.location.host}/game-socket`;
-      }
+      let serverUrl = config.ONLINE_SERVER_URL || import.meta.env.VITE_BACKEND_URL;
       
       if (Capacitor.isNativePlatform()) {
         try {

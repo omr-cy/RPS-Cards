@@ -1,5 +1,6 @@
 import express from 'express';
-import { createServer } from 'http';
+import { createServer as createHttpServer } from 'http';
+import { createServer as createHttpsServer } from 'https';
 import { WebSocketServer, WebSocket } from 'ws';
 import path from 'path';
 import fs from 'fs';
@@ -362,8 +363,31 @@ async function startNextRound(roomId: string) {
 
 async function startServer() {
   const app = express();
-  const PORT = process.env.PORT || 3000;
-  const httpServer = createServer(app);
+  const PORT = process.env.BACKEND_PORT || 3000;
+  
+  // SSL Setup
+  const certPath = path.join(__dirname, 'certs', 'certificate.crt');
+  const keyPath = path.join(__dirname, 'certs', 'private.key');
+  const caPath = path.join(__dirname, 'certs', 'ca_bundle.crt');
+
+  let httpServer;
+  if (fs.existsSync(certPath) && fs.existsSync(keyPath)) {
+    try {
+      const options = {
+        key: fs.readFileSync(keyPath),
+        cert: fs.readFileSync(certPath),
+        ca: fs.existsSync(caPath) ? fs.readFileSync(caPath) : undefined
+      };
+      httpServer = createHttpsServer(options, app);
+      console.log("✅ SSL certificates found. Starting HTTPS server.");
+    } catch (err) {
+      console.error("❌ Failed to load SSL certificates, falling back to HTTP:", err);
+      httpServer = createHttpServer(app);
+    }
+  } else {
+    httpServer = createHttpServer(app);
+    console.log("⚠️ SSL certificates not found. Starting HTTP server.");
+  }
 
   const wss = new WebSocketServer({ server: httpServer, path: '/game-socket' });
 
