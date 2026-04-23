@@ -348,38 +348,70 @@ const StoreView = memo(({ coins, ownedThemes, selectedThemeId, onBuy, onSelect, 
   selectedPack: ThemeConfig | null,
   setSelectedPack: (theme: ThemeConfig | null) => void,
   userLevel?: number
-}) => (
+}) => {
+  const [activeTab, setActiveTab] = useState<'level' | 'special'>('level');
+  
+  const filteredThemes = THEMES.filter(theme => 
+    activeTab === 'level' ? theme.requiredLevel <= 8 : theme.requiredLevel > 8
+  );
+
+  return (
   <div 
     dir="rtl" 
-    className="w-full h-full flex flex-col font-body overflow-x-hidden overflow-y-auto smooth-scroll select-none relative pb-10"
+    className="w-full h-full flex flex-col font-body overflow-hidden select-none bg-game-bg/20"
   >
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-y-10 gap-x-4 max-w-4xl mx-auto w-full px-4 sm:px-6 pt-20">
-      {THEMES.map(theme => (
-        <CardPack 
-          key={theme.id}
-          theme={theme}
-          isOwned={ownedThemes.includes(theme.id)}
-          isSelected={selectedThemeId === theme.id}
-          userLevel={userLevel}
-          onClick={() => setSelectedPack(theme)}
-          onSelect={() => onSelect(theme.id)}
-        />
-      ))}
+    <div className="flex-1 overflow-hidden pt-24 pb-6 px-4 sm:px-6 flex flex-col max-w-4xl mx-auto w-full">
+      {/* TABS */}
+      <div className="flex gap-2 px-3 relative z-10 -mb-[1px]">
+        <button 
+          onClick={() => setActiveTab('level')}
+          className={`flex-1 py-3 px-2 rounded-t-2xl font-display text-xs transition-all flex items-center justify-center gap-2 relative ${activeTab === 'level' ? 'bg-slate-800 text-game-teal z-20' : 'bg-slate-800/50 text-game-offwhite/40 hover:bg-slate-800/70 hover:text-game-offwhite z-10 translate-y-1'}`}
+        >
+          ثيمات بالمستوى
+          {activeTab === 'level' && <div className="absolute -bottom-[2px] left-0 right-0 h-[3px] bg-slate-800 z-30" />}
+        </button>
+        
+        <button 
+          onClick={() => setActiveTab('special')}
+          className={`flex-1 py-3 px-2 rounded-t-2xl font-display text-xs transition-all flex items-center justify-center gap-2 relative ${activeTab === 'special' ? 'bg-slate-800 text-game-teal z-20' : 'bg-slate-800/50 text-game-offwhite/40 hover:bg-slate-800/70 hover:text-game-offwhite z-10 translate-y-1'}`}
+        >
+          ثيمات مميزة
+          {activeTab === 'special' && <div className="absolute -bottom-[2px] left-0 right-0 h-[3px] bg-slate-800 z-30" />}
+        </button>
+      </div>
+
+      <div className="flex-1 flex flex-col bg-slate-800 rounded-3xl shadow-2xl overflow-hidden relative z-0">
+        <div className="flex-1 overflow-y-auto smooth-scroll px-5 py-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-y-10 gap-x-4">
+            {filteredThemes.map(theme => (
+              <CardPack 
+                key={theme.id}
+                theme={theme}
+                isOwned={ownedThemes.includes(theme.id)}
+                isSelected={selectedThemeId === theme.id}
+                userLevel={userLevel}
+                onClick={() => setSelectedPack(theme)}
+                onSelect={() => onSelect(theme.id)}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
 
-      <div className={selectedPack ? 'block' : 'hidden'}>
-        <PackPreviewModal 
-          selectedPack={selectedPack} 
-          ownedThemes={ownedThemes} 
-          selectedThemeId={selectedThemeId} 
-          onBuy={onBuy} 
-          onSelect={onSelect} 
-          onClose={() => setSelectedPack(null)} 
-        />
-      </div>
+    <div className={selectedPack ? 'block' : 'hidden'}>
+      <PackPreviewModal 
+        selectedPack={selectedPack} 
+        ownedThemes={ownedThemes} 
+        selectedThemeId={selectedThemeId} 
+        onBuy={onBuy} 
+        onSelect={onSelect} 
+        onClose={() => setSelectedPack(null)} 
+      />
+    </div>
   </div>
-));
-
+);
+});
 const ProfileView = memo(({ playerName, coins, xp = 0, level = 1, ownedThemes, selectedThemeId, onSelect, onBuy, selectedPack, setSelectedPack, onEditName }: {
   playerName: string,
   coins: number,
@@ -2472,18 +2504,20 @@ const App = () => {
                       <motion.button
                         whileTap={{ scale: 0.94 }}
                         onClick={() => setAppState('store')}
-                        className="flex-1 py-3 bg-white/5 backdrop-blur-md border border-white/10 text-game-cream/80 hover:bg-white/10 hover:text-white hover:border-white/20 rounded-lg font-display transition-all flex items-center justify-center outline-none transform-gpu"
+                        className="flex-1 py-3 bg-white/5 backdrop-blur-md border border-white/10 text-game-cream/80 hover:bg-white/10 hover:text-white hover:border-white/20 rounded-lg font-display transition-all flex flex-col items-center justify-center gap-1 outline-none transform-gpu"
                         title="المتجر"
                       >
                         <ShoppingCart className="w-5 h-5" />
+                        <span className="text-[10px] tracking-wider">متجر الثيمات</span>
                       </motion.button>
                       <motion.button
                         whileTap={{ scale: 0.94 }}
                         onClick={() => setAppState('profile')}
-                        className="flex-1 py-3 bg-white/5 backdrop-blur-md border border-white/10 text-game-cream/80 hover:bg-white/10 hover:text-white hover:border-white/20 rounded-lg font-display transition-all flex items-center justify-center outline-none transform-gpu"
+                        className="flex-1 py-3 bg-white/5 backdrop-blur-md border border-white/10 text-game-cream/80 hover:bg-white/10 hover:text-white hover:border-white/20 rounded-lg font-display transition-all flex flex-col items-center justify-center gap-1 outline-none transform-gpu"
                         title="الحقيبة الشخصية"
                       >
                         <Backpack className="w-5 h-5" />
+                        <span className="text-[10px] tracking-wider">الحقيبة الشخصية</span>
                       </motion.button>
                     </div>
                   </div>
@@ -2533,6 +2567,12 @@ const App = () => {
                               </div>
                               <p className="text-game-offwhite font-display text-lg mt-6 tracking-widest">جاري إعداد الغرفة...</p>
                               <p className="text-game-offwhite/30 text-[10px] mt-2 font-body italic text-center">يتم الآن تجهيز الرزم الورقية والاتصال بالخادم</p>
+                              <button 
+                                onClick={() => { setIsActionLoading(false); setAppState('menu'); }}
+                                className="mt-6 px-6 py-2 border-2 border-game-red/30 text-game-red hover:bg-game-red hover:text-white rounded-lg font-display text-sm transition-all shadow-md active:scale-95"
+                              >
+                                إلغاء
+                              </button>
                             </div>
                           )}
 
