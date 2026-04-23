@@ -98,6 +98,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         const parsedUser = JSON.parse(cachedUser);
         setUser(parsedUser);
+        setLoading(false); // Make app interactive immediately with cached data
         addLog('Loaded cached user profile for offline support', 'success');
       } catch (e) {
         console.error('Failed to parse cached user profile:', e);
@@ -106,6 +107,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const storedUserId = localStorage.getItem('cardclash_userId');
     if (storedUserId) {
+      // Fetch in background, don't necessarily block if we already loaded cache
       fetchProfile(storedUserId);
     } else {
       setLoading(false);

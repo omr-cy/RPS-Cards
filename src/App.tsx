@@ -172,7 +172,9 @@ const CardPack = memo(({ theme, isOwned, isSelected, onClick, onSelect, userLeve
           theme.id === 'robot' ? (
             <p className="text-game-teal font-display text-[10px] sm:text-xs">فز على الروبوت لفتحه</p>
           ) : (
-            <p className="text-yellow-500 font-display text-sm">{theme.price} 🪙</p>
+            <p className="text-game-teal font-display text-xs flex items-center gap-1">
+              {theme.price} <Activity className="w-3.5 h-3.5 text-game-teal" />
+            </p>
           )
         ) : (
           <p className={`text-xs font-display ${isSelected ? 'text-game-teal' : 'text-game-offwhite/40'}`}>
@@ -232,7 +234,7 @@ const PackPreviewModal = memo(({ selectedPack, ownedThemes, selectedThemeId, onB
                 onClick={() => onBuy(selectedPack)}
                 className="w-full py-3.5 bg-white/15 backdrop-blur-md border border-white/20 hover:bg-white/20 text-white rounded-xl font-display text-xl transition-all active:scale-95 flex items-center justify-center gap-3 outline-none transform-gpu"
               >
-                شراء المجموعة <span className="text-yellow-400">{selectedPack.price} 🪙</span>
+                شراء المجموعة <span className="text-yellow-400 flex items-center gap-1">{selectedPack.price} <Activity className="w-4 h-4 text-game-teal inline" /></span>
               </button>
             )}
             <button 
@@ -264,8 +266,8 @@ const GlobalNavbar = memo(({ activeTab, setAppState, coins, playerName, isGuest,
           </button>
           <h1 className="text-lg sm:text-xl font-display text-game-offwhite tracking-wider">متجر الثيمات</h1>
           <div className="flex items-center gap-1.5 bg-white/5 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/10 shadow-inner">
-            <span className="text-sm sm:text-base font-display text-game-offwhite font-medium">{coins}</span>
-            <span className="text-yellow-500 text-xs">🪙</span>
+            <span className="text-sm sm:text-base font-display text-game-teal font-medium">{coins}</span>
+            <Activity className="w-3.5 h-3.5 text-game-teal rotate-180" />
           </div>
         </div>
 
@@ -291,9 +293,8 @@ const GlobalNavbar = memo(({ activeTab, setAppState, coins, playerName, isGuest,
                   onClick={() => setAppState('store')}
                   className="flex items-center gap-1 bg-white/5 backdrop-blur-sm px-2.5 py-1 rounded-full border border-white/10 hover:bg-white/10 transition-all group transform-gpu"
                 >
-                  <span className="text-sm sm:text-base font-display text-yellow-500 font-medium group-hover:scale-105 transition-transform">{coins}</span>
-                  <span className="text-xs">🪙</span>
-                  <PlusCircle className="w-3 h-3 text-game-teal ml-0.5 group-hover:rotate-90 transition-transform" />
+                  <span className="text-sm sm:text-base font-display text-game-teal font-medium group-hover:scale-105 transition-transform">{coins}</span>
+                  <Activity className="w-3 h-3 text-game-teal rotate-180" />
                 </button>
               </div>
             </>
@@ -462,9 +463,9 @@ const ProfileView = memo(({ playerName, coins, xp = 0, level = 1, ownedThemes, s
                     <XPBar xp={xp} level={level} />
 
                     <div className="flex items-center gap-2 bg-black/40 px-5 py-1.5 rounded-xl border border-white/5 shadow-inner">
-                      <Trophy className="w-4 h-4 text-yellow-500" />
+                      <Activity className="w-5 h-5 text-game-teal rotate-180" />
                       <div className="flex flex-col items-start leading-none">
-                        <span className="text-xl font-black text-yellow-500 font-display">{coins}</span>
+                        <span className="text-xl font-black text-game-teal font-display">{coins}</span>
                         <span className="text-[9px] text-game-offwhite/40 font-display uppercase tracking-widest">رصيد العملات</span>
                       </div>
                     </div>
@@ -620,7 +621,7 @@ const XPBar = memo(({ xp = 0, level = 1 }: { xp: number, level: number }) => {
           initial={{ width: 0 }}
           animate={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
           transition={{ duration: 1, ease: "easeOut" }}
-          className="h-full bg-gradient-to-r from-game-teal to-cyan-400 rounded-full shadow-[0_0_10px_rgba(45,212,191,0.3)]"
+          className="h-full bg-game-teal rounded-full shadow-[0_0_10px_rgba(45,212,191,0.4)]"
         />
       </div>
     </div>
@@ -829,25 +830,24 @@ const DashboardViewPager = ({ appState, setAppState, onVisibleTabChange, childre
     if (!container || !container.children[idx]) return;
 
     const child = container.children[idx] as HTMLElement;
-    const rect = child.getBoundingClientRect();
-    const containerRect = container.getBoundingClientRect();
     
-    const containerCenter = containerRect.left + containerRect.width / 2;
-    const childCenter = rect.left + rect.width / 2;
+    // Instead of getBoundingClientRect, calculate based on scrollLeft
+    const scrollAbs = Math.abs(container.scrollLeft);
+    const clientWidth = container.clientWidth;
+    const expectedScrollAbs = idx * clientWidth;
 
-    // Use a tolerance (e.g., 50px) to determine if it's already centered
-    if (Math.abs(childCenter - containerCenter) > 20) {
+    if (Math.abs(scrollAbs - expectedScrollAbs) > 10) {
       isProgrammaticScroll.current = true;
       child.scrollIntoView({ 
-        behavior: 'smooth', 
+        behavior: 'auto', 
         inline: 'center', 
         block: 'nearest' 
       });
       
-      // Lock scroll tracking while the smooth scroll animation happens
+      // Lock scroll tracking temporarily (shorter lock since auto is instant)
       setTimeout(() => {
         isProgrammaticScroll.current = false;
-      }, 1000); 
+      }, 50); 
     }
   }, [appState, isReady]);
 
@@ -862,63 +862,38 @@ const DashboardViewPager = ({ appState, setAppState, onVisibleTabChange, childre
     
     const container = e.currentTarget;
 
+    // Use fast native scrollLeft instead of getBoundingClientRect to avoid layout thrashing
+    const scrollAbs = Math.abs(container.scrollLeft);
+    const clientWidth = container.clientWidth;
+    const closestIdx = Math.round(scrollAbs / clientWidth);
+    const visibleTab = closestIdx === 0 ? 'store' : closestIdx === 1 ? 'menu' : 'profile';
+
     // Fast update for Navbar visually
     uiTimeout.current = window.setTimeout(() => {
       if (isProgrammaticScroll.current) return;
-      let closestIdx = 1;
-      let minDistance = Infinity;
-      const containerRect = container.getBoundingClientRect();
-      const containerCenter = containerRect.left + containerRect.width / 2;
-      
-      Array.from(container.children).forEach((child, idx) => {
-        const rect = (child as HTMLElement).getBoundingClientRect();
-        const childCenter = rect.left + rect.width / 2;
-        const distance = Math.abs(childCenter - containerCenter);
-        if (distance < minDistance) {
-          minDistance = distance;
-          closestIdx = idx;
-        }
-      });
-
-      const visibleTab = closestIdx === 0 ? 'store' : closestIdx === 1 ? 'menu' : 'profile';
       onVisibleTabChange(visibleTab);
-    }, 10);
+    }, 20);
 
     // Deep debounce for AppState programmatic logic
     scrollTimeout.current = window.setTimeout(() => {
       if (isProgrammaticScroll.current) return;
-
-      let closestIdx = 1;
-      let minDistance = Infinity;
-      const containerRect = container.getBoundingClientRect();
-      const containerCenter = containerRect.left + containerRect.width / 2;
-      
-      Array.from(container.children).forEach((child, idx) => {
-        const rect = (child as HTMLElement).getBoundingClientRect();
-        const childCenter = rect.left + rect.width / 2;
-        const distance = Math.abs(childCenter - containerCenter);
-        if (distance < minDistance) {
-          minDistance = distance;
-          closestIdx = idx;
-        }
-      });
-
-      const newState = closestIdx === 0 ? 'store' : closestIdx === 1 ? 'menu' : 'profile';
-      if (newState !== appState) {
-        setAppState(newState);
+      if (visibleTab !== appState) {
+         setAppState(visibleTab);
       }
-    }, 700);
+    }, 150);
   };
 
   return (
     <div 
       ref={scrollRef}
       onScroll={handleScroll}
-      className={`fixed inset-0 w-full h-full flex overflow-x-auto overflow-y-hidden snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] z-0 wood-texture text-game-cream font-body smooth-scroll`}
+      className={`fixed inset-0 w-full h-full flex overflow-x-auto overflow-y-hidden snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] z-0 wood-texture text-game-cream font-body`}
       dir="rtl"
+      // Remove smooth-scroll class to fix lagging on manual taps
+      style={{ scrollBehavior: 'auto' }}
     >
       {React.Children.toArray(children).map((child, idx) => (
-        <div key={idx} className="w-full h-full shrink-0 snap-center snap-always relative overflow-hidden">
+        <div key={idx} className="w-full h-full shrink-0 snap-center snap-always relative overflow-hidden transform-gpu">
           {child}
         </div>
       ))}
@@ -2434,7 +2409,7 @@ const App = () => {
             className="w-full h-full flex flex-col font-body overflow-x-hidden overflow-y-auto smooth-scroll select-none custom-scrollbar"
           >
             <div
-              className="max-w-md w-full text-center mx-auto py-8 px-6 pt-16 min-h-screen flex flex-col justify-center items-center"
+               className={`w-full text-center mx-auto py-8 sm:px-6 px-4 pt-16 min-h-screen flex flex-col justify-center items-center transition-all duration-300 ${menuTab === 'main' ? 'max-w-md' : 'max-w-[550px]'}`}
             >
               <div className="mb-8"></div>
             
@@ -2517,7 +2492,7 @@ const App = () => {
                 {menuTab === 'online' && (
                   <div
                     key="online"
-                    className="flex flex-col gap-5 w-full max-w-[400px] mx-auto px-4 relative"
+                    className="flex flex-col gap-5 w-full mx-auto relative"
                   >
                     <div className="flex justify-end w-full mb-2">
                        <button
@@ -2529,7 +2504,7 @@ const App = () => {
                        </button>
                     </div>
 
-                    <div className="bg-slate-800 rounded-3xl shadow-2xl p-5 sm:p-6 overflow-y-auto smooth-scroll max-h-[60vh] sm:max-h-[65vh] relative z-0 border border-white/5 custom-scrollbar">
+                    <div className="p-5 sm:p-6 overflow-y-auto smooth-scroll max-h-[75vh] sm:max-h-[85vh] relative z-0 custom-scrollbar">
                       <div className="relative flex flex-col gap-6">
                         <>
                           {isSearching && (
@@ -2663,7 +2638,7 @@ const App = () => {
                 {menuTab === 'local' && (
                   <div
                     key="local"
-                    className="flex flex-col gap-5 w-full max-w-[400px] mx-auto px-4 relative"
+                    className="flex flex-col gap-5 w-full mx-auto relative"
                   >
                     <div className="flex justify-end w-full mb-2">
                        <button
@@ -2675,7 +2650,7 @@ const App = () => {
                        </button>
                     </div>
 
-                    <div className="bg-slate-800 rounded-3xl shadow-2xl p-5 sm:p-6 overflow-y-auto smooth-scroll max-h-[60vh] sm:max-h-[65vh] relative z-0 border border-white/5 custom-scrollbar">
+                    <div className="p-5 sm:p-6 overflow-y-auto smooth-scroll max-h-[75vh] sm:max-h-[85vh] relative z-0 custom-scrollbar">
                       <div className="relative flex flex-col gap-6">
                         {connectionStatus === 'CONNECTING' && (
                           <div
@@ -2709,13 +2684,6 @@ const App = () => {
                               <p className="text-[10px] text-game-cream/40 font-body italic mt-1">حول جهازك إلى خادم</p>
                             </div>
                           </div>
-                          <button 
-                            onClick={fetchIp}
-                            className="p-2 hover:bg-white/5 rounded-md transition-colors text-game-cream/40 hover:text-game-teal border border-transparent hover:border-game-teal/30"
-                            title="تحديث الـ IP"
-                          >
-                            <Bug className="w-4 h-4" />
-                          </button>
                         </div>
                         
                         <button
