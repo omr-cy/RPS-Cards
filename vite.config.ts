@@ -64,6 +64,14 @@ export default defineConfig(({mode}) => {
     server: {
       port: 3000,
       host: '0.0.0.0',
+      proxy: {
+        '/remote-api': {
+          target: 'https://rps-cards.duckdns.org',
+          changeOrigin: true,
+          secure: false,
+          rewrite: (path) => path.replace(/^\/remote-api/, '')
+        }
+      }
     },
   };
 });

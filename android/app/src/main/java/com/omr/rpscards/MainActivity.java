@@ -1,4 +1,4 @@
-package com.omr.cardclash;
+package com.omr.rpscards;
 
 import android.os.Bundle;
 import android.view.View;

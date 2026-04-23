@@ -16,6 +16,11 @@ const getBaseApiUrl = () => {
   const vApi = import.meta.env.VITE_API_URL;
   const vBack = import.meta.env.VITE_BACKEND_URL;
   
+  // Use proxy in AI Studio dev environment to bypass browser SSL/CORS issues
+  if (typeof window !== 'undefined' && window.location.hostname.includes('run.app')) {
+    return '/remote-api';
+  }
+
   if (sConfig) return sConfig;
   if (vApi) return vApi;
   if (vBack) return vBack.replace(/^ws(s)?:\/\//, 'http$1://').replace(/\/$/, '');
@@ -573,22 +578,30 @@ const LevelUpModal = memo(({ level, onClose }: { level: number, onClose: () => v
 const LeaderboardView = memo(({ userId, onBack }: { userId: string | null, onBack: () => void }) => {
   const [data, setData] = useState<{ topPlayers: any[], userRank: number | null, userScore: any } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchLeaderboard = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const url = `${API_BASE_URL}/api/leaderboard${userId ? `?userId=${userId}` : ''}`;
+      console.log('Fetching leaderboard from:', url);
+      const res = await fetch(url);
+      if (res.ok) {
+        const json = await res.json();
+        setData(json);
+      } else {
+        setError(`خطأ في المخدم: ${res.status}`);
+      }
+    } catch (err) {
+      console.error('Failed to fetch leaderboard:', err);
+      setError('فشل الاتصال بالمخدم - تأكد من اتصالك بالإنترنت');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchLeaderboard = async () => {
-      try {
-        const url = `${API_BASE_URL}/api/leaderboard${userId ? `?userId=${userId}` : ''}`;
-        const res = await fetch(url);
-        if (res.ok) {
-          const json = await res.json();
-          setData(json);
-        }
-      } catch (err) {
-        console.error('Failed to fetch leaderboard:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchLeaderboard();
   }, [userId]);
 
@@ -597,6 +610,21 @@ const LeaderboardView = memo(({ userId, onBack }: { userId: string | null, onBac
       <div className="w-full h-full flex flex-col items-center justify-center space-y-4">
         <Activity className="w-8 h-8 text-game-teal animate-spin" />
         <p className="text-game-offwhite/50 font-display">جاري تحميل لوحة الصدارة...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center space-y-4 p-6 text-center">
+        <XCircle className="w-12 h-12 text-red-500" />
+        <p className="text-game-offwhite font-display text-lg">{error}</p>
+        <button 
+          onClick={fetchLeaderboard}
+          className="bg-game-teal text-white px-6 py-2 rounded-lg font-bold shadow-lg"
+        >
+          إعادة المحاولة
+        </button>
       </div>
     );
   }

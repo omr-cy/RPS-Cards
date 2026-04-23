@@ -1,4 +1,4 @@
-package com.omr.cardclash;
+package com.omr.rpscards;
 
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
