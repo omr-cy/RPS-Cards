@@ -800,7 +800,10 @@ async function startServer() {
           if (Object.keys(room.players).length === 0) {
             delete rooms[rid];
           } else {
-            room.gameState = 'waiting';
+            // Only go to waiting if we were playing. If gameOver, stay in gameOver.
+            if (room.gameState !== 'gameOver') {
+              room.gameState = 'waiting';
+            }
             broadcastToRoom(rid, { type: 'error_msg', msg: 'الخصم غادر الغرفة' });
             broadcastToRoom(rid, { type: 'room_state', state: room });
           }

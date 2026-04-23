@@ -51,4 +51,32 @@
 **Actions:**
 - **UI:** Optimized the theme library grid in `ProfileView` for tablet and large screens by adding a fifth column for larger viewports (`grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5`) to improve grid density and aesthetic utilization of space.
 
+## [2026-04-22] Font Optimization and Build Error Fix
+**User Prompt:** انا حملت كل الفونتس اللي اللعبة محتاجاها في public/fonts / Fix the following errors: Error: ENOENT
+**Actions:**
+- **Performance:** Relocated all required fonts to local `public/fonts` and updated `src/index.css` to use `@font-face` for loading local fonts instead of Google Fonts CDN.
+- **Fix:** Fixed build error `ENOENT: no such file or directory, stat '/app/applet/dist/index.html'` by successfully running `install_applet_dependencies` and `npx vite build` to generate the required build output in `dist/`.
+- **UI:** Standardized the matchmaking loading waiting screen spinner by replacing it with the `Activity` icon from `lucide-react` for visual consistency.
+
+## [2026-04-23] Connection System Refactoring Completion
+**User Prompt:** اعمل اللي في TODO
+**Actions:**
+- **Refactoring:** Fully refactored the networking logic from `App.tsx` into dedicated service files: `src/services/Lan_Android.ts` for local network play and `src/services/Online_Android.ts` for online WebSocket-based play.
+- **Cleanup:** Cleaned up `App.tsx` by replacing inline logic with service method calls, reducing the file's complexity and improving maintainability.
+- **Verification:** Verified the fix for a corrupted code block in `App.tsx` and confirmed the app builds and lints successfully.
+
+## [2026-04-23] Online Match Cleanup & Lobby Bug Fix
+**User Prompt:** في اللعب عبر الانترنت عندما ينبهي الجيم احيانا يظهر لي كود انشاء غرفة جديد ممكن تحاول تعرف ايه السبب وكيفية الاصلاح
+**Actions:**
+- **Bug Fix (Server):** Modified `backend/server.ts` to prevent resetting the room state to `waiting` if the game is already in `gameOver` when a player disconnects. This keeps the remaining player on the results screen.
+- **UI Improvement (Client):** Updated the `waiting` state UI in `App.tsx` to hide room codes during public matches, providing a cleaner message instead of showing internal room IDs that could confuse players.
+- **Consistency:** Ensured that players in public matches are given the option to find a new match immediately if the current one ends or the opponent leaves.
+
+## [2026-04-23] Instant Feedback for Online Actions
+**User Prompt:** طيب عند الضغط للعب العشواي او بحث عن خصم اللعبة بتقعد شوية وبعدها بتفتح شاشة التحميل هل في حل لتحسين هذا
+**Actions:**
+- **UX Fix:** Modified `App.tsx` to set `isSearching` to `true` immediately upon clicking online action buttons (Quick Match, Create Room, Join Room). This provides instant visual feedback and prevents the "dead time" where the UI didn't respond while waiting for the initial server connection.
+- **Safety:** Added `.catch()` blocks to reset the searching state if the connection fails, ensuring buttons become interactive again.
+
+
 

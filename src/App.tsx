@@ -38,6 +38,8 @@ export const LocalServer = registerPlugin<LocalServerPlugin>('LocalServer');
 
 import { assetPreloader } from './lib/preloader';
 import { THEMES, getTheme, getCardImagePath, getThemeBackIcon, ThemeConfig, CardType } from './themes';
+import { LanAndroidService } from './services/Lan_Android';
+import { OnlineAndroidService } from './services/Online_Android';
 
 // Removed local LogEntry interface
 
@@ -616,23 +618,6 @@ const LeaderboardView = memo(({ userId, onBack }: { userId: string | null, onBac
       </header>
 
       <div className="flex-1 w-full max-w-md mx-auto space-y-6 pt-28 pb-24 px-4 overflow-y-auto smooth-scroll">
-        {data?.userRank && (
-        <div className="bg-game-teal/10 border border-game-teal/30 p-4 rounded-2xl flex items-center justify-between shadow-xl">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-game-teal rounded-xl flex items-center justify-center font-display text-xl text-white shadow-lg">
-              #{data.userRank}
-            </div>
-            <div className="text-right">
-              <p className="text-xs text-game-teal font-display uppercase tracking-wider">ترتيبك الحالي</p>
-              <p className="text-lg text-white font-bold leading-none mt-1">أنت الآن في المركز الـ {data.userRank}</p>
-            </div>
-          </div>
-          <div className="text-left">
-            <p className="text-xl font-display text-game-teal">{data.userScore?.xp || 0} XP</p>
-          </div>
-        </div>
-      )}
-
       <div className="space-y-3">
         {data?.topPlayers.map((player: any, idx: number) => {
           const isTop3 = idx < 3;
@@ -1546,171 +1531,65 @@ const App = () => {
   }, []);
 
   const hostGame = async () => {
-    addLog('Host button clicked', 'info');
-    if (!playerName.trim()) {
-      setErrorMsg('يرجى إدخال اسمك أولاً');
-      return;
-    }
-    if (Capacitor.getPlatform() === 'web') {
-      setErrorMsg('ميزة الاستضافة متاحة فقط في تطبيق الأندرويد');
-      return;
-    }
-    try {
-      await LocalServer.startServer({ port: config.LAN_PORT });
-      // Native will send ROOM_READY when server is started
-    } catch (e) {
-      addLog(`Host failed: ${e}`, 'error');
-      setErrorMsg('فشل بدء السيرفر');
-    }
+    await LanAndroidService.hostGame(playerName, addLog, setErrorMsg);
   };
 
-  const isValidIp = (ip: string) => {
-    return /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(ip);
-  };
+  const isValidIp = (ip: string) => LanAndroidService.isValidIp(ip);
 
   const handleIpChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value;
-    // Convert Arabic numerals to English numerals
-    value = value.replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d).toString());
-    // Remove any character that is not a digit or a dot
-    value = value.replace(/[^0-9.]/g, '').slice(0, 15);
-    setIpInput(value);
+    setIpInput(LanAndroidService.handleIpChange(e.target.value));
   };
 
   const joinGame = async () => {
-    if (!isValidIp(ipInput.trim())) {
-      setErrorMsg('يرجى إدخال عنوان IP صحيح');
-      return;
-    }
-    if (Capacitor.getPlatform() === 'web') {
-      setErrorMsg('ميزة الانضمام متاحة فقط في تطبيق الأندرويد');
-      return;
-    }
-    try {
-      await LocalServer.connectToServer({ ip: ipInput.trim(), port: config.LAN_PORT });
-      // Native will send ROOM_READY after handshake is verified
-    } catch (e) {
-      addLog(`Join failed: ${e}`, 'error');
-      setErrorMsg('فشل الاتصال بالسيرفر');
-    }
+    await LanAndroidService.joinGame(ipInput, addLog, setErrorMsg);
   };
 
   const connectToOnline = (action?: any): Promise<WebSocket | void> => {
-    return new Promise(async (resolve, reject) => {
-      let serverUrl = import.meta.env.VITE_BACKEND_URL || config.ONLINE_SERVER_URL;
-      
-      // Fix: Don't force localhost if we are on Android Native, otherwise it breaks DuckDNS/External links
-      if (!Capacitor.isNativePlatform() && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
-          serverUrl = `ws://${window.location.host}/game-socket`;
-      }
-      
-      if (Capacitor.isNativePlatform()) {
-        try {
-          addLog(`Connecting NATIVELY to online server: ${serverUrl}`, 'info');
-          if (action) onlineActionRef.current = action;
-          await LocalServer.connectToServer({ url: serverUrl, isOnline: true });
-          resolve();
-        } catch (e) {
-          addLog(`Native online connection failed: ${e}`, 'error');
-          setErrorMsg('فشل الاتصال عبر النيتف');
-          reject(e);
-        }
-        return;
-      }
-
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        if (action) ws.send(JSON.stringify(action));
-        resolve(ws);
-        return;
-      }
-      
-      addLog(`Connecting to online server: ${serverUrl}`, 'info');
-      const socket = new WebSocket(serverUrl);
-      
-      const timeout = setTimeout(() => {
-        if (socket.readyState !== WebSocket.OPEN) {
-          socket.close();
-          addLog('Connection timeout', 'error');
-          setErrorMsg('انتهت مهلة المزامنة - تأكد من تشغيل السيرفر');
-          reject(new Error('Timeout'));
-        }
-      }, 5000);
-
-      socket.onopen = () => {
-        clearTimeout(timeout);
-        addLog('Connected to Cloud Server', 'success');
-        setWs(socket);
-        setConnectionStatus('CONNECTION_VERIFIED');
-        if (action) socket.send(JSON.stringify(action));
-        resolve(socket);
-      };
-      
-      socket.onerror = (e) => {
-        addLog(`WebSocket error: ${JSON.stringify(e)}`, 'error');
-        setErrorMsg('فشل الاتصال بسيرفر اللعب عبر الإنترنت');
-        reject(e);
-      };
-      
-      socket.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.type === 'PING') {
-            socket.send(JSON.stringify({ type: 'PONG' }));
-            return;
-          }
-          handleOnlineMessage(data);
-        } catch(err) {
-          addLog(`Received non-JSON message: ${event.data}`, 'info');
-        }
-      };
-      
-      socket.onclose = () => {
-        addLog('Disconnected from Cloud Server', 'info');
-        setWs(null);
-        setConnectionStatus('DISCONNECTED');
-        setIsSearching(false);
-        if (appStateRef.current === 'inRoom' && roleRef.current === 'ONLINE') {
-          setAppState('menu');
-          setRoomId(null);
-          setRoomState(null);
-          setRole('NONE');
-          setErrorMsg('تم قطع الاتصال بالسيرفر');
-        }
-      };
+    return OnlineAndroidService.connectToOnline({
+      action,
+      ws,
+      setWs,
+      addLog,
+      setErrorMsg,
+      setConnectionStatus,
+      setIsSearching,
+      handleOnlineMessage,
+      onlineActionRef,
+      appStateRef,
+      roleRef,
+      setAppState,
+      setRoomId,
+      setRoomState,
+      setRole
     });
   };
 
   const handleOnlineMessage = (data: any) => {
-      if (data.type === 'matchmaking_status') {
-        setIsSearching(true);
-      } else if (data.type === 'match_found' || data.type === 'joined_room_success' || data.type === 'room_created') {
-        setIsSearching(false);
-        setRole('ONLINE');
-        setRoomId(data.roomId);
-        if (data.roomCode) setRoomId(data.roomCode);
-        setAppState('inRoom');
-      } else if (data.type === 'room_state') {
-        setRoomState(data.state);
-        setRoomId(data.state.id);
-        if (appStateRef.current !== 'inRoom') setAppState('inRoom');
-      } else if (data.type === 'error_msg') {
-        setErrorMsg(data.msg);
-        setIsSearching(false);
-      } else if (data.type === 'level_up') {
-        setShowLevelUp(data.newLevel);
-        refreshProfile();
-      }
+    OnlineAndroidService.handleOnlineMessage(data, {
+      setIsSearching,
+      setRole,
+      setRoomId,
+      setAppState,
+      setRoomState,
+      setErrorMsg,
+      setShowLevelUp,
+      refreshProfile,
+      appStateRef
+    });
   };
 
   const startQuickMatch = () => {
     if (!playerNameRef.current.trim()) return setErrorMsg('يرجى إدخال اسمك أولاً');
+    setIsSearching(true);
     connectToOnline({ 
       type: 'quick_match', 
       playerName: playerNameRef.current.trim(), 
       playerId: playerIdRef.current,
       playerLevel: levelRef.current,
       themeId: selectedThemeIdRef.current 
-    }).catch(() => {});
+    }).catch(() => {
+      setIsSearching(false);
+    });
   };
 
   const cancelSearch = () => {
@@ -1720,24 +1599,30 @@ const App = () => {
 
   const createOnlineRoom = () => {
     if (!playerNameRef.current.trim()) return setErrorMsg('يرجى إدخال اسمك أولاً');
+    setIsSearching(true);
     connectToOnline({ 
       type: 'create_room', 
       playerName: playerNameRef.current.trim(), 
       playerId: playerIdRef.current,
       themeId: selectedThemeIdRef.current 
-    }).catch(() => {});
+    }).catch(() => {
+      setIsSearching(false);
+    });
   };
 
   const joinOnlineRoom = () => {
     if (!roomIdInput.trim()) return setErrorMsg('يرجى إدخال رمز الغرفة');
     if (!playerNameRef.current.trim()) return setErrorMsg('يرجى إدخال اسمك أولاً');
+    setIsSearching(true);
     connectToOnline({ 
       type: 'join_room_by_code', 
       roomCode: roomIdInput.trim(), 
       playerName: playerNameRef.current.trim(), 
       playerId: playerIdRef.current,
       themeId: selectedThemeIdRef.current 
-    }).catch(() => {});
+    }).catch(() => {
+      setIsSearching(false);
+    });
   };
 
   const createBotRoom = () => {
@@ -2493,7 +2378,7 @@ const App = () => {
                             <div
                               className="absolute inset-0 z-50 bg-black/95 flex flex-col items-center justify-center rounded-xl border border-game-teal/30 shadow-[0_0_30px_rgba(20,184,166,0.15)]"
                             >
-                              <div className="w-12 h-12 rounded-full border-2 border-game-teal/20 border-t-game-teal animate-spin mb-4"></div>
+                              <Activity className="w-12 h-12 text-game-teal animate-spin mb-4" />
                               <p className="text-game-teal font-display text-lg tracking-widest animate-pulse">جاري البحث عن خصم...</p>
                               <p className="text-game-offwhite/40 font-body text-xs mt-2 mb-6">يرجى الانتظار، سيتم توجيهك للمباراة تلقائياً</p>
                               <button 
@@ -2825,6 +2710,12 @@ const App = () => {
                   <div className="text-2xl font-mono font-black text-game-offwhite select-all">{userIp}</div>
                 </div>
               </>
+            ) : roomState.isPublic ? (
+              <div className="mb-8">
+                <p className="text-game-offwhite/60 text-xs px-6 font-body italic leading-relaxed">
+                  يتم البحث تلقائياً عن خصم جديد للمنافسة!
+                </p>
+              </div>
             ) : (
               <>
                 <p className="text-game-offwhite/60 mb-6 text-xs px-4 font-body italic">شارك كود الغرفة مع صديقك للعب عبر الإنترنت</p>
@@ -2846,12 +2737,12 @@ const App = () => {
               )}
               {role === 'HOST' ? (
                 <button
-                  onClick={() => navigator.clipboard.writeText(userIp)}
+                  onClick={() => navigator.clipboard.writeText(userIp || '')}
                   className="w-full py-4 bg-game-offwhite hover:bg-white text-black rounded-lg font-display text-xl transition-all active:scale-95 flex items-center justify-center gap-2"
                 >
                   <Copy className="w-4 h-4" /> نسخ عنوان الـ IP
                 </button>
-              ) : (
+              ) : !roomState.isPublic && (
                 <button
                   onClick={copyRoomId}
                   className="w-full py-4 bg-game-offwhite hover:bg-white text-black rounded-lg font-display text-xl transition-all active:scale-95 flex items-center justify-center gap-2"
