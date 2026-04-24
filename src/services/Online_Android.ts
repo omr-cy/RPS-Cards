@@ -169,7 +169,7 @@ export const OnlineAndroidService = {
       if (data.roomCode) setRoomId(data.roomCode);
       
       // If we are searching, we wait for room_state to show the opponent
-      if (data.type === 'match_found' || data.type === 'room_created') {
+      if (data.type === 'match_found' || data.type === 'room_created' || data.type === 'joined_room_success') {
         // Keep searching/menu state true till room_state arrival
         setIsSearching(data.type === 'match_found');
       } else {

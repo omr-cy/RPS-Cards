@@ -318,3 +318,15 @@
 **Actions Taken:**
 - Fixed the pre-game UI opponent issue in `src/services/Online_Android.ts`: The logic incorrectly used `localStorage.getItem('cardclash_userId')` (which was null) instead of `cardclash_playerId`. Due to this, the `find` loop defaulted to the first key, causing Player A to see Player A as the opponent, while Player B correctly saw Player A. Using `cardclash_playerId` fixes this.
 - Fixed the play card and play again network logic in `backend/server.ts`: Operations like `play_card` do not send `playerId` in the payload string. Since my previous `connectionId` change evaluated `effectivePlayerId` per-message, it reverted to a randomly generated tracking id, thus failing to locate the correct player object inside the room. I updated `server.ts` to persistently track `currentPlayerId` for the connected client once the user sends it during the room joining/matchmaking phases.
+
+## [2026-04-24] Fix Matchmaking UI, Player Disconnect Logic
+**User Prompt:**
+> When a player exits the game, such as by pressing X, the game crashes for the other player. When the player who exited returns, they appear on the main interface screen, but the frame is not updated until they perform an action, like pressing the global button. One player does not see the screen that displays before the match, which includes the player profiles and their ranks. This screen is visible on the web version but not on the mobile version. The player wants it to be visible on both. It appears this screen is only shown to the player who created the room, but that is incorrect and should not happen. The player who created the room should not be visibly different from other players.
+
+**Actions Taken:**
+- **Crash Fix:** Fixed the `opponentLeft` rendering bypass in `src/App.tsx`. Previously, if the opponent disconnected, the UI falsely fell into a catch-all debug render check because `gameState !== 'opponentLeft'` was missing from the condition. It now accurately displays the "Opponent Left" summary view.
+- **Matchmaking Joiner Issue:** Updated `Online_Android.ts` so `joined_room_success` also halts the state and waits for `room_state` resolution. This allows the player joining a private room to view the Matchmaking Profiles intro screen rather than instantly jumping directly into the game.
+- **State Navigation Issue (`leaveRoom`)**: 
+  - Restructured `leaveRoom()` to send the `leave_room` native action _before_ the Javascript WebSocket explicitly closes, guaranteeing proper server cleanup routines execution.
+  - Removed `setMenuTab('main')` from `leaveRoom()`. Returns no longer force the player back to the primary menu tab, preventing the confusion that made them have to tap the "Online" Globe icon to refresh their interface state context. 
+  - Synchronously mutated `appStateRef` and `roleRef` during exit to prevent asynchronous websocket `onclose` errors from triggering false disconnection toasts.

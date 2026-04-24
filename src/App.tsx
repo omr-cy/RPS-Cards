@@ -2536,25 +2536,12 @@ const App = () => {
     
     addLog('Leaving room and returning to menu...', 'info');
 
-    // 1. Reset UI State First (Immediate feedback)
-    setRoomId(null);
-    setRoomState(null);
-    setAppState('menu');
-    setMenuTab('main');
-    setConnectionStatus('DISCONNECTED');
-    setRole('NONE');
-
-    // Close Web WebSocket if exists
-    if (ws) {
-      ws.close();
-      setWs(null);
-    }
-
-    // 2. Cleanup Native (Background)
+    // Perform Native (Background) Cleanup FIRST before closing the socket natively
     try {
       if (currentRoomId && currentRoomId !== OFFLINE_BOT_ID) {
         if (currentRole !== 'HOST') {
-          sendNativeAction({ type: 'leave_room', roomId: currentRoomId });
+          // Await so it has time to send before WS destroys itself.
+          await sendNativeAction({ type: 'leave_room', roomId: currentRoomId });
         }
       }
       if (Capacitor.isNativePlatform()) {
@@ -2562,6 +2549,21 @@ const App = () => {
       }
     } catch (e) {
       console.warn('Native cleanup failed:', e);
+    }
+
+    // 1. Reset UI State
+    setRoomId(null);
+    setRoomState(null);
+    setAppState('menu');
+    setConnectionStatus('DISCONNECTED');
+    setRole('NONE');
+    roleRef.current = 'NONE';
+    appStateRef.current = 'menu';
+
+    // Close Web WebSocket if exists
+    if (ws) {
+      ws.close();
+      setWs(null);
     }
   };
 
@@ -3462,7 +3464,7 @@ const App = () => {
   const opponent = opponentId ? roomState.players[opponentId] : null;
   const opponentTheme = roomState.isBotRoom ? getTheme('robot') : (opponent?.themeId ? getTheme(opponent.themeId) : getTheme('normal'));
 
-  if (!opponent && !roomState.isBotRoom && roomState.gameState !== 'waiting') return (
+  if (!opponent && !roomState.isBotRoom && roomState.gameState !== 'waiting' && roomState.gameState !== 'opponentLeft') return (
     <div className="fixed inset-0 w-full h-full wood-texture">
       {renderDebugUI()}
     </div>
