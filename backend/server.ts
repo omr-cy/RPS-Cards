@@ -1157,15 +1157,16 @@ async function startServer() {
 
   // Periodic Matchmaking Processor
   setInterval(() => {
-    if (matchmakingQueue.length < 2) return;
+    if (matchmakingQueue.length === 0) return;
 
     const handledIds = new Set<string>();
+    const now = Date.now();
 
     for (let i = 0; i < matchmakingQueue.length; i++) {
       const p1 = matchmakingQueue[i];
       if (handledIds.has(p1.id)) continue;
 
-      const timeInQueue = Date.now() - p1.timeJoined;
+      const timeInQueue = now - p1.timeJoined;
       const allowedDiff = LEVEL_SENSITIVITY + (Math.floor(timeInQueue / SEARCH_EXPANSION_INTERVAL) * LEVEL_SENSITIVITY_EXPANSION);
 
       let bestMatchIdx = -1;
@@ -1204,6 +1205,9 @@ async function startServer() {
         p2.ws.send(JSON.stringify({ type: 'match_found', roomId, roomCode: roomId }));
         startRoundTimer(roomId);
         broadcastToRoom(roomId, { type: 'room_state', state: rooms[roomId] });
+      } else if (timeInQueue > 12000) {
+        handledIds.add(p1.id);
+        p1.ws.send(JSON.stringify({ type: 'error_msg', msg: 'لم يتم العثور على لاعبين في الوقت الحالي، جرب اللعب مع الكمبيوتر' }));
       }
     }
 

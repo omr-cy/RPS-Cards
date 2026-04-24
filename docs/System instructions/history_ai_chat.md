@@ -222,3 +222,9 @@
 - **Legacy Property Handling**: Identified that classic / original user documents lack `coins` and `level` properties locally in MongoDB, causing mathematical errors to evaluate poorly and silently abort when executing `app.post('/api/groups/create')` and `user.level < 5`. Implemented fallback assignments `?? 100` and `?? 1`.
 - **Global Currency Sync:** Confirmed clan creation now securely leverages baseline `coins` value. Synchronized frontend `<GroupsTabContent>` explicitly utilizing `setCoins()` instead of context mutation to trigger real-time balance rendering instantly globally across navigation bars.
 - **Support for Mobile Global Chat:** Clarified that the recent websocket pipeline patch (which proxies native plugin messaging) resolves Android chat streaming effectively!
+
+## [2026-04-24] UI Adjustments & Matchmaking Fixes
+**User Prompt:** Change the cost of registration and activating the team to create a team. Let the cost be a visible label, not a typo... The internet connection for the game is completely broken. I can't play at all. I'm not even getting any matches.
+**Actions:**
+- **Matchmaking Timeout Fallback:** Fixed the "stuck searching" issue by introducing a 12-second timeout inside the `setInterval` processor in `backend/server.ts`. When players matchmake on an empty server without opponents, they receive a graceful exit sequence sending `error_msg` to cancel the UI spinner rather than waiting infinitely.
+- **Improved Clan Creation Design:** Removed the large yellow graphical representation of "1000 Coins" inside `CommunityGroups.tsx`, updating the layout per requests. Adopted the text "إنشاء فريق" (Create Team) for the final confirmation button and explicitly stated "ستكون التكلفة 1000 عملة" underneath it.

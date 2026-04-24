@@ -235,15 +235,10 @@ export const GroupsTabContent = ({ user, ws, groupChatMessages, setGroupChatMess
              <input type="text" maxLength={100} value={desc} onChange={e=>setDesc(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-game-offwhite focus:border-game-teal" placeholder="أفضل اللاعبين العرب..." />
            </div>
            
-           <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-4 flex items-center justify-between mt-4">
-              <div className="flex items-center gap-2 text-yellow-500/80">
-                 <Trophy className="w-4 h-4" />
-                 <span className="text-xs font-display tracking-widest">التكلفة</span>
-              </div>
-              <span className="text-yellow-500 font-display font-black text-lg">1000<span className="text-xs mr-1 opacity-70">Coin</span></span>
-           </div>
-
-           <button onClick={createGroup} className="w-full py-4 bg-game-teal text-game-dark rounded-xl font-display text-base active:scale-95 transition-all shadow-lg shadow-game-teal/20 mt-4">تسجيل وإبراز الفريق</button>
+           <button onClick={createGroup} className="w-full py-4 bg-game-teal text-game-dark rounded-xl font-display text-base active:scale-95 transition-all shadow-lg shadow-game-teal/20 mt-4">إنشاء فريق</button>
+           <p className="text-center text-xs text-game-offwhite/50 mt-3 font-display">
+             ستكون التكلفة 1000 عملة
+           </p>
         </div>
       </div>
     );
