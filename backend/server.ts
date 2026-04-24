@@ -974,7 +974,7 @@ async function startServer() {
 
   wss.on('connection', (ws) => {
     let connectionId = Math.random().toString(36).substring(2, 10);
-    // effectivePlayerId will only be used inside the payload data, connectionId for tracking
+    let currentPlayerId = connectionId;
     console.log(`[WS] New connection attempt. Temp ID: ${connectionId}`);
 
     ws.send(JSON.stringify({ type: 'PING' }));
@@ -984,13 +984,12 @@ async function startServer() {
         const messageString = data.toString();
         const message = JSON.parse(messageString);
         
-        // We still accept user-provided ID for their visible data
-        let effectivePlayerId = connectionId;
         if (message.playerId) {
-          effectivePlayerId = message.playerId;
+          currentPlayerId = message.playerId;
         }
+        let effectivePlayerId = currentPlayerId;
 
-        console.log(`[WS] Message from ${connectionId} (player: ${effectivePlayerId}):`, message.type);
+        console.log(`[WS] Message from connection ${connectionId} (player: ${effectivePlayerId}):`, message.type);
         
         if (message.type === 'PONG') {
           ws.send(JSON.stringify({ type: 'HANDSHAKE_OK' }));
@@ -1133,8 +1132,8 @@ async function startServer() {
     });
 
     ws.on('close', () => {
-      console.log('Online User disconnected:', connectionId);
-      handleDisconnect(connectionId);
+      console.log('Online User disconnected:', currentPlayerId);
+      handleDisconnect(currentPlayerId);
     });
 
     async function handleDisconnect(id: string, specificRoomId?: string) {

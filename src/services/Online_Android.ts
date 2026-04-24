@@ -186,7 +186,7 @@ export const OnlineAndroidService = {
       
       if (isActuallySearching) {
         // Find opponent info
-        const meId = localStorage.getItem('cardclash_userId');
+        const meId = localStorage.getItem('cardclash_playerId');
         const players = data.state.players;
         const opponentId = Object.keys(players).find(id => id !== meId);
         if (opponentId) {

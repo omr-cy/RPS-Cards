@@ -310,3 +310,11 @@
 - Removed the 12-second matchmaking timeout in `backend/server.ts` `matchmakingQueue` loop, allowing for infinite wait times until a match is found or the user manually cancels.
 - Modified `src/services/Online_Android.ts` to delay setting the `matchmakingCanCancel` state to true until 5 seconds after `matchmaking_status` is received.
 - Addressed the architecture limitation: NodeJS WS keeps rooms in memory, so it handles thousands of players but not technically "unlimited."
+
+## [2026-04-24] Fix Pre-game Display and Actions using Persistent Player ID tracking
+**User Prompt:**
+> The server worked well. The server accepted the two players. The two players connected, but one of them had a problem. The pre-game interface, where the opponents see each other's levels, displayed for one player but not the other. This was strange. Also, when the two players connected, neither of them could display their card. Please check the code again and look for logical errors to see what is wrong and what needs to be corrected.
+
+**Actions Taken:**
+- Fixed the pre-game UI opponent issue in `src/services/Online_Android.ts`: The logic incorrectly used `localStorage.getItem('cardclash_userId')` (which was null) instead of `cardclash_playerId`. Due to this, the `find` loop defaulted to the first key, causing Player A to see Player A as the opponent, while Player B correctly saw Player A. Using `cardclash_playerId` fixes this.
+- Fixed the play card and play again network logic in `backend/server.ts`: Operations like `play_card` do not send `playerId` in the payload string. Since my previous `connectionId` change evaluated `effectivePlayerId` per-message, it reverted to a randomly generated tracking id, thus failing to locate the correct player object inside the room. I updated `server.ts` to persistently track `currentPlayerId` for the connected client once the user sends it during the room joining/matchmaking phases.
