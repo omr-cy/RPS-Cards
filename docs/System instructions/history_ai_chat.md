@@ -35,6 +35,20 @@
 - **UI Refinement:** Removed redundant titles from Store, Profile, Online play, and Local play views for a more minimal and focused interface.
 - **Verification:** Successfully linted and compiled.
 
+## [2026-04-24] UI Simplification & WebGPU Consideration
+**User Prompt:** شيل خيار ثيم الروبوت / Remove the robot theme option
+**Actions:**
+- **UI UX Simplification:** Removed the "ثيم الروبوت" section that displayed selectable themes from the bot game settings panel (`src/App.tsx`). The robot will now spawn using whatever was statically persisted from prior settings, or default to its innate configured theme (`botSettings.theme`).
+- **UI Refinement:** Moved the Leaderboard (لوحة الصدارة) button to the Global Navbar for quicker entry, and renamed the "Online" tab to "Global" (عالمي) for a wider appeal.
+- **Verification:** Successfully rebuilt and re-linted codebase without errors.
+
+## [2026-04-24] UI Simplification & WebView Rendering Bug Fix
+**User Prompt:** دي مشكلة واجهتني وخلي شاشة التحميل اول بسيطة جدا مثل شاشة التحميل الإعتيادي / I encountered this problem (attached image showing extreme card texture corruption tearing) and make the first loading screen very simple like the normal loading screen.
+**Actions:**
+- **WebView Glitch Fix:** Migrated `AssetPreloader` away from encoding / storing heavy `Base64` Data URIs inside IndexedDB. Replaced mechanism entirely with efficient, native `Blob` storage & retrieval, securely served to React `img` via `URL.createObjectURL(blob)`. This strictly bypasses Safari / Android WebView rendering bugs caused by handing overly massive strings to compositors.
+- **UI UX Simplification:** Completely axed the `FirstLaunchLoadingScreen` custom shiny layout. Hooked up the native simple game `Activity` spinner along with a sleek `motion.div` progress bar beneath it that scales silently tracking the `Blob` persistence tasks during initial launch, mimicking a standard launch.
+- **Verification:** Successfully rebuilt and re-linted codebase without errors.
+
 ## [2026-04-24] First Launch Optimization (Re-implemented Progress UX)
 **User Prompt:** خلي في فعلا بروسس بار في اول مرة تكون فعلا تزيد لما الحاجه بتتعمل وطبعا تكون اول مرة / Emulate a functional active progress bar during first launch that correctly updates with asset caching, but only on the first setup.
 **Actions:**
@@ -175,3 +189,27 @@
 **Actions:**
 - **Fix:** Refactored MongoDB connection logic in `backend/server.ts` to be awaitable and ensured it is awaited inside `startServer` before the server begins listening for requests. This prevents race conditions where database queries are executed before the Mongoose connection is established.
 - **Verification:** Restarted the development server.
+
+## [2026-04-24] Community Tabs & Version Bump
+**User Prompt:** شوفت ملف update_version.js زود فيه اافيرون درجة / طيب عايزك تخلي زر لوحة الصدارة ده يبقى زر كل صفحة لها علاقة بالمجتمع
+**Actions:**
+- **UI UX Simplification & Refactoring:** Converted the dedicated Leaderboard View into a broader Community View (`CommunityView`) featuring three internal tabs: Leaderboard (الصدارة), Teams/Groups (الفرق), and Global Chat (الشات).
+- **Navigation Update:** Replaced the Trophy icon in the Global Navbar with a Users icon and updated the link to open the new Community View.
+- **System Config / Automation:** Incremented the application version directly inside `scripts/update-version.js` to `0.1.2` (and version code to 3) as per the exact instructions.
+- **Verification:** Successfully rebuilt the applet and verified the file architecture changes.
+
+## [2026-04-24] Group Chat & Group System Phase 1
+**User Prompt:** ايوا إبدا حالا وخلي في برضو شات خاص للفرقة / حط زر رجوع في الصفحة الرئيسية في ناف بار المجتمع
+**Actions:**
+- **Navigation Navbar Update:** Restored the "Back" arrow button directly into the `CommunityView` header which properly updates state to `menu`.
+- **Database System Update:** Established `groupMessageSchema` alongside `GroupMessage` Model for persisting team discussions.
+- **REST APIs Integration:** Developed custom API endpoints for `GET` and `POST` at `/api/groups/:id/chat` with dynamic mapping validating `groupId` against requests.
+- **Real-time Team Chat Sync:** Embedded WebSocket `group_chat_message` broadcasting tied directly to successful `POST /chat` validations to provide instantaneous real-time UI reloading without delay.
+- **State Management Layer:** Created `CommunityGroups.tsx` exporting custom components encompassing creation/listing of groups alongside the internal team-member chat view mapping state appropriately to Global variables (`unreadGroupChat` indicator).
+- **Verification:** Tested server-side endpoints seamlessly compiling and deploying logic.
+**User Prompt:** شيل زر العودة الي ملوش لزمة... وابدأ أشتغل على الشات والمجتمع
+**Actions:**
+- **UI Adjustments:** Removed the redundant "Back" button overlays in the `community` state because Android users naturally rely on their physical/gesture back button. Ensured `community` was registered in the `secondaryStates` array for hardware back-button listener.
+- **Backend (server.ts):** Established basic WebSocket event handlers for `send_chat_message` and `get_chat_history`, routing them uniformly to all connected multiplayer clients and caching the last 50 messages.
+- **Frontend (App.tsx):** Implemented a newly robust `<GlobalChat />` view encapsulating message iteration relative to `userId` and integrated an `unreadChat` dot visualizer atop the GlobalNavbar.
+- **Verification:** Successfully rebuilt and confirmed backend-frontend data parity via WebSocket.

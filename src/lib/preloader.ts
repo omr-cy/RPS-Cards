@@ -23,7 +23,7 @@ const openDB = (): Promise<IDBDatabase> => {
   });
 };
 
-const getFromDB = async (key: string): Promise<string | undefined> => {
+const getFromDB = async (key: string): Promise<Blob | undefined> => {
   const db = await openDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, 'readonly');
@@ -34,7 +34,7 @@ const getFromDB = async (key: string): Promise<string | undefined> => {
   });
 };
 
-const saveToDB = async (key: string, value: string): Promise<void> => {
+const saveToDB = async (key: string, value: Blob): Promise<void> => {
   const db = await openDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE_NAME, 'readwrite');
@@ -57,11 +57,12 @@ class AssetPreloader {
     // Check IndexedDB
     if (!forceNetwork) {
       try {
-        const cached = await getFromDB(url);
-        if (cached) {
-          this.memCache.set(url, cached);
+        const cachedBlob = await getFromDB(url);
+        if (cachedBlob) {
+          const objectUrl = URL.createObjectURL(cachedBlob);
+          this.memCache.set(url, objectUrl);
           this.updateProgress();
-          return cached;
+          return objectUrl;
         }
       } catch (e) {
         console.warn('IDB Read error', e);
@@ -72,24 +73,19 @@ class AssetPreloader {
       const response = await fetch(url);
       const blob = await response.blob();
       
-      const dataUri = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
+      const objectUrl = URL.createObjectURL(blob);
       
-      this.memCache.set(url, dataUri);
+      this.memCache.set(url, objectUrl);
       
       // Save to IDB for subsequent launches
-      saveToDB(url, dataUri).catch(e => console.warn('IDB Write err', e));
+      saveToDB(url, blob).catch(e => console.warn('IDB Write err', e));
       
       this.loadedCount++;
       this.updateProgress();
       
-      return dataUri;
+      return objectUrl;
     } catch (e) {
-      console.warn(`Failed to Base64 preload asset: ${url}`, e);
+      console.warn(`Failed to preload asset: ${url}`, e);
       this.loadedCount++; // Count even on fail so we don't block
       this.updateProgress();
       return url; 
