@@ -973,8 +973,9 @@ async function startServer() {
   });
 
   wss.on('connection', (ws) => {
-    let effectivePlayerId = Math.random().toString(36).substring(2, 10);
-    console.log(`[WS] New connection attempt. Temp ID: ${effectivePlayerId}`);
+    let connectionId = Math.random().toString(36).substring(2, 10);
+    // effectivePlayerId will only be used inside the payload data, connectionId for tracking
+    console.log(`[WS] New connection attempt. Temp ID: ${connectionId}`);
 
     ws.send(JSON.stringify({ type: 'PING' }));
 
@@ -983,12 +984,13 @@ async function startServer() {
         const messageString = data.toString();
         const message = JSON.parse(messageString);
         
-        // Use client-provided ID if available (persistent for registered users)
+        // We still accept user-provided ID for their visible data
+        let effectivePlayerId = connectionId;
         if (message.playerId) {
           effectivePlayerId = message.playerId;
         }
 
-        console.log(`[WS] Message from ${effectivePlayerId}:`, message.type);
+        console.log(`[WS] Message from ${connectionId} (player: ${effectivePlayerId}):`, message.type);
         
         if (message.type === 'PONG') {
           ws.send(JSON.stringify({ type: 'HANDSHAKE_OK' }));
@@ -1131,8 +1133,8 @@ async function startServer() {
     });
 
     ws.on('close', () => {
-      console.log('Online User disconnected:', effectivePlayerId);
-      handleDisconnect(effectivePlayerId);
+      console.log('Online User disconnected:', connectionId);
+      handleDisconnect(connectionId);
     });
 
     async function handleDisconnect(id: string, specificRoomId?: string) {
@@ -1226,15 +1228,6 @@ async function startServer() {
         }
         startRoundTimer(roomId);
         broadcastToRoom(roomId, { type: 'room_state', state: rooms[roomId] });
-      } else if (timeInQueue > 12000) {
-        handledIds.add(p1.id);
-        try {
-          if (p1.ws.readyState === 1) {
-            p1.ws.send(JSON.stringify({ type: 'error_msg', msg: 'لم يتم العثور على لاعبين في الوقت الحالي، جرب اللعب مع الكمبيوتر' }));
-          }
-        } catch (e) {
-          console.error("Failed to send error_msg:", e);
-        }
       }
     }
 

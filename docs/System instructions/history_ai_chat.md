@@ -300,3 +300,13 @@
 **Actions Taken:**
 - Replaced the `Star` icon with the `Brain` icon from `lucide-react` in the `XPBar` component of `src/App.tsx` to represent Experience Points more accurately given the constraints.
 - Updated the `Sparkles` icon to the `Brain` icon in the `LevelUpModal` component to remain consistent with the new XP icon styling.
+
+## [2026-04-24] Fix Socket Connection, Wait Time, and Cancel Button
+**User Prompt:**
+> The server is no longer able to accept two simultaneous connections. The match is unable to start, and the game cannot begin at all. This is a significant issue. I want you to extend the waiting time. Make the waiting time for the player infinite. I mean extend the player's waiting time in the random game. Let the opponent's waiting time be until the user cancels. The cancel button should appear five seconds after the server does not receive a pong. Can the server handle an unlimited number of players to create rooms and play? This is wrong, it's not possible.
+
+**Actions Taken:**
+- Fixed simultaneous connection issue in `backend/server.ts` by generating and storing a unique `connectionId` for tracking websocket connections instead of blindly overwriting connections via the `playerId` payload payload, which caused multiple tabs/players using the same initial config to overwrite each other.
+- Removed the 12-second matchmaking timeout in `backend/server.ts` `matchmakingQueue` loop, allowing for infinite wait times until a match is found or the user manually cancels.
+- Modified `src/services/Online_Android.ts` to delay setting the `matchmakingCanCancel` state to true until 5 seconds after `matchmaking_status` is received.
+- Addressed the architecture limitation: NodeJS WS keeps rooms in memory, so it handles thousands of players but not technically "unlimited."

@@ -152,9 +152,13 @@ export const OnlineAndroidService = {
       setIsSearching(true);
       setShowMatchmakingResult(false);
       setMatchmakingOpponent(null);
-      setMatchmakingCanCancel(true);
+      setMatchmakingCanCancel(false);
+      // Let the cancel button appear after 5 seconds
+      setTimeout(() => {
+        setMatchmakingCanCancel(true);
+      }, 5000);
     } else if (data.type === 'pong' || data.type === 'PONG' || data.type === 'HANDSHAKE_OK') {
-      setMatchmakingCanCancel(true);
+      // do nothing here for the cancel button regarding matchmaking
     } else if (data.type === 'match_found' || data.type === 'joined_room_success' || data.type === 'room_created') {
       setRole('ONLINE');
       setRoomId(data.roomId);
