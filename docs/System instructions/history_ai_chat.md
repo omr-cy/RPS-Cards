@@ -1,4 +1,13 @@
-# 📜 AI Interaction Log
+### [2026-04-24] Android Release Signing Configuration
+**User Prompt:** Configure Android app for professional release signing with consistent keystore to allow updates without re-installation.
+**Actions:**
+- **Documentation:** Created `docs/release_keystore.md` with step-by-step instructions for `keytool` and build commands.
+- **Gradle Fix:** Modified `android/app/build.gradle` to include `signingConfigs` and linked it to the `release` build type.
+- **Workflow:** Defined the expected location for the keystore file at `android/app/release.keystore` and updated Gradle to match the new filename.
+- **Automation:** Updated `.github/workflows/android_build.yml` to build release APK and AAB automatically and upload them to Google Drive (/RPS-Cards_Builds/Release).
+- **Cleanup:** Verified the configuration is ready for production builds (APK & AAB).
+
+ 📜 AI Interaction Log
 
 ## [2026-04-21] XP and Leveling System Integration
 **User Prompt:** أبدأ بأول خطوات في TODO (Phase 1, 2, 3 of XP system)
