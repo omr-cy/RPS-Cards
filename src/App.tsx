@@ -2455,8 +2455,16 @@ const App = () => {
       return <FirstLaunchLoadingScreen progress={assetProgress} />;
     }
     return (
-      <div className="fixed inset-0 w-full h-full bg-[#121212] flex items-center justify-center">
+      <div className="fixed inset-0 w-full h-full bg-[#121212] flex flex-col items-center justify-center gap-4">
         <Activity className="w-10 h-10 text-game-teal animate-spin" />
+        <div className="w-48 h-1.5 bg-white/10 rounded-full overflow-hidden">
+          <motion.div 
+            className="h-full bg-game-teal rounded-full"
+            initial={{ width: 0 }}
+            animate={{ width: `${assetProgress * 100}%` }}
+            transition={{ type: "spring", bounce: 0, duration: 0.2 }}
+          />
+        </div>
       </div>
     );
   }
