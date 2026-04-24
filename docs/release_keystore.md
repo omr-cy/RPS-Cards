@@ -37,8 +37,25 @@ cd android && ./gradlew bundleRelease
 ```
 المسار الناتج: `android/app/build/outputs/bundle/release/app-release.aab`
 
-## 5. الأتمتة عبر GitHub Actions
-تم تحديث ملف `.github/workflows/android_build.yml` ليقوم ببناء كل من APK و AAB (Release) تلقائياً عند الدفع (Push) أو التشغيل اليدوي للـ Workflow. سيتم رفع الملفات الناتجة إلى Google Drive في مجلد `/RPS-Cards_Builds/Release`.
+## 5. الأتمتة عبر GitHub Actions (الطريقة الاحترافية)
 
-## 6. ملاحظة أمنية
-يُفضل عدم رفع ملف الـ `keystore` إلى Github إذا كان المستودع عاماً. لكن بما أنك تستعمل بيئة تطوير خاصة، تأكد من الاحتفاظ بنسخة احتياطية من الملف في مكان آمن (Cloud Storage مثلاً).
+لتجنب رفع ملف الـ Keystore مباشرة إلى Github (مما قد يعرضه للسرقة أو التلف)، يفضل استخدامه كـ **Secret**:
+
+1. **تحويل الملف إلى Base64:**
+   قم بتنفيذ هذا الأمر في جهازك للحصول على نص مشفر للملف:
+   ```bash
+   base64 -w 0 android/app/release.keystore > keystore_base64.txt
+   ```
+2. **إضافة الأسرار (GitHub Secrets):**
+   اذهب إلى إعدادات الريبو في GitHub -> Secrets and variables -> Actions وأضف الأسرار التالية:
+   - `RELEASE_KEYSTORE_BASE64`: الصق محتوى ملف `keystore_base64.txt`.
+   - `RELEASE_STORE_PASSWORD`: كلمة مرور المستودع.
+   - `RELEASE_KEY_ALIAS`: الاسم المستعار (rps-cards-key).
+   - `RELEASE_KEY_PASSWORD`: كلمة مرور المفتاح.
+
+سيقوم الـ Workflow آلياً بفك تشفير الملف واستخدامه أثناء البناء.
+
+## 6. ملاحظة أمنية هامّة
+- **لا تقم أبداً** بمشاركة ملف الـ `keystore` أو كلمات المرور مع أي شخص.
+- إذا فقدت ملف الـ `keystore` أو نسيت كلمة المرور، **لن تتمكن** من تحديث التطبيق على متجر جوجل بلاي نهائياً.
+- تم حذف النسخة التالفة التي تم إنشاؤها سابقاً آلياً، يرجى إنشاء ملفك الخاص ورفعه يدوياً أو استخدامه كـ Secret.

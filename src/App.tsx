@@ -253,11 +253,15 @@ const PackPreviewModal = memo(({ selectedPack, ownedThemes, selectedThemeId, onB
 const PrivateRoomLobbyView = memo(({ 
   isLoading, 
   roomCode, 
-  onCancel 
+  onCancel,
+  isLan,
+  localIp
 }: { 
   isLoading: boolean, 
   roomCode: string | null, 
-  onCancel: () => void 
+  onCancel: () => void,
+  isLan?: boolean,
+  localIp?: string
 }) => {
   return (
     <div className="fixed inset-0 z-[250] wood-texture flex flex-col items-center justify-center p-6 overflow-hidden">
@@ -277,7 +281,9 @@ const PrivateRoomLobbyView = memo(({
             <Activity className="w-12 h-12 text-game-teal animate-spin" />
             <div className="text-center space-y-2">
               <h2 className="text-3xl font-display text-game-offwhite tracking-widest text-shadow-lg">جاري إعداد الغرفة...</h2>
-              <p className="text-game-offwhite/40 font-body text-sm italic">يرجى الانتظار بينما نقوم بفتح بوابات الأونلاين</p>
+              <p className="text-game-offwhite/40 font-body text-sm italic">
+                {isLan ? 'يتم تشغيل السيرفر المحلي الآن' : 'يرجى الانتظار بينما نقوم بفتح بوابات الأونلاين'}
+              </p>
             </div>
           </div>
         ) : (
@@ -285,22 +291,25 @@ const PrivateRoomLobbyView = memo(({
             className="flex flex-col items-center gap-8 relative z-10 w-full"
           >
             <div className="flex flex-col items-center gap-1">
-              <h3 className="text-game-offwhite text-xl font-display text-shadow-lg mt-3">رمز الدخول الخاص بك</h3>
+              <h3 className="text-game-offwhite text-xl font-display text-shadow-lg mt-3">
+                {isLan ? 'عنوان IP الخاص بك' : 'رمز الدخول الخاص بك'}
+              </h3>
             </div>
             
             <div className="bg-black/60 border border-white/10 rounded-2xl p-6 w-full shadow-inner flex flex-col items-center justify-center">
-              <span className="text-6xl font-mono text-game-offwhite font-bold tracking-[0.2em] drop-shadow-[0_0_15px_rgba(255,255,255,0.2)]">
-                {roomCode}
+              <span className={`text-game-offwhite font-bold tracking-[0.2em] drop-shadow-[0_0_15px_rgba(255,255,255,0.2)] ${isLan ? 'text-3xl font-display' : 'text-6xl font-mono'}`}>
+                {isLan ? localIp : roomCode}
               </span>
             </div>
 
             <button 
               onClick={() => {
-                if (roomCode) navigator.clipboard.writeText(roomCode);
+                const textToCopy = isLan ? localIp : roomCode;
+                if (textToCopy) navigator.clipboard.writeText(textToCopy);
               }}
               className="flex items-center justify-center gap-3 bg-white/5 hover:bg-white/10 border border-white/10 py-3 px-6 rounded-xl text-game-offwhite transition-all active:scale-95 text-sm font-display w-full"
             >
-              <Copy className="w-4 h-4" /> نسخ الرمز للمشاركة
+              <Copy className="w-4 h-4" /> {isLan ? 'نسخ عنوان IP للمشاركة' : 'نسخ الرمز للمشاركة'}
             </button>
 
             <div className="flex flex-col items-center gap-3 mt-4">
@@ -323,7 +332,7 @@ const PrivateRoomLobbyView = memo(({
           onClick={onCancel}
           className="mt-10 px-8 w-full py-3 border-2 border-game-red/40 text-game-red hover:bg-game-red hover:text-white rounded-xl font-display text-xl transition-all shadow-[0_0_20px_rgba(139,26,26,0.2)] active:scale-95 flex items-center justify-center gap-3"
         >
-          <XCircle className="w-5 h-5" /> إلغاء وإغلاق الغرفة
+          <XCircle className="w-5 h-5" /> {isLan ? 'إغلاق وإيقاف السيرفر' : 'إلغاء وإغلاق الغرفة'}
         </button>
       </div>
     </div>
@@ -2731,7 +2740,15 @@ const App = () => {
                     </motion.button>
                     <motion.button
                       whileTap={{ scale: 0.94 }}
-                      onClick={() => setMenuTab('local')}
+                      onClick={() => {
+                        setMenuTab('local');
+                        if (Capacitor.isNativePlatform()) {
+                          LocalServer.getStatus().then(status => {
+                            if (status.localIp) setUserIp(status.localIp);
+                            if (status.role) setRole(status.role as any);
+                          }).catch(() => {});
+                        }
+                      }}
                       className="w-full sm:w-[90%] mx-auto py-3 sm:py-4 bg-white/15 backdrop-blur-md border border-white/20 text-game-offwhite hover:bg-white/20 hover:border-white/30 focus:bg-white/20 focus:border-white/50 rounded-lg font-display text-xl sm:text-2xl transition-all flex items-center justify-center gap-2 sm:gap-3 outline-none transform-gpu"
                     >
                       <Home className="w-5 h-5 sm:w-6 sm:h-6" /> شبكة محلية (IP)
@@ -3034,8 +3051,10 @@ const App = () => {
             {(isWaitingInPrivateRoom || (appState === 'inRoom' && roomState?.gameState === 'waiting' && !roomState.isBotRoom)) && (
               <PrivateRoomLobbyView 
                  key="private-lobby-global"
-                 isLoading={!roomId || (!roomState && appState === 'menu')}
+                 isLoading={(role === 'HOST' || role === 'CLIENT') ? (userIp === 'جاري التحميل...' || !userIp) : (!roomId || (!roomState && appState === 'menu'))}
                  roomCode={roomId}
+                 isLan={role === 'HOST' || role === 'CLIENT'}
+                 localIp={userIp}
                  onCancel={() => {
                    setIsWaitingInPrivateRoom(false);
                    if (appState === 'inRoom') setAppState('menu');
@@ -3109,8 +3128,10 @@ const App = () => {
   if (roomState.gameState === 'waiting') {
     return (
       <PrivateRoomLobbyView 
-        isLoading={!roomId}
+        isLoading={(role === 'HOST' || role === 'CLIENT') ? (userIp === 'جاري التحميل...' || !userIp) : !roomId}
         roomCode={roomId}
+        isLan={role === 'HOST' || role === 'CLIENT'}
+        localIp={userIp}
         onCancel={() => {
           setIsWaitingInPrivateRoom(false);
           setAppState('menu');

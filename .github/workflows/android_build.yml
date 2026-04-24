@@ -79,7 +79,16 @@ jobs:
           chmod +x gradlew
 
       - name: Build Release (APK & AAB)
+        env:
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: |
+          # فك تشفير الـ Keystore إذا كان موجوداً في الأسرار (اختياري لكن احترافي)
+          if [ ! -z "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 -d > android/app/release.keystore
+          fi
+          
           cd android
           chmod +x gradlew
           ./gradlew assembleRelease bundleRelease --stacktrace --info

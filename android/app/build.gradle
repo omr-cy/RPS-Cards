@@ -18,10 +18,10 @@ android {
     }
     signingConfigs {
         release {
-            storeFile file('release.keystore')
-            storePassword '123456'
-            keyAlias 'rps-cards-key'
-            keyPassword '123456'
+            storeFile file(System.getenv("RELEASE_STORE_FILE") ?: "release.keystore")
+            storePassword System.getenv("RELEASE_STORE_PASSWORD") ?: "123456"
+            keyAlias System.getenv("RELEASE_KEY_ALIAS") ?: "rps-cards-key"
+            keyPassword System.getenv("RELEASE_KEY_PASSWORD") ?: "123456"
         }
     }
     buildTypes {

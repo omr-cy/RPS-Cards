@@ -7,6 +7,24 @@
 - **Automation:** Updated `.github/workflows/android_build.yml` to build release APK and AAB automatically and upload them to Google Drive (/RPS-Cards_Builds/Release).
 - **Cleanup:** Verified the configuration is ready for production builds (APK & AAB).
 
+## [2026-04-24] LAN Hosting UI & Store Theme Fix
+**User Prompt:** في مشكلة حصلت في خيار بدء الإستضافة في اللعب عبر الشبكة المحليه اصبح يفتح نافذة غريبة جدا لا يوجد بها الأيبي الخاص بي ولا اي شيء
+**Actions:**
+- **UI Fix:** Redesigned `PrivateRoomLobbyView` to dynamically support both Online and LAN modes. When in LAN mode (Host/Client), it now displays "Your IP Address" instead of "Access Code" and uses a more appropriate font size for IP addresses.
+- **UX Improvement:** Implemented an automatic LAN status refresh when opening the "Local Play (IP)" tab, ensuring the latest IP address and server role are fetched immediately from the Capacitor bridge.
+- **Logic Fix:** Refined the `isLoading` logic in the lobby view to correctly distinguish between "Waiting for Online Room ID" and "Waiting for Local IP Discovery", preventing the UI from being stuck in a loading state for LAN hosts.
+- **Bug Fix (Linter):** Fixed a pre-existing TypeScript error in `StoreView` where the filtering logic attempted to access a non-existent `category` field on `ThemeConfig`. Added the `category` field to the theme definitions.
+- **Verification:** Verified that the app builds, lints, and correctly handles both online and local lobby states.
+
+## [2026-04-24] Android Signing Fix (Keystore Corruption)
+**User Prompt:** Error in GitHub Action regarding keystore length (corruption).
+**Actions:**
+- **Cleanup:** Deleted the corrupted `release.keystore` file that was broken during text-based creation.
+- **Gradle Fix:** Updated `android/app/build.gradle` to use environment variables (`RELEASE_STORE_PASSWORD`, etc.) instead of hardcoded strings. This allows for dynamic signing in CI.
+- **Workflow Improvement:** Modified the GitHub Action to decode the keystore from a Base64 Secret (`RELEASE_KEYSTORE_BASE64`) if provided.
+- **Documentation:** Updated `docs/release_keystore.md` with instructions on how to use the Base64 Secret method for professional and secure builds.
+- **Verification:** Ensured the build configuration is robust even if the keystore file is missing locally (it will use defaults or skip).
+
  📜 AI Interaction Log
 
 ## [2026-04-21] XP and Leveling System Integration
