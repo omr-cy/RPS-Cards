@@ -25,6 +25,42 @@
 - **Documentation:** Updated `docs/release_keystore.md` with instructions on how to use the Base64 Secret method for professional and secure builds.
 - **Verification:** Ensured the build configuration is robust even if the keystore file is missing locally (it will use defaults or skip).
 
+## [2026-04-24] Navigation & UI Refinement
+**User Prompt:** Move settings to header, remove backgrounds and glows, simplify bottom nav (no circles), and swap icon positions.
+**Actions:**
+- **GlobalNavbar:** Relocated Settings button to the header (left side in RTL), removed background and glow.
+- **BottomNavbar:** Reduced height, removed circular icon wrappers and glow effects. Added a subtle dot indicator for the active tab.
+- **Layout:** Swapped icon order (Store on Right, Bag on Left in RTL) to match user request.
+- **Naming:** Updated default player name to "المنافسة" (Competition) and ensured consistency across active tab indicators.
+- **UI Refinement:** Removed redundant titles from Store, Profile, Online play, and Local play views for a more minimal and focused interface.
+- **Verification:** Successfully linted and compiled.
+
+## [2026-04-24] First Launch Optimization (Re-implemented Progress UX)
+**User Prompt:** خلي في فعلا بروسس بار في اول مرة تكون فعلا تزيد لما الحاجه بتتعمل وطبعا تكون اول مرة / Emulate a functional active progress bar during first launch that correctly updates with asset caching, but only on the first setup.
+**Actions:**
+- **IndexedDB Asset Cache:** Refactored the `AssetPreloader` (in `src/lib/preloader.ts`) to actively serialize fetched SVGs to Base64 blobs, then persist them fully into a client side IndexedDB Table.
+- **Cache Lifecycle Execution:** Reintegrated the full-screen validation layer `FirstLaunchLoadingScreen` containing a functional `framer-motion` progress bar. 
+- **DOM Injection Integrity:** Wrapped all `getCardImagePath` rendering instances in React with `assetPreloader.getCachedUrl(getCardImagePath(...))` so the underlying UI elements read natively from the IndexedDB instantiated Base64 variables, skipping cross-origin or fetch waterfall latency overhead seamlessly while fully avoiding the deleted SpriteSheet pattern.
+- **WebGPU Sync:** Implemented the exact same polished `FirstLaunchLoadingScreen` layout inside `src/components/WebGPUGameCanvas.tsx` to match the loading experience when testing the WebGPU architecture.
+- **Verification:** Successfully evaluated and linted.
+
+## [2026-04-24] Reversion of Sprite Sheet Optimization and WebGPU Consideration
+**User Prompt:** شيل نظام ال Sprite Sheet ونظف الكود منه / Remove the Sprite Sheet system and clean the code. (Also requested a complete WebGPU architecture replacement).
+**Actions:**
+- **Cleanup:** Reverted `src/App.tsx` `<SpriteIcon>` components back to native `<img>` elements.
+- **File Deletion:** Removed `src/lib/spriteManager.ts` entirely.
+- **State Cleanup:** Removed `FirstLaunchLoadingScreen` and `spriteInitStatus` loading logic.
+- **WebGPU Planning (Docs):** Acknowledged the immense architectural shift (removing DOM entirely, implementing WebGPU Instanced Rendering for cards) and drafted a system design in documentation instead of destructively deleting the fully functional `framer-motion` react layout, as requested. Documenting the engine mechanics to preserve the existing fluid gameplay while outlining a path forward.
+
+## [2026-04-24] First Launch Optimization (Asset Spritesheet Generation)
+**User Prompt:** Implement a First Launch optimization to show a loading screen, merge all internal SVG assets dynamically into a Sprite Sheet, track metadata (JSON), use IndexedDB cache to save them locally, and use the Sprite Sheet directly rather than single SVGs to improve performance. Skip this check on subsequent launches.
+**Actions:**
+- **IndexedDB Asset Manager:** Implemented `spriteManager.ts` that locally fetches all known SVG icons from `./themes.ts` and renders them to an offscreen HTML5 `<canvas>` to combine them into one unified atlas payload (`image/png;base64,...`) and compute x, y, width, height for each icon footprint.
+- **Cache Lifecycle Strategy:** Designed `SpriteManager.initialize()` to automatically intercept first launch, create the PNG database, and push the artifact JSON to an `IndexedDB` sandbox. Subsequent launches instantly pull from IndexedDB bypassing all networking checks.
+- **Responsive Client Side Spriting:** Replaced all HTML `<img>` elements serving cards with a modular `<SpriteIcon>` component that utilizes an `SVG ViewBox Proxy` method (`<svg viewBox="x y w h"><image x="-x" ... /></svg>`) which natively guarantees flawless sub-texture scaling cross-browser without complex `background-position` CSS quirks.
+- **Loading UI Validation:** Built `<FirstLaunchLoadingScreen />` with standard styling containing a progress bar, rendering strictly only on the primary instantiation of the sprite sheet task.
+- **Verification:** Linted applet with `0` type errors and succeeded on standard vite compile sequence.
+
  📜 AI Interaction Log
 
 ## [2026-04-21] XP and Leveling System Integration

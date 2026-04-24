@@ -2,18 +2,71 @@
  * AssetPreloader Utility
  * 
  * Fetches images and converts them to Base64 Data URIs at runtime.
- * This ensures "In-Memory" instant access similar to hardcoded strings,
- * but allows for dynamic discovery of new themes.
+ * This ensures "In-Memory" instant access similar to hardcoded strings.
+ * Now combined with IndexedDB for First Launch Optimization.
  */
 
+const DB_NAME = 'CardClashAssets';
+const STORE_NAME = 'Base64Cache';
+
+const openDB = (): Promise<IDBDatabase> => {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, 1);
+    request.onupgradeneeded = (e) => {
+      const db = (e.target as IDBOpenDBRequest).result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME);
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+};
+
+const getFromDB = async (key: string): Promise<string | undefined> => {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    const store = tx.objectStore(STORE_NAME);
+    const req = store.get(key);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+};
+
+const saveToDB = async (key: string, value: string): Promise<void> => {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+    const req = store.put(value, key);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+};
+
 class AssetPreloader {
-  private cache: Map<string, string> = new Map();
+  private memCache: Map<string, string> = new Map();
   private loadedCount: number = 0;
   private totalToLoad: number = 0;
   private onProgress?: (progress: number) => void;
 
-  public async preloadImage(url: string): Promise<string> {
-    if (this.cache.has(url)) return this.cache.get(url)!;
+  public async preloadImage(url: string, forceNetwork = false): Promise<string> {
+    if (this.memCache.has(url)) return this.memCache.get(url)!;
+    
+    // Check IndexedDB
+    if (!forceNetwork) {
+      try {
+        const cached = await getFromDB(url);
+        if (cached) {
+          this.memCache.set(url, cached);
+          this.updateProgress();
+          return cached;
+        }
+      } catch (e) {
+        console.warn('IDB Read error', e);
+      }
+    }
     
     try {
       const response = await fetch(url);
@@ -26,19 +79,25 @@ class AssetPreloader {
         reader.readAsDataURL(blob);
       });
       
-      this.cache.set(url, dataUri);
+      this.memCache.set(url, dataUri);
+      
+      // Save to IDB for subsequent launches
+      saveToDB(url, dataUri).catch(e => console.warn('IDB Write err', e));
+      
       this.loadedCount++;
       this.updateProgress();
       
       return dataUri;
     } catch (e) {
       console.warn(`Failed to Base64 preload asset: ${url}`, e);
+      this.loadedCount++; // Count even on fail so we don't block
+      this.updateProgress();
       return url; 
     }
   }
 
   public getCachedUrl(url: string): string {
-    return this.cache.get(url) || url;
+    return this.memCache.get(url) || url;
   }
 
   private updateProgress() {

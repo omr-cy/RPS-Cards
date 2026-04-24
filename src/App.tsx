@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, memo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Bot, Globe, Home, Trophy, XCircle, CheckCircle2, Minus, Copy, Edit2, Bug, X, Wifi, ShieldCheck, Activity, ShoppingCart, User, LogIn, LogOut, Users, UserSearch, PlusCircle, Mail, Lock, UserPlus, Info, ArrowRight, ArrowLeft, ChevronRight, ChevronLeft, Network as NetworkIcon, PlugZap, Star, Zap, Sparkles, UserMinus, Gift, Library, Backpack } from 'lucide-react';
+import { Bot, Globe, Home, Trophy, XCircle, CheckCircle2, Minus, Copy, Edit2, Bug, X, Wifi, ShieldCheck, Activity, ShoppingCart, User, LogIn, LogOut, Users, UserSearch, PlusCircle, Mail, Lock, UserPlus, Info, ArrowRight, ArrowLeft, ChevronRight, ChevronLeft, Network as NetworkIcon, PlugZap, Star, Zap, Sparkles, UserMinus, Gift, Library, Backpack, Gamepad2, Settings } from 'lucide-react';
 import { TbCardsFilled } from 'react-icons/tb';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { SplashScreen } from '@capacitor/splash-screen';
@@ -96,7 +96,7 @@ const FloatingCard = memo(({ theme, type, idx }: { theme: ThemeConfig, type: Car
     >
       <div className="absolute inset-0 bg-gradient-to-tr from-white/20 to-transparent opacity-30" />
       <img 
-        src={getCardImagePath(theme, type)} 
+        src={assetPreloader.getCachedUrl(getCardImagePath(theme, type))} 
         alt={type} 
         className="w-full h-full object-contain relative z-10 drop-shadow-lg" 
         style={{ transform: `scale(${(theme.iconScale || 100) / 100})` }}
@@ -144,7 +144,7 @@ const CardPack = memo(({ theme, isOwned, isSelected, onClick, onSelect, userLeve
             </div>
           ) : (
             <img 
-              src={getCardImagePath(theme, 'rock')} 
+              src={assetPreloader.getCachedUrl(getCardImagePath(theme, 'rock'))} 
               alt="rock" 
               className="w-full h-full object-contain" 
               style={{ transform: `scale(${(theme.iconScale || 100) / 100})` }}
@@ -450,7 +450,7 @@ const MatchmakingView = memo(({
 });
 
 
-const GlobalNavbar = memo(({ activeTab, setAppState, coins, playerName, isGuest, onLogout, onLoginClick, menuTab = 'main', setMenuTab, isOnline }: any) => {
+const GlobalNavbar = memo(({ coins, isOnline, setAppState }: any) => {
   return (
     <>
       {!isOnline && (
@@ -461,87 +461,67 @@ const GlobalNavbar = memo(({ activeTab, setAppState, coins, playerName, isGuest,
       )}
       <nav 
         dir="rtl" 
-        className="fixed top-0 inset-x-0 z-[60] bg-game-dark/95 border-b border-white/10 shadow-lg transition-all" 
-        style={{ paddingTop: isOnline ? 'max(0.75rem, env(safe-area-inset-top))' : 'max(1.75rem, calc(env(safe-area-inset-top) + 1rem))' }}
+        className="fixed top-0 inset-x-0 z-[60] bg-game-dark/80 backdrop-blur-md border-b border-white/5 shadow-md transition-all" 
+        style={{ paddingTop: isOnline ? 'max(0.5rem, env(safe-area-inset-top))' : 'max(1.5rem, calc(env(safe-area-inset-top) + 0.75rem))' }}
       >
-        <div className="relative w-full h-10">
-          {/* --- STORE NAVBAR --- */}
-        <div className={`absolute inset-0 flex justify-between items-center px-6 sm:px-8 transition-opacity duration-300 ${activeTab === 'store' ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
-          <button onClick={() => setAppState('menu')} className="p-1.5 bg-white/5 backdrop-blur-sm rounded-full text-game-cream hover:bg-white/10 border border-white/10 transition-all transform-gpu">
-            <ChevronLeft className="w-5 h-5" />
-          </button>
-          <h1 className="text-lg sm:text-xl font-display text-game-offwhite tracking-wider">متجر الثيمات</h1>
-          <div className="flex items-center gap-1.5 bg-white/5 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/10 shadow-inner">
-            <span className="text-sm sm:text-base font-display text-game-teal font-medium">{coins}</span>
+        <div className="flex justify-between items-center h-12 px-6">
+          <div className="w-10">
+            <button 
+              onClick={() => setAppState('profile')} 
+              className="p-2 text-game-offwhite/40 hover:text-game-teal transition-colors active:scale-90"
+            >
+              <Settings className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2 bg-white/5 px-3 py-1 rounded-full border border-white/10">
+            <span className="text-sm font-display text-game-teal font-medium">{coins}</span>
             <Activity className="w-3.5 h-3.5 text-game-teal rotate-90" />
           </div>
-        </div>
 
-        {/* --- MENU NAVBAR --- */}
-        <div className={`absolute inset-0 flex justify-between items-center px-6 sm:px-8 transition-opacity duration-300 ${activeTab === 'menu' ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
-          {menuTab === 'main' ? (
-            <>
-              <div className="flex items-center gap-3">
-                <button 
-                  onClick={() => setAppState('profile')}
-                  className="flex items-center gap-2 hover:opacity-80 transition-opacity"
-                >
-                  <div className="w-8 h-8 rounded-full bg-game-teal/20 border border-game-teal/30 flex items-center justify-center">
-                    <User className="w-3.5 h-3.5 text-game-teal" />
-                  </div>
-                  <div className="text-right flex flex-col">
-                    <div className="text-sm sm:text-base font-display text-game-offwhite leading-none">{playerName}</div>
-                  </div>
-                </button>
-              </div>
-              <div>
-                <button 
-                  onClick={() => setAppState('store')}
-                  className="flex items-center gap-1 bg-white/5 backdrop-blur-sm px-2.5 py-1 rounded-full border border-white/10 hover:bg-white/10 transition-all group transform-gpu"
-                >
-                  <span className="text-sm sm:text-base font-display text-game-teal font-medium group-hover:scale-105 transition-transform">{coins}</span>
-                  <Activity className="w-3 h-3 text-game-teal rotate-90" />
-                </button>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="w-8" />
-              <h1 className="text-lg font-display text-white tracking-widest uppercase">
-                {menuTab === 'online' ? 'اللعب عبر الإنترنت' : 'الشبكة المحلية'}
-              </h1>
-              <div className="w-8" /> {/* Placeholder to balance header */}
-            </>
-          )}
+          <div className="w-10" />
         </div>
-
-        {/* --- PROFILE NAVBAR --- */}
-        <div className={`absolute inset-0 flex justify-between items-center px-6 sm:px-8 transition-opacity duration-300 ${activeTab === 'profile' ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
-          <button onClick={() => setAppState('menu')} className="p-1.5 bg-white/5 backdrop-blur-sm rounded-full text-game-cream hover:bg-white/10 border border-white/10 transition-all transform-gpu">
-            <ChevronRight className="w-5 h-5" />
-          </button>
-          <h1 className="text-lg sm:text-xl font-display text-game-offwhite tracking-wider">الحقيبة الشخصية</h1>
-          {!isGuest ? (
-            <button 
-              onClick={onLogout}
-              className="p-1.5 bg-red-900/50 rounded-full text-red-200 hover:bg-red-800 border border-red-500/20 transition-all shadow-inner"
-              title="تسجيل الخروج"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-            </button>
-          ) : (
-            <button 
-              onClick={onLoginClick}
-              className="flex items-center gap-1 bg-game-teal text-game-dark px-2.5 py-1 rounded-lg font-display text-[10px] shadow-md hover:bg-emerald-400 transition-all"
-              title="تسجيل الدخول"
-            >
-              <LogIn className="w-3.5 h-3.5" /> دخول
-            </button>
-          )}
-        </div>
-      </div>
-    </nav>
+      </nav>
     </>
+  );
+});
+
+const BottomNavbar = memo(({ activeTab, setAppState, setMenuTab }: { activeTab: string, setAppState: (state: any) => void, setMenuTab: (tab: any) => void }) => {
+  return (
+    <nav 
+      dir="rtl"
+      className="fixed bottom-0 inset-x-0 z-[80] bg-game-dark/95 border-t border-white/5 px-6 pb-safe flex justify-around items-center h-14 sm:h-16 select-none shadow-[0_-4px_10px_rgba(0,0,0,0.3)]"
+    >
+      <button 
+        onClick={() => setAppState('store')}
+        className={`flex flex-col items-center justify-center transition-all flex-1 h-full relative ${activeTab === 'store' ? 'text-game-teal' : 'text-game-offwhite/30'}`}
+      >
+        <ShoppingCart className="w-5 h-5 mb-0.5" />
+        <span className="text-[9px] font-display font-medium">المتجر</span>
+        {activeTab === 'store' && <div className="absolute top-1 right-1/2 translate-x-1/2 -mt-1 w-1 h-1 rounded-full bg-game-teal shadow-[0_0_5px_rgba(45,212,191,0.5)]" />}
+      </button>
+
+      <button 
+        onClick={() => {
+          setAppState('menu');
+          setMenuTab('main');
+        }}
+        className={`flex flex-col items-center justify-center transition-all flex-1 h-full relative ${activeTab === 'menu' ? 'text-game-teal' : 'text-game-offwhite/30'}`}
+      >
+        <Gamepad2 className="w-6 h-6 mb-0.5" />
+        <span className="text-[10px] font-display font-medium">المنافسة</span>
+        {activeTab === 'menu' && <div className="absolute top-1 right-1/2 translate-x-1/2 -mt-1 w-1 h-1 rounded-full bg-game-teal shadow-[0_0_5px_rgba(45,212,191,0.5)]" />}
+      </button>
+
+      <button 
+        onClick={() => setAppState('profile')}
+        className={`flex flex-col items-center justify-center transition-all flex-1 h-full relative ${activeTab === 'profile' ? 'text-game-teal' : 'text-game-offwhite/30'}`}
+      >
+        <Backpack className="w-5 h-5 mb-0.5" />
+        <span className="text-[9px] font-display font-medium">الحقيبة</span>
+        {activeTab === 'profile' && <div className="absolute top-1 right-1/2 translate-x-1/2 -mt-1 w-1 h-1 rounded-full bg-game-teal shadow-[0_0_5px_rgba(45,212,191,0.5)]" />}
+      </button>
+    </nav>
   );
 });
 
@@ -567,7 +547,7 @@ const StoreView = memo(({ coins, ownedThemes, selectedThemeId, onBuy, onSelect, 
     dir="rtl" 
     className="w-full h-full flex flex-col font-body overflow-hidden select-none bg-game-bg/20"
   >
-    <div className="flex-1 overflow-hidden pt-24 pb-6 px-4 sm:px-6 flex flex-col max-w-4xl mx-auto w-full">
+    <div className="flex-1 overflow-hidden pt-24 pb-24 px-4 sm:px-6 flex flex-col max-w-4xl mx-auto w-full">
       {/* TABS */}
       <div className="flex gap-2 px-3 relative z-10 -mb-[1px]">
         <button 
@@ -655,8 +635,7 @@ const ProfileView = memo(({ playerName, coins, xp = 0, level = 1, ownedThemes, s
       dir="rtl" 
       className="w-full h-full flex flex-col font-body overflow-hidden select-none bg-game-bg/20"
     >
-      <div className="flex-1 overflow-hidden pt-24 pb-6 px-4 sm:px-6 flex flex-col max-w-md mx-auto w-full">
-        
+      <div className="flex-1 overflow-hidden pt-24 pb-24 px-4 sm:px-6 flex flex-col max-w-md mx-auto w-full">
         {/* TABS (Protruding Bumps) */}
         <div className="flex gap-2 px-3 relative z-10 -mb-[1px]">
           <button 
@@ -1191,27 +1170,63 @@ const DashboardViewPager = ({ appState, setAppState, onVisibleTabChange, childre
   );
 };
 
+const FirstLaunchLoadingScreen = memo(({ progress }: { progress: number }) => {
+  return (
+    <div className="fixed inset-0 z-[9999] bg-[#121212] text-game-cream flex flex-col items-center justify-center p-6 text-center select-none" dir="rtl">
+      <div className="w-24 h-24 mb-8 bg-game-teal/10 rounded-full flex items-center justify-center animate-pulse shadow-[0_0_50px_rgba(45,212,191,0.2)]">
+        <Sparkles className="w-12 h-12 text-game-teal" />
+      </div>
+      <h1 className="text-3xl font-display tracking-widest text-game-offwhite mb-4">كارد كلاش</h1>
+      <p className="text-game-offwhite/60 mb-8 font-body max-w-xs leading-relaxed text-sm">جاري تجهيز موارد اللعبة لأول مرة لتسريع تجربة اللعب اللاحقة...</p>
+      
+      <div className="w-full max-w-xs h-2 bg-white/10 rounded-full overflow-hidden relative">
+        <motion.div 
+          initial={{ width: 0 }}
+          animate={{ width: `${progress * 100}%` }}
+          className="absolute top-0 bottom-0 left-0 bg-game-teal rounded-full"
+        />
+      </div>
+      <div className="mt-3 text-xs text-game-teal font-mono">
+        {Math.round(progress * 100)}%
+      </div>
+    </div>
+  );
+});
+
 const App = () => {
   const { user, login, register, verifyCode, resendCode, logout, updateProfile, refreshProfile, loading: authLoading, error: authError, pendingVerificationEmail, setPendingVerificationEmail } = useAuth();
   const [appState, setAppState] = useState<'loading' | 'auth' | 'menu' | 'store' | 'profile' | 'matchmaking' | 'game' | 'gameOver' | 'inRoom' | 'verifySent' | 'leaderboard'>('loading');
   const [assetsLoaded, setAssetsLoaded] = useState(false);
+  const [isFirstLaunch, setIsFirstLaunch] = useState(() => !localStorage.getItem('cardclash_has_initialized_assets_v3'));
+  const [assetProgress, setAssetProgress] = useState(0);
   const [authTab, setAuthTab] = useState<'login' | 'register'>('login');
   const [menuTab, setMenuTab] = useState<'main' | 'online' | 'local'>('main');
 
   useEffect(() => {
-    const totalAssets = THEMES.length * 3;
+    const totalAssets = THEMES.length * 4;
     assetPreloader.setTotal(totalAssets);
+    
     assetPreloader.setOnProgress((progress) => {
-      if (progress >= 1) setAssetsLoaded(true);
+      setAssetProgress(progress);
     });
 
-    // Proactively preload all theme images into native browser cache
-    THEMES.forEach(theme => {
-      ['rock', 'paper', 'scissors'].forEach(type => {
-        const ext = theme.extension || 'svg';
-        assetPreloader.preloadImage(`${theme.path}/${type}.${ext}`);
-      });
-    });
+    const initAssets = async () => {
+      const promises = [];
+      const isFirst = !localStorage.getItem('cardclash_has_initialized_assets_v3');
+      for (const theme of THEMES) {
+        for (const type of ['rock', 'paper', 'scissors', 'back']) {
+           const ext = theme.extension || 'svg';
+           promises.push(assetPreloader.preloadImage(`${theme.path}/${type}.${ext}`, isFirst));
+        }
+      }
+      await Promise.all(promises);
+      if (isFirst) {
+        localStorage.setItem('cardclash_has_initialized_assets_v3', 'true');
+      }
+      setAssetsLoaded(true);
+    };
+
+    initAssets();
   }, []);
 
   const [editNameInput, setEditNameInput] = useState('');
@@ -1242,7 +1257,7 @@ const App = () => {
       setVisibleTab(appState);
     }
   }, [appState]);
-  const [playerName, setPlayerNameState] = useState(() => localStorage.getItem('cardclash_guestName') || 'محارب');
+  const [playerName, setPlayerNameState] = useState(() => localStorage.getItem('cardclash_guestName') || 'المنافسة');
   const [playerId, setPlayerId] = useState(() => {
     const stored = localStorage.getItem('cardclash_playerId');
     if (stored) return stored;
@@ -2435,6 +2450,16 @@ const App = () => {
     </AnimatePresence>
   );
 
+  if (!assetsLoaded) {
+    if (isFirstLaunch) {
+      return <FirstLaunchLoadingScreen progress={assetProgress} />;
+    }
+    return (
+      <div className="fixed inset-0 w-full h-full bg-[#121212] flex items-center justify-center">
+        <Activity className="w-10 h-10 text-game-teal animate-spin" />
+      </div>
+    );
+  }
   if (appState === 'leaderboard') {
     return (
       <div className="fixed inset-0 z-0 bg-game-bg">
@@ -2668,18 +2693,13 @@ const App = () => {
       <>
         {renderErrorToast()}
         <GlobalNavbar 
+          coins={coins}
+          isOnline={isOnline}
+          setAppState={setAppState}
+        />
+        <BottomNavbar 
           activeTab={visibleTab} 
           setAppState={setAppState}
-          coins={coins}
-          playerName={playerName}
-          isGuest={!user}
-          isOnline={isOnline}
-          onLogout={handleLogout}
-          onLoginClick={() => {
-            setAppState('auth');
-            setAuthTab('login');
-          }}
-          menuTab={menuTab}
           setMenuTab={setMenuTab}
         />
         <DashboardViewPager appState={appState} setAppState={setAppState} onVisibleTabChange={setVisibleTab}>
@@ -2702,9 +2722,8 @@ const App = () => {
             className="w-full h-full flex flex-col font-body overflow-x-hidden overflow-y-auto smooth-scroll select-none custom-scrollbar"
           >
             <div
-               className={`w-full text-center mx-auto py-8 sm:px-6 px-4 pt-16 min-h-screen flex flex-col justify-center items-center transition-all duration-300 ${menuTab === 'main' ? 'max-w-md' : 'max-w-[550px]'}`}
+               className={`w-full text-center mx-auto py-8 pb-24 sm:px-6 px-4 pt-10 min-h-screen flex flex-col justify-center items-center transition-all duration-300 ${menuTab === 'main' ? 'max-w-md' : 'max-w-[550px]'}`}
             >
-              <div className="mb-8"></div>
             
             <div className="space-y-4 sm:space-y-5 w-full">
               {menuTab === 'main' && (
@@ -2761,26 +2780,6 @@ const App = () => {
                     >
                       {isBotLoading ? <Activity className="w-5 h-5 sm:w-6 sm:h-6 animate-spin" /> : <><Bot className="w-5 h-5 sm:w-6 sm:h-6" /> ضد الكمبيوتر</>}
                     </motion.button>
-                    <div className="flex w-full sm:w-[90%] mx-auto gap-3">
-                      <motion.button
-                        whileTap={{ scale: 0.94 }}
-                        onClick={() => setAppState('store')}
-                        className="flex-1 py-3 bg-white/5 backdrop-blur-md border border-white/10 text-game-cream/80 hover:bg-white/10 hover:text-white hover:border-white/20 rounded-lg font-display transition-all flex flex-col items-center justify-center gap-1 outline-none transform-gpu"
-                        title="المتجر"
-                      >
-                        <ShoppingCart className="w-5 h-5" />
-                        <span className="text-[10px] tracking-wider">متجر الثيمات</span>
-                      </motion.button>
-                      <motion.button
-                        whileTap={{ scale: 0.94 }}
-                        onClick={() => setAppState('profile')}
-                        className="flex-1 py-3 bg-white/5 backdrop-blur-md border border-white/10 text-game-cream/80 hover:bg-white/10 hover:text-white hover:border-white/20 rounded-lg font-display transition-all flex flex-col items-center justify-center gap-1 outline-none transform-gpu"
-                        title="الحقيبة الشخصية"
-                      >
-                        <Backpack className="w-5 h-5" />
-                        <span className="text-[10px] tracking-wider">الحقيبة الشخصية</span>
-                      </motion.button>
-                    </div>
                   </div>
                 )}
 
@@ -3457,7 +3456,7 @@ const CardCount = memo(({ type, count, theme }: { type: CardType, count: number,
         className={`w-full max-w-[4.5rem] aspect-[3/4] rounded-lg flex items-center justify-center gpu-accelerated overflow-hidden ${isAvailable ? `${theme.frontColor}` : 'bg-game-dark'}`}
       >
         <img 
-          src={getCardImagePath(theme, type)} 
+          src={assetPreloader.getCachedUrl(getCardImagePath(theme, type))} 
           alt={CARD_NAMES[type]} 
           className="w-2/3 h-2/3 object-contain" 
           style={{ transform: `scale(${(theme.iconScale || 100) / 100})` }}
@@ -3508,7 +3507,7 @@ const PlayableCard = memo(({ type, count, onClick, disabled, theme }: { type: Ca
       </div>
       <div className={`w-full max-w-[7.5rem] aspect-[3/4] rounded-lg flex items-center justify-center overflow-hidden ${isAvailable && !disabled ? `${theme.frontColor}` : 'bg-game-dark'}`}>
         <img 
-          src={getCardImagePath(theme, type)} 
+          src={assetPreloader.getCachedUrl(getCardImagePath(theme, type))} 
           alt={CARD_NAMES[type]} 
           className="w-2/3 h-2/3 object-contain" 
           style={{ transform: `scale(${(theme.iconScale || 100) / 100})` }}
@@ -3573,7 +3572,7 @@ const PlayedCard = memo(({ type, isPlayer, winner, faceDown = false, theme }: { 
       >
         <span className="relative z-10">
           <img 
-            src={getCardImagePath(theme, type)} 
+            src={assetPreloader.getCachedUrl(getCardImagePath(theme, type))} 
             alt={CARD_NAMES[type]} 
             className="w-10 h-10 sm:w-16 sm:h-16 object-contain drop-shadow-2xl" 
             style={{ transform: `scale(${(theme.iconScale || 100) / 100})` }}
@@ -3596,7 +3595,7 @@ const PlayedCard = memo(({ type, isPlayer, winner, faceDown = false, theme }: { 
               <div className={`w-4 h-4 sm:w-6 sm:h-6 rounded-full ${isPlayer ? 'bg-black/10' : 'bg-white/10'}`} />
             </div>
           ) : (
-            <img src={getThemeBackIcon(theme)} alt="card back" className="w-1/2 h-1/2 object-contain opacity-50" />
+            <img src={assetPreloader.getCachedUrl(getThemeBackIcon(theme))} alt="card back" className="w-1/2 h-1/2 object-contain opacity-50" />
           )}
         </div>
       </div>
