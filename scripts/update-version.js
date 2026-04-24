@@ -3,7 +3,7 @@ import path from 'path';
 
 // --- لوحة التحكم في الإصدار ---
 // قم بتعديل هذه القيم يدوياً هنا
-const VERSION = "0.1.2"; 
+const VERSION = "0.0.3"; 
 const VERSION_CODE = 3; 
 // ----------------------------
 
