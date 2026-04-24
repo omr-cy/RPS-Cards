@@ -1059,31 +1059,31 @@ const LeaderboardContent = memo(({ userId }: { userId: string | null }) => {
   );
 });
 
-const GlobalChat = ({ ws, chatMessages, user, connectToOnline }: any) => {
+const GlobalChat = ({ ws, chatMessages, user, connectToOnline, sendAction, isOnlineConnected }: any) => {
   const [inputText, setInputText] = useState('');
   const [connecting, setConnecting] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!ws || ws.readyState !== WebSocket.OPEN) {
+    if (!isOnlineConnected) {
       setConnecting(true);
       connectToOnline({ type: 'get_chat_history' }).finally(() => setConnecting(false));
     } else {
-      ws.send(JSON.stringify({ type: 'get_chat_history' }));
+      sendAction({ type: 'get_chat_history' });
     }
-  }, []);
+  }, [isOnlineConnected]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages]);
 
   const sendMsg = () => {
-    if (!inputText.trim() || !ws || ws.readyState !== WebSocket.OPEN) return;
-    ws.send(JSON.stringify({
+    if (!inputText.trim() || !isOnlineConnected) return;
+    sendAction({
       type: 'send_chat_message',
       text: inputText.trim(),
       senderName: user?.displayName || 'لاعب'
-    }));
+    });
     setInputText('');
   };
 
@@ -1134,7 +1134,7 @@ const GlobalChat = ({ ws, chatMessages, user, connectToOnline }: any) => {
   );
 };
 
-const CommunityView = memo(({ userId, user, ws, chatMessages, groupChatMessages, setGroupChatMessages, connectToOnline, onBack }: any) => {
+const CommunityView = memo(({ userId, user, ws, chatMessages, groupChatMessages, setGroupChatMessages, connectToOnline, onBack, sendAction, isOnlineConnected, setCoins }: any) => {
   const [activeTab, setActiveTab] = useState<'leaderboard' | 'groups' | 'chat'>('chat');
 
   return (
@@ -1185,10 +1185,11 @@ const CommunityView = memo(({ userId, user, ws, chatMessages, groupChatMessages,
             groupChatMessages={groupChatMessages} 
             setGroupChatMessages={setGroupChatMessages} 
             connectToOnline={connectToOnline} 
+            setCoins={setCoins}
           />
         )}
         {activeTab === 'chat' && (
-          <GlobalChat ws={ws} chatMessages={chatMessages} user={user} connectToOnline={connectToOnline} />
+          <GlobalChat ws={ws} chatMessages={chatMessages} user={user} connectToOnline={connectToOnline} sendAction={sendAction} isOnlineConnected={isOnlineConnected} />
         )}
       </div>
     </div>
@@ -1911,7 +1912,7 @@ const App = () => {
          sendNativeAction(onlineActionRef.current);
          onlineActionRef.current = null;
       }
-    } else if (data.type === 'matchmaking_status' || data.type === 'match_found' || data.type === 'joined_room_success' || data.type === 'pong' || data.type === 'PONG' || data.type === 'HANDSHAKE_OK') {
+    } else if (data.type === 'matchmaking_status' || data.type === 'match_found' || data.type === 'joined_room_success' || data.type === 'pong' || data.type === 'PONG' || data.type === 'HANDSHAKE_OK' || data.type === 'chat_message' || data.type === 'chat_history' || data.type === 'group_chat_message') {
       handleOnlineMessage(data);
     } else if (data.type === 'room_state') {
       setRoomState(data.state);
@@ -2639,6 +2640,9 @@ const App = () => {
           setGroupChatMessages={setGroupChatMessages}
           connectToOnline={connectToOnline}
           onBack={() => setAppState('menu')}
+          sendAction={sendNativeAction}
+          isOnlineConnected={Capacitor.isNativePlatform() ? connectionStatus === 'CONNECTION_VERIFIED' : !!(ws && ws.readyState === WebSocket.OPEN)}
+          setCoins={setCoinsState}
         />
       </div>
     );

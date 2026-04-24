@@ -206,6 +206,8 @@
 - **REST APIs Integration:** Developed custom API endpoints for `GET` and `POST` at `/api/groups/:id/chat` with dynamic mapping validating `groupId` against requests.
 - **Real-time Team Chat Sync:** Embedded WebSocket `group_chat_message` broadcasting tied directly to successful `POST /chat` validations to provide instantaneous real-time UI reloading without delay.
 - **State Management Layer:** Created `CommunityGroups.tsx` exporting custom components encompassing creation/listing of groups alongside the internal team-member chat view mapping state appropriately to Global variables (`unreadGroupChat` indicator).
+- **Global Chat & Native Messaging Issues Fixed:** We discovered that native wrappers around the WebSocket connection (`LocalServerPlugin` via `OnlineAndroidService`) were completely omitting general chat and team chat (`chat_message`, `chat_history`, `group_chat_message`) from the `handleNativeMessage` relay. We updated this block to forward messaging streams to `handleOnlineMessage`. 
+- **WebSocket Refactoring:** Because native bridges abstract the `ws` object into `.sendMessage()`, we refactored `<GlobalChat>` component and `<CommunityView>` to take generic properties: `sendAction={sendNativeAction}` and `isOnlineConnected` enabling multi-platform chat persistence correctly without checking against `readyState === OPEN` strictly.
 - **Verification:** Tested server-side endpoints seamlessly compiling and deploying logic.
 **User Prompt:** شيل زر العودة الي ملوش لزمة... وابدأ أشتغل على الشات والمجتمع
 **Actions:**
@@ -213,3 +215,10 @@
 - **Backend (server.ts):** Established basic WebSocket event handlers for `send_chat_message` and `get_chat_history`, routing them uniformly to all connected multiplayer clients and caching the last 50 messages.
 - **Frontend (App.tsx):** Implemented a newly robust `<GlobalChat />` view encapsulating message iteration relative to `userId` and integrated an `unreadChat` dot visualizer atop the GlobalNavbar.
 - **Verification:** Successfully rebuilt and confirmed backend-frontend data parity via WebSocket.
+
+## [2026-04-24] Bugfixes for Legacy Users and Database Synchronization
+**User Prompt:** I do not understand how the clan creation currency works. Please let the clan creation currency be the same as the base game currency... I checked the database and did not find any groups, only users. There are users who haven't logged in yet and won't have these features. 
+**Actions:**
+- **Legacy Property Handling**: Identified that classic / original user documents lack `coins` and `level` properties locally in MongoDB, causing mathematical errors to evaluate poorly and silently abort when executing `app.post('/api/groups/create')` and `user.level < 5`. Implemented fallback assignments `?? 100` and `?? 1`.
+- **Global Currency Sync:** Confirmed clan creation now securely leverages baseline `coins` value. Synchronized frontend `<GroupsTabContent>` explicitly utilizing `setCoins()` instead of context mutation to trigger real-time balance rendering instantly globally across navigation bars.
+- **Support for Mobile Global Chat:** Clarified that the recent websocket pipeline patch (which proxies native plugin messaging) resolves Android chat streaming effectively!

@@ -773,29 +773,34 @@ async function startServer() {
       const user = await User.findById(userId);
       if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
 
+      const userCoins = user.coins ?? 100;
+      const userLevel = user.level ?? 1;
+
       if (user.groupId) return res.status(400).json({ error: 'أنت بالفعل منضم لفريق' });
-      if (user.level < 5) return res.status(400).json({ error: 'يجب أن يكون مستواك 5 على الأقل لإنشاء فريق' });
-      if (user.coins < 1000) return res.status(400).json({ error: 'ليس لديك عملات كافية (مطلوب 1000)' });
+      if (userLevel < 5) return res.status(400).json({ error: 'يجب أن يكون مستواك 5 على الأقل لإنشاء فريق' });
+      if (userCoins < 1000) return res.status(400).json({ error: 'ليس لديك عملات كافية (مطلوب 1000)' });
 
       // تحقق من اسم الفريق موجود مسبقا
       const existingGroup = await Group.findOne({ name });
       if (existingGroup) return res.status(400).json({ error: 'اسم الفريق مستخدم بالفعل' });
 
       // خصم العملات
-      user.coins -= 1000;
+      user.coins = userCoins - 1000;
 
       const newGroup = new Group({
         name,
         description: description || "",
         leaderId: user._id,
         members: [user._id],
-        score: user.xp,
+        score: user.xp || 0,
         isOpen: isOpen !== undefined ? isOpen : true,
         requiredLevel: requiredLevel || 1
       });
 
       await newGroup.save();
       user.groupId = newGroup._id;
+      if (user.xp === undefined) user.xp = 0;
+      if (user.level === undefined) user.level = userLevel;
       await user.save();
 
       res.json(newGroup);
@@ -845,7 +850,9 @@ async function startServer() {
       const group = await Group.findById(groupId);
       if (!group) return res.status(404).json({ error: 'الفريق غير موجود' });
       
-      if (user.level < group.requiredLevel) return res.status(400).json({ error: `يجب أن يكون مستواك ${group.requiredLevel} للانضمام` });
+      const userLevel = user.level ?? 1;
+
+      if (userLevel < group.requiredLevel) return res.status(400).json({ error: `يجب أن يكون مستواك ${group.requiredLevel} للانضمام` });
       if (group.members.length >= group.maxMembers) return res.status(400).json({ error: 'الفريق ممتلئ' });
 
       if (!group.isOpen) {
@@ -858,10 +865,12 @@ async function startServer() {
 
       // فريق مفتوح - انضمام مباشر
       group.members.push(user._id);
-      group.score += user.xp;
+      group.score += (user.xp || 0);
       await group.save();
 
       user.groupId = group._id;
+      if (user.level === undefined) user.level = userLevel;
+      if (user.xp === undefined) user.xp = 0;
       await user.save();
 
       res.json({ message: 'تم الانضمام بنجاح', status: 'joined', group });
@@ -890,7 +899,7 @@ async function startServer() {
       // إزالة المستخدم من الفريق
       group.members = group.members.filter((m: any) => m.toString() !== userId);
       group.coLeaders = group.coLeaders.filter((m: any) => m.toString() !== userId);
-      group.score = Math.max(0, group.score - user.xp); // تحديث السكور
+      group.score = Math.max(0, group.score - (user.xp || 0)); // تحديث السكور
 
       user.groupId = null;
       await user.save();

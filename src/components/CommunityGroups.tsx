@@ -91,7 +91,7 @@ export const GroupChatTab = ({ groupId, user, ws, groupChatMessages, setGroupCha
   );
 };
 
-export const GroupsTabContent = ({ user, ws, groupChatMessages, setGroupChatMessages, connectToOnline }: any) => {
+export const GroupsTabContent = ({ user, ws, groupChatMessages, setGroupChatMessages, connectToOnline, setCoins }: any) => {
   const [view, setView] = useState<'list' | 'create' | 'myGroup'>('list');
   const [groups, setGroups] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -169,7 +169,7 @@ export const GroupsTabContent = ({ user, ws, groupChatMessages, setGroupChatMess
       const data = await res.json();
       if (data.error) setIsErr(data.error);
       else {
-        user.coins -= 1000;
+        setCoins((prev: number) => Math.max(0, prev - 1000));
         user.groupId = data._id;
         fetchMyGroup();
       }
