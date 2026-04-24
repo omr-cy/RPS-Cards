@@ -126,6 +126,7 @@ export const OnlineAndroidService = {
     data: any,
     options: {
       setIsSearching: Function;
+      setIsActionLoading?: Function;
       setRole: Function;
       setRoomId: Function;
       setAppState: Function;
@@ -142,7 +143,7 @@ export const OnlineAndroidService = {
     }
   ) => {
     const { 
-      setIsSearching, setRole, setRoomId, setAppState, 
+      setIsSearching, setIsActionLoading, setRole, setRoomId, setAppState, 
       setRoomState, setErrorMsg, setShowLevelUp, refreshProfile, appStateRef,
       setMatchmakingOpponent, setShowMatchmakingResult,
       setIsWaitingInPrivateRoom, roleRef, setMatchmakingCanCancel
@@ -153,6 +154,7 @@ export const OnlineAndroidService = {
       setShowMatchmakingResult(false);
       setMatchmakingOpponent(null);
       setMatchmakingCanCancel(false);
+      if (setIsActionLoading) setIsActionLoading(false);
       // Let the cancel button appear after 5 seconds
       setTimeout(() => {
         setMatchmakingCanCancel(true);
@@ -162,6 +164,8 @@ export const OnlineAndroidService = {
     } else if (data.type === 'match_found' || data.type === 'joined_room_success' || data.type === 'room_created') {
       setRole('ONLINE');
       setRoomId(data.roomId);
+      if (setIsActionLoading) setIsActionLoading(false);
+      
       
       if (data.type === 'room_created') {
         setIsWaitingInPrivateRoom(true);
@@ -177,14 +181,20 @@ export const OnlineAndroidService = {
         setAppState('inRoom');
       }
     } else if (data.type === 'room_state') {
+      if (setIsActionLoading) setIsActionLoading(false);
       setRoomState(data.state);
       setRoomId(data.state.id);
-      setIsWaitingInPrivateRoom(false);
       
-      // If we were in matchmaking, show the result first
-      const isActuallySearching = appStateRef.current === 'menu' && (data.state.players && Object.keys(data.state.players).length === 2);
+      const hasTwoPlayers = data.state.players && Object.keys(data.state.players).length === 2;
       
-      if (isActuallySearching) {
+      if (hasTwoPlayers) {
+        setIsWaitingInPrivateRoom(false);
+      }
+      
+      // If we were in matchmaking or waiting in a generic lobby, show the result first
+      const shouldShowVS = hasTwoPlayers && appStateRef.current === 'menu';
+      
+      if (shouldShowVS) {
         // Find opponent info
         const meId = localStorage.getItem('cardclash_playerId');
         const players = data.state.players;
@@ -206,9 +216,17 @@ export const OnlineAndroidService = {
           setIsSearching(false);
         }
       } else {
-        if (appStateRef.current !== 'inRoom') setAppState('inRoom');
+        // If there's 1 player OR we already transitioned out of menu, update state
+        if (hasTwoPlayers && appStateRef.current !== 'inRoom') {
+           setAppState('inRoom');
+        } else if (!hasTwoPlayers && appStateRef.current === 'menu' && !data.state.isBotRoom) {
+           // Wait in menu for the second player if we are in an online/private room
+        } else if (appStateRef.current !== 'inRoom') {
+           setAppState('inRoom');
+        }
       }
     } else if (data.type === 'error_msg') {
+      if (setIsActionLoading) setIsActionLoading(false);
       setErrorMsg(data.msg);
       setIsSearching(false);
     } else if (data.type === 'level_up') {

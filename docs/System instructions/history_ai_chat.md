@@ -330,3 +330,12 @@
   - Restructured `leaveRoom()` to send the `leave_room` native action _before_ the Javascript WebSocket explicitly closes, guaranteeing proper server cleanup routines execution.
   - Removed `setMenuTab('main')` from `leaveRoom()`. Returns no longer force the player back to the primary menu tab, preventing the confusion that made them have to tap the "Online" Globe icon to refresh their interface state context. 
   - Synchronously mutated `appStateRef` and `roleRef` during exit to prevent asynchronous websocket `onclose` errors from triggering false disconnection toasts.
+
+## [2026-04-24] Matchmaking UI Mobile vs Web Discrepancy & Private Room Bypass Fixed
+**User Prompt:**
+> The شاشة التعارف is still only showing one player. This is a bug that we need to fix.
+
+**Actions Taken:**
+- **Intercept Native Route Bug Fixed:** Diagnosed a major flaw in `App.tsx` where Mobile Android devices using the Capacitor local TCP bridge (handling LAN games) intercepted `room_state` JSON blindly through the `window.addEventListener('message', handleNativeMessage)` hook. This completely swallowed the online message because it was manually routed to `setAppState('inRoom')`, totally skipping `Online_Android.ts` and bypassing the entire `MatchmakingView` logic for Mobile users, precisely explaining why it was visible on the web version but not on the mobile version. Rewrote `handleNativeMessage` to route `room_state`, `room_created`, and `error_msg` natively through `handleOnlineMessage` recursively if `roleRef.current === 'ONLINE'`.
+- **Private Room Synchronicity:** Updated the transition flow within `Online_Android.ts`: Prior to this patch, the "Creator" of an online private room evaluated `Object.keys(data.state.players).length === 2` while their `appState` was already resting lazily inside `inRoom`, causing them to immediately fail the evaluate block and proceed directly to play mode, meaning only the joiner saw the profile screen! Delaying `inRoom` assignment, maintaining `menu` persistence, and rewriting the evaluating condition resolved the discrepancy.
+- **Overlay State Scope Expansions:** Extracted `renderMatchmakingOverlay()` completely out of the exclusive `if (appState === 'menu')` layout context block in `App.tsx` and nested it natively inside `inRoom` contexts guaranteeing seamless animated unmaskings during runtime loading procedures.

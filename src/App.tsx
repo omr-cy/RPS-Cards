@@ -2038,22 +2038,32 @@ const App = () => {
       }
     } else if (data.type === 'matchmaking_status' || data.type === 'match_found' || data.type === 'joined_room_success' || data.type === 'pong' || data.type === 'PONG' || data.type === 'HANDSHAKE_OK' || data.type === 'chat_message' || data.type === 'chat_history' || data.type === 'group_chat_message') {
       handleOnlineMessage(data);
-    } else if (data.type === 'room_state') {
-      setRoomState(data.state);
-      setRoomId(data.state.id);
-      setIsSearching(false);
-      setIsActionLoading(false);
-      setAppState('inRoom');
-    } else if (data.type === 'room_created') {
-      setRoomId(data.roomId);
-      setIsSearching(false);
-      setIsActionLoading(false);
-      if (roleRef.current === 'ONLINE') setAppState('inRoom');
-    } else if (data.type === 'error_msg') {
-      setErrorMsg(data.msg);
-      addLog(`Server Error: ${data.msg}`, 'error');
-      setIsSearching(false);
-      setIsActionLoading(false);
+    } else if (data.type === 'room_state' || data.type === 'room_created' || data.type === 'error_msg') {
+      if (roleRef.current === 'ONLINE') {
+        handleOnlineMessage(data);
+      } else {
+        if (data.type === 'room_state') {
+          setRoomState(data.state);
+          setRoomId(data.state.id);
+          setIsSearching(false);
+          setIsActionLoading(false);
+          setAppState('inRoom');
+        } else if (data.type === 'room_created') {
+          setRoomId(data.roomId);
+          setIsSearching(false);
+          setIsActionLoading(false);
+          setAppState('inRoom');
+        } else if (data.type === 'error_msg') {
+          setErrorMsg(data.msg);
+          addLog(`Server Error: ${data.msg}`, 'error');
+          setIsSearching(false);
+          setIsActionLoading(false);
+        }
+      }
+    } else if (data.type === 'level_up') {
+      if (roleRef.current === 'ONLINE') {
+        handleOnlineMessage(data);
+      }
     }
   };
 
@@ -2294,6 +2304,7 @@ const App = () => {
     
     OnlineAndroidService.handleOnlineMessage(data, {
       setIsSearching,
+      setIsActionLoading,
       setRole,
       setRoomId,
       setAppState,
@@ -3410,27 +3421,32 @@ const App = () => {
               />
             )}
           </AnimatePresence>
-          <AnimatePresence>
-            {(isSearching || showMatchmakingResult) && (
-              <MatchmakingView 
-                key="matchmaking"
-                isSearching={isSearching}
-                onCancel={cancelSearch}
-                matchFound={showMatchmakingResult}
-                opponent={matchmakingOpponent}
-                playerName={playerName}
-                playerLevel={level}
-                playerThemeId={selectedThemeId}
-                canCancel={matchmakingCanCancel}
-              />
-            )}
-          </AnimatePresence>
         </>
     );
   }
 
+  // Pre-game overlay that should be visible regardless of being in 'menu' or 'inRoom'
+  const renderMatchmakingOverlay = () => (
+    <AnimatePresence>
+      {(isSearching || showMatchmakingResult) && (
+        <MatchmakingView 
+          key="matchmaking"
+          isSearching={isSearching}
+          onCancel={cancelSearch}
+          matchFound={showMatchmakingResult}
+          opponent={matchmakingOpponent}
+          playerName={playerName}
+          playerLevel={level}
+          playerThemeId={selectedThemeId}
+          canCancel={matchmakingCanCancel}
+        />
+      )}
+    </AnimatePresence>
+  );
+
   if (!roomState) return (
     <div className="fixed inset-0 w-full h-full wood-texture">
+      {renderMatchmakingOverlay()}
       {renderDebugUI()}
     </div>
   );
@@ -3466,6 +3482,7 @@ const App = () => {
 
   if (!opponent && !roomState.isBotRoom && roomState.gameState !== 'waiting' && roomState.gameState !== 'opponentLeft') return (
     <div className="fixed inset-0 w-full h-full wood-texture">
+      {renderMatchmakingOverlay()}
       {renderDebugUI()}
     </div>
   );
@@ -3473,18 +3490,21 @@ const App = () => {
 
   if (roomState.gameState === 'waiting') {
     return (
-      <PrivateRoomLobbyView 
-        isLoading={(role === 'HOST' || role === 'CLIENT') ? (userIp === 'جاري التحميل...' || !userIp) : !roomId}
-        roomCode={roomId}
-        isLan={role === 'HOST' || role === 'CLIENT'}
-        localIp={userIp}
-        onCancel={() => {
-          setIsWaitingInPrivateRoom(false);
-          setAppState('menu');
-          setMenuTab('online');
-          leaveRoom();
-        }}
-      />
+      <>
+        {renderMatchmakingOverlay()}
+        <PrivateRoomLobbyView 
+          isLoading={(role === 'HOST' || role === 'CLIENT') ? (userIp === 'جاري التحميل...' || !userIp) : !roomId}
+          roomCode={roomId}
+          isLan={role === 'HOST' || role === 'CLIENT'}
+          localIp={userIp}
+          onCancel={() => {
+            setIsWaitingInPrivateRoom(false);
+            setAppState('menu');
+            setMenuTab('online');
+            leaveRoom();
+          }}
+        />
+      </>
     );
   }
 
@@ -3595,6 +3615,7 @@ const App = () => {
 
   return (
     <>
+      {renderMatchmakingOverlay()}
       {renderErrorToast()}
       <div 
         dir="rtl" 
