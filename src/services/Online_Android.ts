@@ -45,14 +45,29 @@ export const OnlineAndroidService = {
         return;
       }
 
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        if (action) ws.send(JSON.stringify(action));
-        resolve(ws);
+      if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+        if (ws.readyState === WebSocket.OPEN) {
+           if (action) ws.send(JSON.stringify(action));
+           resolve(ws);
+        } else {
+           // Wait for open
+           const checkReady = setInterval(() => {
+              if (ws.readyState === WebSocket.OPEN) {
+                 clearInterval(checkReady);
+                 if (action) ws.send(JSON.stringify(action));
+                 resolve(ws);
+              } else if (ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING) {
+                 clearInterval(checkReady);
+                 reject(new Error('WebSocket closed while waiting'));
+              }
+           }, 100);
+        }
         return;
       }
       
       addLog(`Connecting to online server: ${serverUrl}`, 'info');
       const socket = new WebSocket(serverUrl);
+      setWs(socket); // Immediately set so subsequent calls know we are connecting
       
       const timeout = setTimeout(() => {
         if (socket.readyState !== WebSocket.OPEN) {
@@ -61,7 +76,7 @@ export const OnlineAndroidService = {
           setErrorMsg('انتهت مهلة المزامنة - تأكد من تشغيل السيرفر');
           reject(new Error('Timeout'));
         }
-      }, 5000);
+      }, 15000);
 
       socket.onopen = () => {
         clearTimeout(timeout);

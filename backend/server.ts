@@ -49,6 +49,7 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true },
   displayName: { type: String, required: true },
   coins: { type: Number, default: 100 },
+  competitionPoints: { type: Number, default: 0 },
   xp: { type: Number, default: 0 },
   level: { type: Number, default: 1 },
   purchasedThemes: { type: [String], default: ['normal'] },
@@ -73,7 +74,7 @@ const groupSchema = new mongoose.Schema({
   coLeaders: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // قادة مساعدين
   members: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // جميع الأعضاء (بما فيهم القادة)
   joinRequests: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // طلبات الانضمام للفريق المغلق
-  score: { type: Number, default: 0 }, // نقاط الفريق
+  score: { type: Number, default: 0 }, // مجموع نقاط المنافسة للأعضاء
   maxMembers: { type: Number, default: 50 }, // الحد الأقصى
   isOpen: { type: Boolean, default: true }, // لو false بيبقى عن طريق Request
   requiredLevel: { type: Number, default: 1 }, // الحد الأدنى للمستوى للانضمام
@@ -339,6 +340,7 @@ async function awardRewards(room: Room, winnerId: string | null) {
           const isWinner = p.id === winnerId;
           const xpGain = isWinner ? 50 : 20;
           const coinGain = isWinner ? 15 : 5;
+          const compGain = isWinner ? 15 : 5;
 
           if (room.isPublic) {
             user.xp = (user.xp || 0) + xpGain;
@@ -346,7 +348,12 @@ async function awardRewards(room: Room, winnerId: string | null) {
           }
           
           user.coins = (user.coins || 0) + coinGain;
+          user.competitionPoints = (user.competitionPoints || 0) + compGain;
           await user.save();
+          
+          if (user.groupId) {
+            await Group.findByIdAndUpdate(user.groupId, { $inc: { score: compGain } });
+          }
           
           if (user.level > oldLevel) {
             p.ws.send(JSON.stringify({ 
@@ -393,6 +400,7 @@ async function startNextRound(roomId: string) {
               
               const xpGain = (p.id === winnerId) ? 50 : 20;
               const coinGain = (p.id === winnerId) ? 15 : 5; // Small coin reward for participation too
+              const compGain = (p.id === winnerId) ? 15 : 5;
 
               if (room.isPublic) {
                 user.xp = (user.xp || 0) + xpGain;
@@ -402,10 +410,15 @@ async function startNextRound(roomId: string) {
                 console.log(`[Game Over - Private] Player ${user.displayName} gained no XP (Friend Room).`);
               }
               
-              // Reward coins
+              // Reward coins and competition points
               user.coins = (user.coins || 0) + coinGain;
+              user.competitionPoints = (user.competitionPoints || 0) + compGain;
               
               await user.save();
+              
+              if (user.groupId) {
+                await Group.findByIdAndUpdate(user.groupId, { $inc: { score: compGain } });
+              }
               const currentXp = user.xp || 0;
               console.log(`[Game Over] Player ${user.displayName}. Total XP: ${currentXp}. Level: ${user.level}`);
               
@@ -732,9 +745,9 @@ async function startServer() {
   app.get('/api/leaderboard', async (req, res) => {
     try {
       const topPlayers = await User.find({ isVerified: true })
-        .sort({ xp: -1 })
+        .sort({ competitionPoints: -1 })
         .limit(20)
-        .select('displayName xp level equippedTheme');
+        .select('displayName xp level coins competitionPoints equippedTheme');
 
       let userRank = null;
       let userScore = null;
@@ -743,9 +756,9 @@ async function startServer() {
       if (userId) {
         const user = await User.findById(userId);
         if (user) {
-          userScore = { xp: user.xp, level: user.level };
-          // Count users with more XP to get rank
-          userRank = await User.countDocuments({ xp: { $gt: user.xp }, isVerified: true }) + 1;
+          userScore = { xp: user.xp, level: user.level, coins: user.coins, competitionPoints: user.competitionPoints };
+          // Count users with more points to get rank
+          userRank = await User.countDocuments({ competitionPoints: { $gt: user.competitionPoints || 0 }, isVerified: true }) + 1;
         }
       }
 
@@ -792,7 +805,7 @@ async function startServer() {
         description: description || "",
         leaderId: user._id,
         members: [user._id],
-        score: user.xp || 0,
+        score: user.competitionPoints || 0,
         isOpen: isOpen !== undefined ? isOpen : true,
         requiredLevel: requiredLevel || 1
       });
@@ -865,7 +878,7 @@ async function startServer() {
 
       // فريق مفتوح - انضمام مباشر
       group.members.push(user._id);
-      group.score += (user.xp || 0);
+      group.score += (user.competitionPoints || 0);
       await group.save();
 
       user.groupId = group._id;
@@ -899,7 +912,7 @@ async function startServer() {
       // إزالة المستخدم من الفريق
       group.members = group.members.filter((m: any) => m.toString() !== userId);
       group.coLeaders = group.coLeaders.filter((m: any) => m.toString() !== userId);
-      group.score = Math.max(0, group.score - (user.xp || 0)); // تحديث السكور
+      group.score = Math.max(0, group.score - (user.competitionPoints || 0)); // تحديث السكور
 
       user.groupId = null;
       await user.save();
@@ -1201,13 +1214,27 @@ async function startServer() {
           isPublic: true
         };
 
-        p1.ws.send(JSON.stringify({ type: 'match_found', roomId, roomCode: roomId }));
-        p2.ws.send(JSON.stringify({ type: 'match_found', roomId, roomCode: roomId }));
+        try {
+          if (p1.ws.readyState === 1) { // WebSocket.OPEN is 1
+            p1.ws.send(JSON.stringify({ type: 'match_found', roomId, roomCode: roomId }));
+          }
+          if (p2.ws.readyState === 1) {
+            p2.ws.send(JSON.stringify({ type: 'match_found', roomId, roomCode: roomId }));
+          }
+        } catch (e) {
+          console.error("Failed to send match_found:", e);
+        }
         startRoundTimer(roomId);
         broadcastToRoom(roomId, { type: 'room_state', state: rooms[roomId] });
       } else if (timeInQueue > 12000) {
         handledIds.add(p1.id);
-        p1.ws.send(JSON.stringify({ type: 'error_msg', msg: 'لم يتم العثور على لاعبين في الوقت الحالي، جرب اللعب مع الكمبيوتر' }));
+        try {
+          if (p1.ws.readyState === 1) {
+            p1.ws.send(JSON.stringify({ type: 'error_msg', msg: 'لم يتم العثور على لاعبين في الوقت الحالي، جرب اللعب مع الكمبيوتر' }));
+          }
+        } catch (e) {
+          console.error("Failed to send error_msg:", e);
+        }
       }
     }
 

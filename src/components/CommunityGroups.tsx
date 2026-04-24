@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Users, Trophy, ArrowLeft, ArrowRight, Activity, LogOut } from 'lucide-react';
+import { Users, Diamond, ArrowLeft, ArrowRight, Activity, LogOut } from 'lucide-react';
+import { IoMdSend } from 'react-icons/io';
 import { getApiUrl } from '../env_config';
 
 const API_BASE_URL = getApiUrl();
@@ -18,10 +19,12 @@ export const GroupChatTab = ({ groupId, user, ws, groupChatMessages, setGroupCha
       })
       .catch(() => setLoading(false));
 
-    if (!ws || ws.readyState !== WebSocket.OPEN) {
-      connectToOnline();
+    // Only attempt to connect once if there's no ws connection when the component mounts
+    if (!ws || (ws.readyState !== 1 && ws.readyState !== 0)) { // 1 is OPEN, 0 is CONNECTING
+      connectToOnline().catch(() => {});
     }
-  }, [groupId, ws, setGroupChatMessages, connectToOnline]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [groupId]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -58,8 +61,8 @@ export const GroupChatTab = ({ groupId, user, ws, groupChatMessages, setGroupCha
             const isMe = msg.senderId?._id === user?._id || msg.senderId === user?._id;
             const senderName = isMe ? 'أنت' : (msg.senderId?.displayName || 'لاعب');
             return (
-              <div key={msg._id || idx} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                 <div className={`max-w-[70%] rounded-2xl px-4 py-2 flex flex-col shadow-md ${isMe ? 'bg-game-teal/20 border border-game-teal/30 text-game-offwhite rounded-br-sm' : 'bg-white/10 border border-white/5 text-game-offwhite rounded-bl-sm'}`}>
+              <div key={msg._id || idx} className={`flex ${isMe ? 'justify-start' : 'justify-end'}`}>
+                 <div className={`max-w-[70%] rounded-2xl px-4 py-2 flex flex-col shadow-md ${isMe ? 'bg-game-teal/20 border border-game-teal/30 text-game-offwhite rounded-tr-sm' : 'bg-white/10 border border-white/5 text-game-offwhite rounded-tl-sm'}`}>
                     <span className="text-[10px] text-game-teal font-display mb-1">{senderName}</span>
                     <p className="text-sm font-body break-words whitespace-pre-wrap">{msg.text}</p>
                  </div>
@@ -83,7 +86,8 @@ export const GroupChatTab = ({ groupId, user, ws, groupChatMessages, setGroupCha
               disabled={!inputText.trim()}
               className="bg-game-teal text-game-dark px-4 rounded-xl flex items-center justify-center disabled:opacity-50 transition-all active:scale-95 shadow-lg shadow-game-teal/20"
             >
-              <ArrowLeft className="w-5 h-5" />
+              {/* @ts-ignore */}
+              <IoMdSend className="w-5 h-5 -rotate-90" />
             </button>
           </div>
        </div>
@@ -197,7 +201,7 @@ export const GroupsTabContent = ({ user, ws, groupChatMessages, setGroupChatMess
        <div className="flex-1 w-full flex flex-col h-full bg-slate-900/40 relative">
           <div className="flex items-center justify-between p-4 border-b border-white/10 bg-black/20">
              <div className="flex items-center gap-2">
-               <Trophy className="w-5 h-5 text-yellow-500" />
+               <Users className="w-5 h-5 text-game-teal" />
                <h3 className="font-display text-lg text-white">{myGroupData.name}</h3>
              </div>
              <button onClick={leaveGroup} className="text-red-400 hover:text-red-300 text-xs flex items-center gap-1 font-display transition-colors bg-red-400/10 px-3 py-1.5 rounded-lg active:scale-95">
@@ -248,7 +252,7 @@ export const GroupsTabContent = ({ user, ws, groupChatMessages, setGroupChatMess
   return (
     <div className="flex-1 w-full max-w-md mx-auto flex flex-col p-4 space-y-4 overflow-y-auto">
       <button onClick={() => setView('create')} className="w-full p-4 border-2 border-dashed border-game-teal/30 hover:border-game-teal rounded-xl bg-game-teal/5 flex items-center justify-center gap-2 text-game-teal font-display transition-all active:scale-95">
-         إنشاء فريق خاص بمقابل ذهب <Trophy className="w-4 h-4 text-yellow-500 mr-2" />
+         إنشاء فريق خاص بمقابل ذهب <Diamond className="w-4 h-4 text-yellow-500 mr-2" />
       </button>
 
       <div className="space-y-3 pt-4">
@@ -262,7 +266,7 @@ export const GroupsTabContent = ({ user, ws, groupChatMessages, setGroupChatMess
                     {g.description && <p className="text-xs text-game-offwhite/50 mt-1 max-w-[200px] truncate">{g.description}</p>}
                  </div>
                  <div className="flex flex-col items-end gap-1">
-                    <span className="text-xs text-yellow-500 font-display bg-yellow-500/10 px-2 py-0.5 rounded-full flex items-center gap-1"><Trophy className="w-3 h-3" /> {g.score}</span>
+                    <span className="text-xs text-game-teal font-display bg-game-teal/10 px-2 py-0.5 rounded-full flex items-center gap-1"><Activity className="w-3 h-3 rotate-90" /> {g.score}</span>
                     <span className="text-[10px] text-emerald-400 font-display">{g.members?.length}/{g.maxMembers}</span>
                  </div>
               </div>

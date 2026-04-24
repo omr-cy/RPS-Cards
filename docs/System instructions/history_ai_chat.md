@@ -228,3 +228,75 @@
 **Actions:**
 - **Matchmaking Timeout Fallback:** Fixed the "stuck searching" issue by introducing a 12-second timeout inside the `setInterval` processor in `backend/server.ts`. When players matchmake on an empty server without opponents, they receive a graceful exit sequence sending `error_msg` to cancel the UI spinner rather than waiting infinitely.
 - **Improved Clan Creation Design:** Removed the large yellow graphical representation of "1000 Coins" inside `CommunityGroups.tsx`, updating the layout per requests. Adopted the text "إنشاء فريق" (Create Team) for the final confirmation button and explicitly stated "ستكون التكلفة 1000 عملة" underneath it.
+
+## [2026-04-24] UI Enhancements for Settings and Chat
+**User Prompt:** أريد أن تظهر رسائلي على اليمين ورسائل المجموعة على اليسار. أحتاج إلى زر تحديث صغير. أريد أن أرى زر تسجيل الدخول أو تسجيل الخروج عندما أفتح الإعدادات.
+**Actions:**
+- **RTL Chat Alignment Fixed:** Corrected the flex alignment classes in `<GlobalChat>` and `<GroupChatTab>`. Since the app uses `dir="rtl"`, `justify-start` flexes to the right, and `justify-end` flexes to the left. Updated conditionals to strictly use `justify-start` for the current user's messages to align them on the right.
+- **Refresh Control Added:** Embedded a small `RefreshCw` icon button within `<CommunityView>` header, passing a `refreshKey` down directly to the main layout to forcefully remount inner tabs so users can instantly refresh groups or chats continuously.
+- **Authentication Handlers at Profile Settings:** Embedded prominent "Login" / "Logout" buttons underneath the overall Profile summary inside the `activeTab === 'profile'` state of `<ProfileView>`, conditionally displaying either one based on the authenticated `userId`.
+
+## [2026-04-24] UI Enhancements and Matchmaking Bugfix
+**User Prompt:** خلي زر ارسال الرسائل يكون <IoMdSend /> وخليه باصص لفوق. I don't want to start playing against anyone. Quick matches or random matchmaking don't work. It'll put me in a server and one person will request quick match, another will request quick match, and it'll kick me out of both before even letting me join a game.
+**Actions:**
+- **Matchmaking Error Loop Fixed:** Added a crucial `try/catch` and `readyState` check when broadcasting the `match_found` event through the `backend/server.ts` interval. Previously, if one connection closed prematurely, the `wss` loop would throw an uncaught exception, dropping the entire iteration and trapping users in a queue loop until they hit the 12-second timeout and were kicked back to the menu. This resulted in dual-cancellations (kicks) exactly as described.
+- **Chat Send Icon Updated:** Replaced `<ArrowLeft>` with `<IoMdSend>` from `react-icons/io` within `<GlobalChat>` inside `App.tsx` and in `<GroupChatTab>` inside `CommunityGroups.tsx`, retaining `-rotate-90` classes to point it upwards directly matching user instructions.
+
+## [2026-04-24] UI Enhancements for Settings Panel
+**User Prompt:** When I click on the advertising button, I want it to appear in the settings button. When I click on the advertising button, I want it to be one of the options in the settings button list. When I click the settings button, it takes me to the profile. I want it to open a side panel without animation, calmly and smoothly without animation. It should contain what I mentioned.
+**Actions:**
+- **Settings Side Panel Implemented:** Replaced the direct profile navigation on the GlobalNavbar's settings icon with a state toggle (`showSettingsSidebar`).
+- **Sidebar Component Added:** Created a new `SettingsSidebar` component rendered globally. It appears instantly (without animation, as requested using `transition-none` and `transform-none`) and contains direct list options.
+- **Settings Options Addressed:** Added choices within the sidebar to seamlessly route to the "Profile" view, fire a DOM sequence to auto-select the "Gift/Ads" tab inside the profile view, and integrated the "Login/Logout" stateful buttons previously residing in the Profile page directly into this settings list.
+
+## [2026-04-24] Settings Redesign and Backend Resource Refresh
+**User Prompt:** The settings window should be on the right, not the left. I also need the refresh button to be on the personal profile page, not the community page. The refresh button should retrieve data from the database. It should refresh from the backend, allowing the backend to refresh from the database. This is so if I change something in the database... I want to change someone's credit. When I put the change above the information, it does not update here. So, I need the refresh button to pull from the database.
+**Actions:**
+- **Settings Orientation Fixed:** Swapped alignment from `justify-end` to `justify-start` within the `dir="rtl"` wrapper inside the `<SettingsSidebar>` so it physically aligns strictly to the right without animations.
+- **Refresh Flow Corrected:** Moved the `<RefreshCw>` button directly from the `<CommunityView>` component to sit gracefully inside `<ProfileView>` next to the Edit Name action.
+- **Database Synchronization Force Update:** Bound the Refresh action to a new `handleForceRefreshData` method. Previously, an instant local-to-backend background sync operation was clobbering out-of-band external admin changes to backend storage immediately due to a local discrepancy. Now, explicitly querying the backend profile route bypasses the overwrite loop by capturing remote values into UI state immediately, forcing `lastSyncPayload.current` identical parity to cease local auto-overwrite triggers.
+
+## [2026-04-24] WebSocket Connection Rapid Loop (DDoS) Fixed
+**User Prompt:** I saw these lines when I created the team and joined it. When I joined, my device started doing this to the backend... it performed a DDoS.
+**Actions:**
+- **Identified Rapid Reconnection Loop:** Discovered that the `<GroupChatTab>` component's fetching `useEffect` hook repeatedly checked `ws.readyState !== WebSocket.OPEN` and triggered `connectToOnline()`. Because the WebSocket object took time to transition from `CONNECTING` to `OPEN`, the dependency array (which included the newly regenerated `connectToOnline` function during App render ticks) would infinitely cycle, executing `new WebSocket()` requests hundreds of times per second.
+- **Client Render Safeguard:** Overhauled the React hooks in `<GroupChatTab>`, removing volatile function properties from dependencies. Adjusted it to gracefully skip connection attempts if the `ws` is already observed in the `0` (`CONNECTING`) state.
+- **Service Layer Safety Guard:** Reinforced `Online_Android.ts` global connection middleware to immediately store the socket into state `setWs()` rather than waiting for the `onopen` callback. Extended logic blocks to pause execution or resolve safely without opening duplicate instances if a `CONNECTING` socket already exists in progress.
+
+## [2026-04-24] Fix Unhandled Promise Rejection (Timeout)
+**User Prompt:** Fix the following errors: Timeout
+**Actions:**
+- Promoted WebSocket `setTimeout` duration from 5000ms to 15000ms inside `Online_Android.ts` to accommodate cold starts or delayed cloud reverse proxy handshakes from AI Studio's infrastructure mapping.
+- Handled previously uncaught JavaScript Promises invoking `connectToOnline` by bolting explicit `.catch(() => {})` chains at all calling endpoints, specifically `GlobalChat` and `GroupChatTab`'s `useEffect` hooks, eliminating the raw console crash state that manifested when connections legitimately timed out.
+
+## [2026-04-24] Introduced Points of Competition
+**User Prompt:** I want the game's currency to be replaced with a point system, specifically "points of competition." This point system should be displayed alongside the game's currency and also in the leaderboard. The sum of the points of competition for the team members should determine the team's ranking.
+**Actions:**
+- Modified the `userSchema` in `backend/server.ts` to include `competitionPoints`.
+- Updated `/api/leaderboard` to sort players descending by their new `competitionPoints` instead of XP, and added `competitionPoints` fetching and ranking.
+- Hooked `awardRewards` logic in `server.ts` to grant `competitionPoints` alongside `coins` during public matchups. Also incrementing the `Group` model's `score` directly when completing a match so the backend automatically keeps sums.
+- Updated `Group`'s join & leave mechanics to deduct or augment its `score` utilizing the user's `competitionPoints`, strictly defining team rank as the true sum of all respective members.
+- Revamped the `<GlobalNavbar>` and `<ProfileView>` components to persistently surface the `competitionPoints` via the Trophy `<Trophy />` UI indicator adjacent to the primary currency `<Activity />`.
+- Augmented React client-side `.localStorage` state to mirror the points seamlessly via API.
+
+## [2026-04-24] Swapped Currency and Points UI Details
+**User Prompt:** بدل ايقونة العملة بايقونة نقاط المنافسة والاوان برضو
+**Actions:**
+- Systematically audited `App.tsx` and `CommunityGroups.tsx` replacing instances signifying "currency" (previously teal Activity pulse) with the yellow `Trophy` icon.
+- Mapped "competition points" to instead use the teal rotated `Activity` icon.
+- Adjusted all corresponding Tailwind text-color classes (e.g. `text-game-teal` and `text-yellow-500`) to match their new visual assignments across Store Views, Profile, Leaderboard, and Global Navigation bar.
+
+## [2026-04-24] Update Currency Icon
+**User Prompt:**
+> خلي دي ايقونة العملات الجديدة <MaterialSymbol name="line_end_diamond" />
+
+**Actions Taken:**
+- Replaced the `Trophy` icon with the `Diamond` icon from `lucide-react` in `src/App.tsx` and `src/components/CommunityGroups.tsx` to serve as the new currency indicator.
+
+## [2026-04-24] Update XP and Level Icons
+**User Prompt:**
+> خلي دي ايقونة نقاط الخبرة / المستوى <MaterialSymbol name="mindfulness" />
+
+**Actions Taken:**
+- Replaced the `Star` icon with the `Brain` icon from `lucide-react` in the `XPBar` component of `src/App.tsx` to represent Experience Points more accurately given the constraints.
+- Updated the `Sparkles` icon to the `Brain` icon in the `LevelUpModal` component to remain consistent with the new XP icon styling.
