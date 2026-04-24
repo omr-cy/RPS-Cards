@@ -12,7 +12,6 @@ import config from './config.json';
 import { getApiUrl } from './env_config';
 import { useAuth } from './contexts/AuthContext';
 import { useDebug, LogEntry } from './contexts/DebugContext';
-import { GroupsTabContent } from './components/CommunityGroups';
 
 const API_BASE_URL = getApiUrl();
 
@@ -362,9 +361,6 @@ const MatchmakingView = memo(({
 }) => {
   if (!isSearching && !matchFound) return null;
 
-  const opponentTheme = opponent ? getTheme(opponent.themeId) : THEMES[0];
-  const playerTheme = getTheme(playerThemeId);
-
   return (
     <div
       className="fixed inset-0 z-[200] wood-texture flex flex-col items-center justify-center p-6 overflow-hidden"
@@ -377,76 +373,31 @@ const MatchmakingView = memo(({
         <div className="absolute bottom-1/4 right-0 w-80 h-80 bg-game-red/10 blur-[120px] rounded-full" />
       </div>
 
-      <>
-        {!matchFound ? (
-          <div
-            key="searching"
-            className="flex flex-col items-center gap-8 relative z-10"
+      <div
+        key="searching"
+        className="flex flex-col items-center gap-8 relative z-10"
+      >
+        <Activity className="w-12 h-12 text-game-teal animate-spin" />
+        
+        <div className="text-center space-y-2">
+          <h2 className="text-3xl font-display text-game-offwhite tracking-widest">
+            {matchFound ? 'جاري الدخول للمعركة...' : 'جاري البحث...'}
+          </h2>
+          <p className="text-game-offwhite/40 font-body text-sm">
+            {matchFound ? 'تم العثور على خصم، استعد للمواجهة!' : 'يتم الآن البحث عن اللاعبين المناسبين لنفس مستواك'}
+          </p>
+        </div>
+
+        {!matchFound && (
+          <button 
+            onClick={onCancel}
+            disabled={!canCancel}
+            className={`mt-8 px-10 py-3 border-2 border-game-red/40 text-game-red rounded-xl font-display text-xl transition-all shadow-[0_0_20px_rgba(139,26,26,0.2)] ${!canCancel ? 'opacity-30 cursor-not-allowed scale-95' : 'hover:bg-game-red hover:text-white active:scale-95'}`}
           >
-            <Activity className="w-12 h-12 text-game-teal animate-spin" />
-            
-            <div className="text-center space-y-2">
-              <h2 className="text-3xl font-display text-game-offwhite tracking-widest">جاري البحث...</h2>
-              <p className="text-game-offwhite/40 font-body text-sm">يتم الآن البحث عن اللاعبين المناسبين لنفس مستواك</p>
-            </div>
-
-            <button 
-              onClick={onCancel}
-              disabled={!canCancel}
-              className={`mt-8 px-10 py-3 border-2 border-game-red/40 text-game-red rounded-xl font-display text-xl transition-all shadow-[0_0_20px_rgba(139,26,26,0.2)] ${!canCancel ? 'opacity-30 cursor-not-allowed scale-95' : 'hover:bg-game-red hover:text-white active:scale-95'}`}
-            >
-              إلغاء البحث
-            </button>
-          </div>
-        ) : (
-          <div
-            key="match-found"
-            className="w-full max-w-2xl flex flex-col items-center gap-12 relative z-10"
-          >
-            <div
-              className="bg-game-teal text-game-dark px-8 py-3 rounded-2xl font-display text-3xl shadow-[0_0_40px_rgba(45,212,191,0.5)] transform -rotate-2"
-            >
-              تم العثور على خصم!
-            </div>
-
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-8 sm:gap-20 w-full">
-              {/* Me */}
-              <div 
-                className="flex flex-col items-center gap-4"
-              >
-                <div className={`w-32 h-32 rounded-3xl ${playerTheme.frontColor} border-4 border-white/20 flex items-center justify-center shadow-2xl relative`}>
-                  <User className="w-16 h-16 text-white/20" />
-                  <div className="absolute -bottom-3 -right-3 bg-white text-game-dark font-black px-3 py-1 rounded-xl shadow-lg border-2 border-game-dark font-mono text-xl">
-                    {playerLevel}
-                  </div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-display text-white">{playerName}</div>
-                  <div className="text-xs text-game-teal font-display uppercase tracking-tighter">أنت</div>
-                </div>
-              </div>
-
-              <div className="text-5xl font-display text-game-offwhite/20 italic select-none">VS</div>
-
-              {/* Opponent */}
-              <div 
-                className="flex flex-col items-center gap-4"
-              >
-                <div className={`w-32 h-32 rounded-3xl ${opponentTheme.frontColor} border-4 border-white/20 flex items-center justify-center shadow-2xl relative`}>
-                  <Bot className="w-16 h-16 text-white/20" />
-                  <div className="absolute -bottom-3 -left-3 bg-game-red text-white font-black px-3 py-1 rounded-xl shadow-lg border-2 border-game-dark font-mono text-xl">
-                    {opponent.level || '?'}
-                  </div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-display text-white">{opponent.name}</div>
-                  <div className="text-xs text-game-red font-display uppercase tracking-tighter">الخصم</div>
-                </div>
-              </div>
-            </div>
-          </div>
+            إلغاء البحث
+          </button>
         )}
-      </>
+      </div>
     </div>
   );
 });
@@ -512,7 +463,7 @@ const SettingsSidebar = memo(({ isOpen, onClose, onNavigateToProfile, onNavigate
 });
 
 
-const GlobalNavbar = memo(({ coins, competitionPoints, isOnline, setAppState, unreadChat, setUnreadChat, unreadGroupChat, setUnreadGroupChat, setShowSettingsSidebar }: any) => {
+const GlobalNavbar = memo(({ coins, competitionPoints, isOnline, setAppState, unreadChat, setUnreadChat, setShowSettingsSidebar }: any) => {
   return (
     <>
       {!isOnline && (
@@ -547,11 +498,10 @@ const GlobalNavbar = memo(({ coins, competitionPoints, isOnline, setAppState, un
               onClick={() => {
                 setAppState('community');
                 setUnreadChat(false);
-                setUnreadGroupChat(false);
               }} 
               className="relative p-2 text-game-teal/70 hover:text-game-teal transition-colors active:scale-90"
             >
-              {(unreadChat || unreadGroupChat) && <div className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border border-game-dark" />}
+              {unreadChat && <div className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border border-game-dark" />}
               <Users className="w-5 h-5" />
             </button>
           </div>
@@ -1250,8 +1200,8 @@ const GlobalChat = ({ ws, chatMessages, user, connectToOnline, sendAction, isOnl
   );
 };
 
-const CommunityView = memo(({ userId, user, ws, chatMessages, groupChatMessages, setGroupChatMessages, connectToOnline, onBack, sendAction, isOnlineConnected, setCoins }: any) => {
-  const [activeTab, setActiveTab] = useState<'leaderboard' | 'groups' | 'chat'>('chat');
+const CommunityView = memo(({ userId, user, ws, chatMessages, connectToOnline, onBack, sendAction, isOnlineConnected, setCoins }: any) => {
+  const [activeTab, setActiveTab] = useState<'leaderboard' | 'chat'>('chat');
   const [refreshKey, setRefreshKey] = useState(0);
 
   return (
@@ -1279,12 +1229,6 @@ const CommunityView = memo(({ userId, user, ws, chatMessages, groupChatMessages,
             الصدارة
           </button>
           <button 
-            onClick={() => setActiveTab('groups')}
-            className={`flex-1 py-2 font-display text-sm transition-all rounded-t-xl ${activeTab === 'groups' ? 'bg-white/10 text-game-teal border-b-2 border-game-teal' : 'text-game-offwhite/50 hover:text-game-offwhite'}`}
-          >
-            الفرق
-          </button>
-          <button 
             onClick={() => setActiveTab('chat')}
             className={`flex-1 py-2 font-display text-sm transition-all rounded-t-xl ${activeTab === 'chat' ? 'bg-white/10 text-game-cream border-b-2 border-game-cream' : 'text-game-offwhite/50 hover:text-game-offwhite'}`}
           >
@@ -1295,16 +1239,6 @@ const CommunityView = memo(({ userId, user, ws, chatMessages, groupChatMessages,
 
       <div key={refreshKey} className="flex-1 w-full flex flex-col pt-32 h-full overflow-hidden">
         {activeTab === 'leaderboard' && <LeaderboardContent userId={userId} />}
-        {activeTab === 'groups' && (
-          <GroupsTabContent 
-            user={user} 
-            ws={ws} 
-            groupChatMessages={groupChatMessages} 
-            setGroupChatMessages={setGroupChatMessages} 
-            connectToOnline={connectToOnline} 
-            setCoins={setCoins}
-          />
-        )}
         {activeTab === 'chat' && (
           <GlobalChat ws={ws} chatMessages={chatMessages} user={user} connectToOnline={connectToOnline} sendAction={sendAction} isOnlineConnected={isOnlineConnected} />
         )}
@@ -1715,9 +1649,7 @@ const App = () => {
   const [ws, setWs] = useState<WebSocket | null>(null);
   const [selectedPack, setSelectedPack] = useState<ThemeConfig | null>(null);
   const [chatMessages, setChatMessages] = useState<any[]>([]);
-  const [groupChatMessages, setGroupChatMessages] = useState<any[]>([]);
   const [unreadChat, setUnreadChat] = useState(false);
-  const [unreadGroupChat, setUnreadGroupChat] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const backPressTimer = useRef<NodeJS.Timeout | null>(null);
   const [isDoubleBack, setIsDoubleBack] = useState(false);
@@ -2036,34 +1968,24 @@ const App = () => {
          sendNativeAction(onlineActionRef.current);
          onlineActionRef.current = null;
       }
-    } else if (data.type === 'matchmaking_status' || data.type === 'match_found' || data.type === 'joined_room_success' || data.type === 'pong' || data.type === 'PONG' || data.type === 'HANDSHAKE_OK' || data.type === 'chat_message' || data.type === 'chat_history' || data.type === 'group_chat_message') {
+    } else if (data.type === 'matchmaking_status' || data.type === 'match_found' || data.type === 'joined_room_success' || data.type === 'pong' || data.type === 'PONG' || data.type === 'HANDSHAKE_OK' || data.type === 'chat_message' || data.type === 'chat_history') {
       handleOnlineMessage(data);
-    } else if (data.type === 'room_state' || data.type === 'room_created' || data.type === 'error_msg') {
-      if (roleRef.current === 'ONLINE') {
-        handleOnlineMessage(data);
-      } else {
-        if (data.type === 'room_state') {
-          setRoomState(data.state);
-          setRoomId(data.state.id);
-          setIsSearching(false);
-          setIsActionLoading(false);
-          setAppState('inRoom');
-        } else if (data.type === 'room_created') {
-          setRoomId(data.roomId);
-          setIsSearching(false);
-          setIsActionLoading(false);
-          setAppState('inRoom');
-        } else if (data.type === 'error_msg') {
-          setErrorMsg(data.msg);
-          addLog(`Server Error: ${data.msg}`, 'error');
-          setIsSearching(false);
-          setIsActionLoading(false);
-        }
-      }
-    } else if (data.type === 'level_up') {
-      if (roleRef.current === 'ONLINE') {
-        handleOnlineMessage(data);
-      }
+    } else if (data.type === 'room_state') {
+      setRoomState(data.state);
+      setRoomId(data.state.id);
+      setIsSearching(false);
+      setIsActionLoading(false);
+      setAppState('inRoom');
+    } else if (data.type === 'room_created') {
+      setRoomId(data.roomId);
+      setIsSearching(false);
+      setIsActionLoading(false);
+      if (roleRef.current === 'ONLINE') setAppState('inRoom');
+    } else if (data.type === 'error_msg') {
+      setErrorMsg(data.msg);
+      addLog(`Server Error: ${data.msg}`, 'error');
+      setIsSearching(false);
+      setIsActionLoading(false);
     }
   };
 
@@ -2286,17 +2208,7 @@ const App = () => {
        }
        return;
     }
-    if (data.type === 'group_chat_message') {
-       setGroupChatMessages(prev => {
-         const newMsgs = [...prev, data.message];
-         if (newMsgs.length > 100) newMsgs.shift();
-         return newMsgs;
-       });
-       if (appStateRef.current !== 'community') {
-         setUnreadGroupChat(true);
-       }
-       return;
-    }
+
     if (data.type === 'chat_history') {
        setChatMessages(data.messages);
        return;
@@ -2304,7 +2216,6 @@ const App = () => {
     
     OnlineAndroidService.handleOnlineMessage(data, {
       setIsSearching,
-      setIsActionLoading,
       setRole,
       setRoomId,
       setAppState,
@@ -2805,8 +2716,6 @@ const App = () => {
           user={user}
           ws={ws}
           chatMessages={chatMessages}
-          groupChatMessages={groupChatMessages}
-          setGroupChatMessages={setGroupChatMessages}
           connectToOnline={connectToOnline}
           onBack={() => setAppState('menu')}
           sendAction={sendNativeAction}
@@ -3037,8 +2946,6 @@ const App = () => {
           setAppState={setAppState}
           unreadChat={unreadChat}
           setUnreadChat={setUnreadChat}
-          unreadGroupChat={unreadGroupChat}
-          setUnreadGroupChat={setUnreadGroupChat}
           setShowSettingsSidebar={setShowSettingsSidebar}
         />
         <SettingsSidebar 
@@ -3421,32 +3328,27 @@ const App = () => {
               />
             )}
           </AnimatePresence>
+          <AnimatePresence>
+            {(isSearching || showMatchmakingResult) && (
+              <MatchmakingView 
+                key="matchmaking"
+                isSearching={isSearching}
+                onCancel={cancelSearch}
+                matchFound={showMatchmakingResult}
+                opponent={matchmakingOpponent}
+                playerName={playerName}
+                playerLevel={level}
+                playerThemeId={selectedThemeId}
+                canCancel={matchmakingCanCancel}
+              />
+            )}
+          </AnimatePresence>
         </>
     );
   }
 
-  // Pre-game overlay that should be visible regardless of being in 'menu' or 'inRoom'
-  const renderMatchmakingOverlay = () => (
-    <AnimatePresence>
-      {(isSearching || showMatchmakingResult) && (
-        <MatchmakingView 
-          key="matchmaking"
-          isSearching={isSearching}
-          onCancel={cancelSearch}
-          matchFound={showMatchmakingResult}
-          opponent={matchmakingOpponent}
-          playerName={playerName}
-          playerLevel={level}
-          playerThemeId={selectedThemeId}
-          canCancel={matchmakingCanCancel}
-        />
-      )}
-    </AnimatePresence>
-  );
-
   if (!roomState) return (
     <div className="fixed inset-0 w-full h-full wood-texture">
-      {renderMatchmakingOverlay()}
       {renderDebugUI()}
     </div>
   );
@@ -3482,7 +3384,6 @@ const App = () => {
 
   if (!opponent && !roomState.isBotRoom && roomState.gameState !== 'waiting' && roomState.gameState !== 'opponentLeft') return (
     <div className="fixed inset-0 w-full h-full wood-texture">
-      {renderMatchmakingOverlay()}
       {renderDebugUI()}
     </div>
   );
@@ -3490,21 +3391,18 @@ const App = () => {
 
   if (roomState.gameState === 'waiting') {
     return (
-      <>
-        {renderMatchmakingOverlay()}
-        <PrivateRoomLobbyView 
-          isLoading={(role === 'HOST' || role === 'CLIENT') ? (userIp === 'جاري التحميل...' || !userIp) : !roomId}
-          roomCode={roomId}
-          isLan={role === 'HOST' || role === 'CLIENT'}
-          localIp={userIp}
-          onCancel={() => {
-            setIsWaitingInPrivateRoom(false);
-            setAppState('menu');
-            setMenuTab('online');
-            leaveRoom();
-          }}
-        />
-      </>
+      <PrivateRoomLobbyView 
+        isLoading={(role === 'HOST' || role === 'CLIENT') ? (userIp === 'جاري التحميل...' || !userIp) : !roomId}
+        roomCode={roomId}
+        isLan={role === 'HOST' || role === 'CLIENT'}
+        localIp={userIp}
+        onCancel={() => {
+          setIsWaitingInPrivateRoom(false);
+          setAppState('menu');
+          setMenuTab('online');
+          leaveRoom();
+        }}
+      />
     );
   }
 
@@ -3615,7 +3513,6 @@ const App = () => {
 
   return (
     <>
-      {renderMatchmakingOverlay()}
       {renderErrorToast()}
       <div 
         dir="rtl" 

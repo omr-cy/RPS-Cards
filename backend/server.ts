@@ -60,38 +60,10 @@ const userSchema = new mongoose.Schema({
   resetPasswordToken: String,
   resetPasswordExpires: Date,
   createdAt: { type: Date, default: Date.now },
-  lastLogin: Date,
-  groupId: { type: mongoose.Schema.Types.ObjectId, ref: 'Group', default: null } // مرجع لفرقة المستخدم (في حال كان منضم لفرقة)
+  lastLogin: Date
 });
 
 const User = mongoose.model('User', userSchema);
-
-// Schema للفرق (Groups/Teams)
-const groupSchema = new mongoose.Schema({
-  name: { type: String, required: true, unique: true, trim: true, maxlength: 30 },
-  description: { type: String, maxlength: 150, default: "" },
-  leaderId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  coLeaders: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // قادة مساعدين
-  members: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // جميع الأعضاء (بما فيهم القادة)
-  joinRequests: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // طلبات الانضمام للفريق المغلق
-  score: { type: Number, default: 0 }, // مجموع نقاط المنافسة للأعضاء
-  maxMembers: { type: Number, default: 50 }, // الحد الأقصى
-  isOpen: { type: Boolean, default: true }, // لو false بيبقى عن طريق Request
-  requiredLevel: { type: Number, default: 1 }, // الحد الأدنى للمستوى للانضمام
-  createdAt: { type: Date, default: Date.now }
-});
-
-const Group = mongoose.model('Group', groupSchema);
-
-// Schema لشات الفرق
-const groupMessageSchema = new mongoose.Schema({
-  groupId: { type: mongoose.Schema.Types.ObjectId, ref: 'Group', required: true },
-  senderId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  text: { type: String, required: true, maxlength: 500 },
-  createdAt: { type: Date, default: Date.now }
-});
-
-const GroupMessage = mongoose.model('GroupMessage', groupMessageSchema);
 
 // Leveling Logic Helpers
 const BASE_XP = 100;
@@ -351,10 +323,6 @@ async function awardRewards(room: Room, winnerId: string | null) {
           user.competitionPoints = (user.competitionPoints || 0) + compGain;
           await user.save();
           
-          if (user.groupId) {
-            await Group.findByIdAndUpdate(user.groupId, { $inc: { score: compGain } });
-          }
-          
           if (user.level > oldLevel) {
             p.ws.send(JSON.stringify({ 
               type: 'level_up', 
@@ -416,9 +384,6 @@ async function startNextRound(roomId: string) {
               
               await user.save();
               
-              if (user.groupId) {
-                await Group.findByIdAndUpdate(user.groupId, { $inc: { score: compGain } });
-              }
               const currentXp = user.xp || 0;
               console.log(`[Game Over] Player ${user.displayName}. Total XP: ${currentXp}. Level: ${user.level}`);
               
@@ -770,205 +735,6 @@ async function startServer() {
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: 'حدث خطأ أثناء جلب لوحة المتصدرين' });
-    }
-  });
-
-  // =====================
-  // Groups / Teams APIs
-  // =====================
-
-  // إنشاء فريق جديد
-  app.post('/api/groups/create', async (req, res) => {
-    try {
-      const { userId, name, description, isOpen, requiredLevel } = req.body;
-      if (!userId || !name) return res.status(400).json({ error: 'بيانات غير مكتملة' });
-
-      const user = await User.findById(userId);
-      if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
-
-      const userCoins = user.coins ?? 100;
-      const userLevel = user.level ?? 1;
-
-      if (user.groupId) return res.status(400).json({ error: 'أنت بالفعل منضم لفريق' });
-      if (userLevel < 5) return res.status(400).json({ error: 'يجب أن يكون مستواك 5 على الأقل لإنشاء فريق' });
-      if (userCoins < 1000) return res.status(400).json({ error: 'ليس لديك عملات كافية (مطلوب 1000)' });
-
-      // تحقق من اسم الفريق موجود مسبقا
-      const existingGroup = await Group.findOne({ name });
-      if (existingGroup) return res.status(400).json({ error: 'اسم الفريق مستخدم بالفعل' });
-
-      // خصم العملات
-      user.coins = userCoins - 1000;
-
-      const newGroup = new Group({
-        name,
-        description: description || "",
-        leaderId: user._id,
-        members: [user._id],
-        score: user.competitionPoints || 0,
-        isOpen: isOpen !== undefined ? isOpen : true,
-        requiredLevel: requiredLevel || 1
-      });
-
-      await newGroup.save();
-      user.groupId = newGroup._id;
-      if (user.xp === undefined) user.xp = 0;
-      if (user.level === undefined) user.level = userLevel;
-      await user.save();
-
-      res.json(newGroup);
-    } catch (err) {
-      console.error('[Create Group Error]', err);
-      res.status(500).json({ error: 'حدث خطأ أثناء إنشاء الفريق' });
-    }
-  });
-
-  // جلب قائمة الفرق
-  app.get('/api/groups', async (req, res) => {
-    try {
-      const groups = await Group.find()
-        .sort({ score: -1 })
-        .limit(20)
-        .select('name description score maxMembers isOpen requiredLevel members leaderId');
-      res.json(groups);
-    } catch (err) {
-      res.status(500).json({ error: 'خطأ في جلب الفرق' });
-    }
-  });
-
-  // جلب تفاصيل فريق
-  app.get('/api/groups/:id', async (req, res) => {
-    try {
-      const group = await Group.findById(req.params.id)
-        .populate('leaderId', 'displayName level')
-        .populate('coLeaders', 'displayName level')
-        .populate('members', 'displayName level xp equippedTheme');
-      if (!group) return res.status(404).json({ error: 'الفريق غير موجود' });
-      res.json(group);
-    } catch (err) {
-      res.status(500).json({ error: 'خطأ في جلب بيانات الفريق' });
-    }
-  });
-
-  // الانضمام لفريق
-  app.post('/api/groups/:id/join', async (req, res) => {
-    try {
-      const { userId } = req.body;
-      const groupId = req.params.id;
-
-      const user = await User.findById(userId);
-      if (!user) return res.status(404).json({ error: 'المستخدم غير موجود' });
-      if (user.groupId) return res.status(400).json({ error: 'أنت منضم بالفعل لفريق' });
-
-      const group = await Group.findById(groupId);
-      if (!group) return res.status(404).json({ error: 'الفريق غير موجود' });
-      
-      const userLevel = user.level ?? 1;
-
-      if (userLevel < group.requiredLevel) return res.status(400).json({ error: `يجب أن يكون مستواك ${group.requiredLevel} للانضمام` });
-      if (group.members.length >= group.maxMembers) return res.status(400).json({ error: 'الفريق ممتلئ' });
-
-      if (!group.isOpen) {
-        // فريق مغلق - إضافة لطلبات الانضمام
-        if (group.joinRequests.includes(user._id)) return res.status(400).json({ error: 'لقد أرسلت طلباً بالفعل' });
-        group.joinRequests.push(user._id);
-        await group.save();
-        return res.json({ message: 'تم إرسال طلب الانضمام بنجاح', status: 'pending' });
-      }
-
-      // فريق مفتوح - انضمام مباشر
-      group.members.push(user._id);
-      group.score += (user.competitionPoints || 0);
-      await group.save();
-
-      user.groupId = group._id;
-      if (user.level === undefined) user.level = userLevel;
-      if (user.xp === undefined) user.xp = 0;
-      await user.save();
-
-      res.json({ message: 'تم الانضمام بنجاح', status: 'joined', group });
-    } catch (err) {
-      res.status(500).json({ error: 'خطأ أثناء الانضمام' });
-    }
-  });
-
-  // الخروج من الفريق
-  app.post('/api/groups/:id/leave', async (req, res) => {
-    try {
-      const { userId } = req.body;
-      const groupId = req.params.id;
-
-      const user = await User.findById(userId);
-      const group = await Group.findById(groupId);
-
-      if (!user || !group) return res.status(404).json({ error: 'حدث خطأ' });
-      if (user.groupId?.toString() !== groupId) return res.status(400).json({ error: 'أنت لست في هذا الفريق' });
-
-      // لو كان هو القائد وعدد الأعضاء أكثر من 1، يجب نقل القيادة أولاً (سنبسطها ونمنع الخروج مؤقتاً)
-      if (group.leaderId.toString() === userId && group.members.length > 1) {
-        return res.status(400).json({ error: 'يجب نقل القيادة لشخص آخر قبل الخروج' });
-      }
-
-      // إزالة المستخدم من الفريق
-      group.members = group.members.filter((m: any) => m.toString() !== userId);
-      group.coLeaders = group.coLeaders.filter((m: any) => m.toString() !== userId);
-      group.score = Math.max(0, group.score - (user.competitionPoints || 0)); // تحديث السكور
-
-      user.groupId = null;
-      await user.save();
-
-      if (group.members.length === 0) {
-        // حذف الفريق لو أصبح فارغاً
-        await group.deleteOne();
-        await GroupMessage.deleteMany({ groupId });
-        return res.json({ message: 'تم الخروج وحذف الفريق لأنه فارغ' });
-      }
-
-      await group.save();
-      res.json({ message: 'تم الخروج من الفريق' });
-    } catch (err) {
-      res.status(500).json({ error: 'خطأ أثناء الخروج' });
-    }
-  });
-
-  // جلب شات الفريق (آخر 100 رسالة)
-  app.get('/api/groups/:id/chat', async (req, res) => {
-    try {
-      const messages = await GroupMessage.find({ groupId: req.params.id })
-        .populate('senderId', 'displayName')
-        .sort({ createdAt: -1 })
-        .limit(100);
-      res.json(messages.reverse()); // نعكسها عشان القديم يظهر فوق
-    } catch (err) {
-      res.status(500).json({ error: 'خطأ في جلب الشات' });
-    }
-  });
-
-  // إرسال رسالة في شات الفريق
-  app.post('/api/groups/:id/chat', async (req, res) => {
-    try {
-      const { userId, text } = req.body;
-      const groupId = req.params.id;
-
-      const user = await User.findById(userId);
-      if (!user || user.groupId?.toString() !== groupId) {
-        return res.status(403).json({ error: 'غير مصرح' });
-      }
-
-      const msg = new GroupMessage({ groupId, senderId: user._id, text: text.substring(0, 500) });
-      await msg.save();
-      const populatedMsg = await msg.populate('senderId', 'displayName');
-
-      const chatEvt = JSON.stringify({ type: 'group_chat_message', message: populatedMsg, groupId });
-      wss.clients.forEach(client => {
-        if (client.readyState === WebSocket.OPEN) {
-          client.send(chatEvt);
-        }
-      });
-
-      res.json(populatedMsg);
-    } catch (err) {
-      res.status(500).json({ error: 'خطأ في الإرسال' });
     }
   });
 
