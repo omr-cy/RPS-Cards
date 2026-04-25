@@ -51,10 +51,10 @@ export const WebGPUGameCanvas = ({ themes, cards }: { themes: any[], cards: Card
     <div className="w-full h-full relative" style={{ width: '100%', height: '100vh' }}>
       {!isReady && isFirstLaunch && (
          <div className="fixed inset-0 z-[9999] bg-[#121212] flex flex-col items-center justify-center gap-4 text-center select-none" dir="rtl">
-            <div className="w-10 h-10 border-4 border-game-teal border-t-transparent rounded-full animate-spin" />
+            <div className="w-10 h-10 border-4 border-game-primary border-t-transparent rounded-full animate-spin" />
             <div className="w-48 h-1.5 bg-white/10 rounded-full overflow-hidden">
               <div 
-                className="h-full bg-game-teal rounded-full transition-all duration-300"
+                className="h-full bg-game-primary rounded-full transition-all duration-300"
                 style={{ width: `${progress * 100}%` }}
               />
             </div>

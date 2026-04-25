@@ -95,10 +95,10 @@ export const GlobalChat = ({ ws, chatMessages, setChatMessages, user, connectToO
   };
 
   return (
-    <div className="flex-1 w-full flex flex-col h-full bg-slate-900/40 relative">
+    <div className="flex-1 w-full flex flex-col h-full bg-[#0a0a0a]/40 relative">
        {connecting && (
          <div className="absolute inset-0 z-10 flex items-center justify-center bg-game-dark/50 backdrop-blur-sm">
-           <Activity className="w-8 h-8 text-game-teal animate-spin" />
+           <Activity className="w-8 h-8 text-game-primary animate-spin" />
          </div>
        )}
        <div 
@@ -109,7 +109,7 @@ export const GlobalChat = ({ ws, chatMessages, setChatMessages, user, connectToO
           {hasMore && chatMessages.length >= 10 && (
             <div className="flex justify-center py-2">
               {loadingMore ? (
-                <Activity className="w-4 h-4 text-game-teal animate-spin" />
+                <Activity className="w-4 h-4 text-game-primary animate-spin" />
               ) : (
                 <span className="text-[10px] text-game-offwhite/30">اسحب للأعلى لتحميل المزيد</span>
               )}
@@ -122,8 +122,8 @@ export const GlobalChat = ({ ws, chatMessages, setChatMessages, user, connectToO
             const isMe = msg.senderId === user?._id || msg.senderName === user?.displayName;
             return (
               <div key={msg.id || idx} className={`flex ${isMe ? 'justify-start' : 'justify-end'}`}>
-                 <div className={`max-w-[70%] rounded-2xl px-4 py-2 flex flex-col shadow-md ${isMe ? 'bg-game-teal/20 border border-game-teal/30 text-game-offwhite rounded-tr-sm' : 'bg-white/10 border border-white/5 text-game-offwhite rounded-tl-sm'}`}>
-                    <span className="text-[10px] text-game-teal font-display mb-1">{isMe ? 'أنت' : msg.senderName}</span>
+                 <div className={`max-w-[70%] rounded-2xl px-4 py-2 flex flex-col shadow-md ${isMe ? 'bg-game-primary/20 border border-game-primary/30 text-game-offwhite rounded-tr-sm' : 'bg-white/10 border border-white/5 text-game-offwhite rounded-tl-sm'}`}>
+                    <span className="text-[10px] text-game-primary font-display mb-1">{isMe ? 'أنت' : msg.senderName}</span>
                     <p className="text-sm font-body break-words whitespace-pre-wrap">{msg.text}</p>
                  </div>
               </div>
@@ -139,12 +139,12 @@ export const GlobalChat = ({ ws, chatMessages, setChatMessages, user, connectToO
               onChange={e => setInputText(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && sendMsg()}
               placeholder="اكتب رسالة..."
-              className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-game-offwhite placeholder:text-white/20 focus:outline-none focus:border-game-teal/50"
+              className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-game-offwhite placeholder:text-white/20 focus:outline-none focus:border-game-primary/50"
             />
             <button 
               onClick={sendMsg}
               disabled={!inputText.trim()}
-              className="bg-game-teal text-game-dark px-4 rounded-xl flex items-center justify-center disabled:opacity-50 transition-all active:scale-95 shadow-lg shadow-game-teal/20"
+              className="bg-game-primary text-game-dark px-4 rounded-xl flex items-center justify-center disabled:opacity-50 transition-all active:scale-95 shadow-lg shadow-game-primary/20"
             >
               {/* @ts-ignore */}
               <IoMdSend className="w-5 h-5 -rotate-90" />

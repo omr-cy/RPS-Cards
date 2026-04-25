@@ -30,22 +30,22 @@ export const StoreView = memo(({ coins, ownedThemes, selectedThemeId, onBuy, onS
       <div className="flex gap-2 px-3 relative z-10 -mb-[1px]">
         <button 
           onClick={() => setActiveTab('level')}
-          className={`flex-1 py-3 px-2 rounded-t-2xl font-display text-xs transition-all flex items-center justify-center gap-2 relative ${activeTab === 'level' ? 'bg-slate-800 text-game-teal z-20' : 'bg-slate-800/50 text-game-offwhite/40 hover:bg-slate-800/70 hover:text-game-offwhite z-10 translate-y-1'}`}
+          className={`flex-1 py-3 px-2 rounded-t-2xl font-display text-xs transition-all flex items-center justify-center gap-2 relative ${activeTab === 'level' ? 'bg-[#0a0a0a] border border-white/5 text-game-primary z-20' : 'bg-[#0a0a0a]/50 text-game-offwhite/40 hover:bg-[#0a0a0a]/80 hover:text-game-offwhite z-10 translate-y-1'}`}
         >
           ثيمات بالمستوى
-          {activeTab === 'level' && <div className="absolute -bottom-[2px] left-0 right-0 h-[3px] bg-slate-800 z-30" />}
+          {activeTab === 'level' && <div className="absolute -bottom-[2px] left-0 right-0 h-[3px] bg-[#0a0a0a] border border-white/5 z-30" />}
         </button>
         
         <button 
           onClick={() => setActiveTab('special')}
-          className={`flex-1 py-3 px-2 rounded-t-2xl font-display text-xs transition-all flex items-center justify-center gap-2 relative ${activeTab === 'special' ? 'bg-slate-800 text-game-teal z-20' : 'bg-slate-800/50 text-game-offwhite/40 hover:bg-slate-800/70 hover:text-game-offwhite z-10 translate-y-1'}`}
+          className={`flex-1 py-3 px-2 rounded-t-2xl font-display text-xs transition-all flex items-center justify-center gap-2 relative ${activeTab === 'special' ? 'bg-[#0a0a0a] border border-white/5 text-game-primary z-20' : 'bg-[#0a0a0a]/50 text-game-offwhite/40 hover:bg-[#0a0a0a]/80 hover:text-game-offwhite z-10 translate-y-1'}`}
         >
           ثيمات مميزة
-          {activeTab === 'special' && <div className="absolute -bottom-[2px] left-0 right-0 h-[3px] bg-slate-800 z-30" />}
+          {activeTab === 'special' && <div className="absolute -bottom-[2px] left-0 right-0 h-[3px] bg-[#0a0a0a] border border-white/5 z-30" />}
         </button>
       </div>
 
-      <div className="flex-1 flex flex-col bg-slate-800 rounded-3xl shadow-2xl overflow-hidden relative z-0">
+      <div className="flex-1 flex flex-col bg-[#0a0a0a] border border-white/5 rounded-3xl shadow-2xl overflow-hidden relative z-0">
         <div className="flex-1 overflow-y-auto smooth-scroll px-5 py-6">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-y-10 gap-x-4">
             {filteredThemes.map(theme => (

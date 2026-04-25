@@ -63,36 +63,36 @@ export const ProfileView = memo(({ playerName, coins, competitionPoints = 0, xp 
         <div className="flex gap-2 px-3 relative z-10 -mb-[1px]">
           <button 
             onClick={() => setActiveTab('profile')}
-            className={`flex-1 py-3 px-2 rounded-t-2xl font-display text-xs transition-all flex flex-col items-center gap-1 relative ${activeTab === 'profile' ? 'bg-slate-800 text-game-teal z-20' : 'bg-slate-800/50 text-game-offwhite/40 hover:bg-slate-800/70 hover:text-game-offwhite z-10 translate-y-1'}`}
+            className={`flex-1 py-3 px-2 rounded-t-2xl font-display text-xs transition-all flex flex-col items-center gap-1 relative ${activeTab === 'profile' ? 'bg-[#0a0a0a] border border-white/5 text-game-primary z-20' : 'bg-[#0a0a0a]/50 text-game-offwhite/40 hover:bg-[#0a0a0a]/80 hover:text-game-offwhite z-10 translate-y-1'}`}
           >
             <User className="w-4 h-4" />
             حسابي
-            {activeTab === 'profile' && <div className="absolute -bottom-[2px] left-0 right-0 h-[3px] bg-slate-800 z-30" />}
+            {activeTab === 'profile' && <div className="absolute -bottom-[2px] left-0 right-0 h-[3px] bg-[#0a0a0a] border border-white/5 z-30" />}
           </button>
           
           <button 
             onClick={() => setActiveTab('themes')}
-            className={`flex-1 py-3 px-2 rounded-t-2xl font-display text-xs transition-all flex flex-col items-center gap-1 relative ${activeTab === 'themes' ? 'bg-slate-800 text-game-teal z-20' : 'bg-slate-800/50 text-game-offwhite/40 hover:bg-slate-800/70 hover:text-game-offwhite z-10 translate-y-1'}`}
+            className={`flex-1 py-3 px-2 rounded-t-2xl font-display text-xs transition-all flex flex-col items-center gap-1 relative ${activeTab === 'themes' ? 'bg-[#0a0a0a] border border-white/5 text-game-primary z-20' : 'bg-[#0a0a0a]/50 text-game-offwhite/40 hover:bg-[#0a0a0a]/80 hover:text-game-offwhite z-10 translate-y-1'}`}
           >
             {/* @ts-ignore - react-icons typings issue */}
             <TbCardsFilled className="w-4 h-4" />
             الثيمات
-            {activeTab === 'themes' && <div className="absolute -bottom-[2px] left-0 right-0 h-[3px] bg-slate-800 z-30" />}
+            {activeTab === 'themes' && <div className="absolute -bottom-[2px] left-0 right-0 h-[3px] bg-[#0a0a0a] border border-white/5 z-30" />}
           </button>
           
           <button 
             id="btn-tab-gift"
             onClick={() => setActiveTab('gift')}
-            className={`flex-1 py-3 px-2 rounded-t-2xl font-display text-xs transition-all flex flex-col items-center gap-1 relative ${activeTab === 'gift' ? 'bg-slate-800 text-game-teal z-20' : 'bg-slate-800/50 text-game-offwhite/40 hover:bg-slate-800/70 hover:text-game-offwhite z-10 translate-y-1'}`}
+            className={`flex-1 py-3 px-2 rounded-t-2xl font-display text-xs transition-all flex flex-col items-center gap-1 relative ${activeTab === 'gift' ? 'bg-[#0a0a0a] border border-white/5 text-game-primary z-20' : 'bg-[#0a0a0a]/50 text-game-offwhite/40 hover:bg-[#0a0a0a]/80 hover:text-game-offwhite z-10 translate-y-1'}`}
           >
             <Gift className="w-4 h-4" />
             الهدية
-            {activeTab === 'gift' && <div className="absolute -bottom-[2px] left-0 right-0 h-[3px] bg-slate-800 z-30" />}
+            {activeTab === 'gift' && <div className="absolute -bottom-[2px] left-0 right-0 h-[3px] bg-[#0a0a0a] border border-white/5 z-30" />}
           </button>
         </div>
 
         {/* CONTENT AREA (Scrolling Inside Frame) */}
-        <div className="flex-1 flex flex-col bg-slate-800 rounded-3xl shadow-2xl overflow-hidden relative z-0">
+        <div className="flex-1 flex flex-col bg-[#0a0a0a] border border-white/5 rounded-3xl shadow-2xl overflow-hidden relative z-0">
           <div className="flex-1 overflow-y-auto smooth-scroll px-5 py-6">
             <div className="min-h-full pb-10">
               {activeTab === 'profile' && (
@@ -102,7 +102,7 @@ export const ProfileView = memo(({ playerName, coins, competitionPoints = 0, xp 
                     <div className="w-20 h-20 rounded-2xl bg-game-bg border-[3px] border-white/5 flex items-center justify-center overflow-hidden shadow-inner rotate-3">
                       <User className="w-10 h-10 text-game-offwhite/10" />
                     </div>
-                    <div className="absolute -bottom-2 -left-2 bg-game-teal text-game-dark w-7 h-7 rounded-xl flex items-center justify-center text-sm font-black border-2 border-game-dark shadow-xl font-mono -rotate-6">
+                    <div className="absolute -bottom-2 -left-2 bg-game-primary text-game-dark w-7 h-7 rounded-xl flex items-center justify-center text-sm font-black border-2 border-game-dark shadow-xl font-mono -rotate-6">
                       {level}
                     </div>
                   </div>
@@ -120,7 +120,7 @@ export const ProfileView = memo(({ playerName, coins, competitionPoints = 0, xp 
                          <button 
                            onClick={handleRefresh}
                            disabled={isRefreshing}
-                           className="p-1.5 ml-auto text-game-teal/50 hover:text-game-teal transition-all bg-white/5 rounded-lg border border-game-teal/10 shadow-sm"
+                           className="p-1.5 ml-auto text-game-primary/50 hover:text-game-primary transition-all bg-white/5 rounded-lg border border-game-primary/10 shadow-sm"
                            title="تحديث البيانات من السيرفر"
                          >
                            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin opacity-50' : ''}`} />
@@ -132,17 +132,17 @@ export const ProfileView = memo(({ playerName, coins, competitionPoints = 0, xp 
 
                     <div className="flex items-center gap-4 bg-black/40 px-5 py-2 rounded-xl border border-white/5 shadow-inner w-full justify-between sm:justify-start">
                       <div className="flex items-center gap-2">
-                        <Diamond className="w-5 h-5 text-yellow-500" />
+                        <Diamond className="w-5 h-5 text-game-primary" />
                         <div className="flex flex-col items-start leading-none">
-                          <span className="text-xl font-black text-yellow-500 font-display">{coins}</span>
+                          <span className="text-xl font-black text-game-primary font-display">{coins}</span>
                           <span className="text-[9px] text-game-offwhite/40 font-display uppercase tracking-widest">رصيد العملات</span>
                         </div>
                       </div>
                       <div className="w-px h-8 bg-white/10" />
                       <div className="flex items-center gap-2">
-                        <Activity className="w-5 h-5 text-game-teal rotate-90" />
+                        <Activity className="w-5 h-5 text-game-primary rotate-90" />
                         <div className="flex flex-col items-start leading-none">
-                          <span className="text-xl font-black text-game-teal font-display">{competitionPoints}</span>
+                          <span className="text-xl font-black text-game-primary font-display">{competitionPoints}</span>
                           <span className="text-[9px] text-game-offwhite/40 font-display uppercase tracking-widest">نقاط المنافسة</span>
                         </div>
                       </div>
@@ -152,12 +152,12 @@ export const ProfileView = memo(({ playerName, coins, competitionPoints = 0, xp 
 
                 <div className="bg-game-dark/40 p-4 rounded-2xl border border-white/5 space-y-3">
                   <div className="flex items-center gap-2 mb-1">
-                    <Info className="w-3.5 h-3.5 text-game-teal/50" />
+                    <Info className="w-3.5 h-3.5 text-game-primary/50" />
                     <h3 className="text-[10px] font-display text-game-offwhite/40 uppercase tracking-widest">إحصائيات المعارك</h3>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
                     <div className="bg-black/30 p-2 rounded-xl border border-white/5 text-center flex flex-col justify-center">
-                      <div className="text-lg font-black text-game-teal font-display">{userRank ? `#${userRank}` : '--'}</div>
+                      <div className="text-lg font-black text-game-primary font-display">{userRank ? `#${userRank}` : '--'}</div>
                       <div className="text-[8px] text-game-offwhite/50 uppercase tracking-tighter mt-0.5">الترتيب</div>
                     </div>
                     <div className="bg-black/30 p-2 rounded-xl border border-white/5 text-center flex flex-col justify-center">
@@ -176,7 +176,7 @@ export const ProfileView = memo(({ playerName, coins, competitionPoints = 0, xp 
                     <LogOut className="w-5 h-5" /> تسجيل الخروج
                   </button>
                 ) : (
-                  <button onClick={onLoginClick} className="w-full py-4 mt-2 bg-game-teal text-game-dark rounded-2xl font-display text-lg transition-all active:scale-95 shadow-lg shadow-game-teal/20 flex items-center justify-center gap-2">
+                  <button onClick={onLoginClick} className="w-full py-4 mt-2 bg-game-primary text-game-dark rounded-2xl font-display text-lg transition-all active:scale-95 shadow-lg shadow-game-primary/20 flex items-center justify-center gap-2">
                     <LogIn className="w-5 h-5" /> تسجيل الدخول
                   </button>
                 )}
@@ -187,13 +187,13 @@ export const ProfileView = memo(({ playerName, coins, competitionPoints = 0, xp 
             {activeTab === 'themes' && (
               <div className="space-y-6">
                 {/* ACTIVE THEME SPOTLIGHT */}
-                <div className="bg-gradient-to-t from-game-teal/5 to-transparent p-5 rounded-2xl border border-game-teal/20 flex flex-col items-center shadow-lg relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-game-teal/5 -mr-16 -mt-16 rounded-full blur-2xl pointer-events-none" />
-                  <div className="absolute bottom-0 left-0 w-32 h-32 bg-game-teal/5 -ml-16 -mb-16 rounded-full blur-2xl pointer-events-none" />
+                <div className="bg-gradient-to-t from-game-primary/5 to-transparent p-5 rounded-2xl border border-game-primary/20 flex flex-col items-center shadow-lg relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-game-primary/5 -mr-16 -mt-16 rounded-full blur-2xl pointer-events-none" />
+                  <div className="absolute bottom-0 left-0 w-32 h-32 bg-game-primary/5 -ml-16 -mb-16 rounded-full blur-2xl pointer-events-none" />
                   
                   <div className="flex items-center gap-2 mb-6 relative z-10">
-                     <CheckCircle2 className="w-4 h-4 text-game-teal" />
-                     <span className="text-xs font-display text-game-teal uppercase tracking-widest">المجموعة المُفعلة حالياً</span>
+                     <CheckCircle2 className="w-4 h-4 text-game-primary" />
+                     <span className="text-xs font-display text-game-primary uppercase tracking-widest">المجموعة المُفعلة حالياً</span>
                   </div>
                   <div className="flex justify-center items-center gap-2 sm:gap-4 w-full mb-5 px-2 relative z-10">
                     {['scissors', 'paper', 'rock'].map((type, idx) => {
@@ -207,7 +207,7 @@ export const ProfileView = memo(({ playerName, coins, competitionPoints = 0, xp 
 
                 {/* SECPARATOR OR TITLE FOR OWNED GRID */}
                 <div className="flex items-center gap-3">
-                   <div className="w-8 h-8 bg-slate-700/50 rounded-lg flex items-center justify-center border border-white/10">
+                   <div className="w-8 h-8 bg-white/5 border border-white/10 rounded-lg flex items-center justify-center border border-white/10">
                      {/* @ts-ignore */}
                      <TbCardsFilled className="w-4 h-4 text-game-offwhite/70" />
                    </div>
@@ -237,7 +237,7 @@ export const ProfileView = memo(({ playerName, coins, competitionPoints = 0, xp 
               >
                 {!userId ? (
                   <>
-                    <div className="w-32 h-32 bg-slate-700/50 rounded-full flex items-center justify-center border-2 border-white/5">
+                    <div className="w-32 h-32 bg-white/5 border border-white/10 rounded-full flex items-center justify-center border-2 border-white/5">
                       <Gift className="w-16 h-16 text-game-offwhite/20" />
                     </div>
                     <div className="text-center space-y-2">
@@ -247,7 +247,7 @@ export const ProfileView = memo(({ playerName, coins, competitionPoints = 0, xp 
                     {onLoginClick && (
                       <button 
                         onClick={onLoginClick}
-                        className="mt-4 w-full py-4 bg-game-teal text-game-dark rounded-2xl font-display text-xl transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2"
+                        className="mt-4 w-full py-4 bg-game-primary text-game-dark rounded-2xl font-display text-xl transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2"
                       >
                         <User className="w-5 h-5" />
                         تسجيل الدخول / إنشاء حساب
@@ -256,8 +256,8 @@ export const ProfileView = memo(({ playerName, coins, competitionPoints = 0, xp 
                   </>
                 ) : (
                   <>
-                    <div className="w-32 h-32 bg-game-teal/20 rounded-full flex items-center justify-center border-2 border-game-teal/30">
-                      <Gift className="w-16 h-16 text-game-teal" />
+                    <div className="w-32 h-32 bg-game-primary/20 rounded-full flex items-center justify-center border-2 border-game-primary/30">
+                      <Gift className="w-16 h-16 text-game-primary" />
                     </div>
 
                     <div className="text-center space-y-2">
@@ -268,12 +268,12 @@ export const ProfileView = memo(({ playerName, coins, competitionPoints = 0, xp 
                     <div className="w-full bg-game-dark/40 p-6 rounded-3xl border border-white/5 space-y-6">
                       <div className="flex items-center justify-between">
                         <span className="text-game-offwhite/50 text-sm">الحالة الآن</span>
-                        <span className="bg-game-teal/10 text-game-teal px-3 py-1 rounded-full text-xs font-display border border-game-teal/20">تم الاستلام ✅</span>
+                        <span className="bg-game-primary/10 text-game-primary px-3 py-1 rounded-full text-xs font-display border border-game-primary/20">تم الاستلام ✅</span>
                       </div>
                       
                       <div className="space-y-3">
                         <div className="h-1.5 w-full bg-game-dark/50 rounded-full overflow-hidden">
-                           <div className="h-full bg-game-teal w-full" />
+                           <div className="h-full bg-game-primary w-full" />
                         </div>
                         <div className="flex justify-between text-[10px] text-game-offwhite/30 font-display uppercase tracking-widest">
                            <span>عد غداً</span>
@@ -284,7 +284,7 @@ export const ProfileView = memo(({ playerName, coins, competitionPoints = 0, xp 
 
                     <button 
                       disabled
-                      className="w-full py-4 bg-game-slate opacity-50 text-white rounded-2xl font-display text-xl cursor-not-allowed"
+                      className="w-full py-4 bg-game-primary opacity-50 text-white rounded-2xl font-display text-xl cursor-not-allowed"
                     >
                       استلام المكافأة
                     </button>

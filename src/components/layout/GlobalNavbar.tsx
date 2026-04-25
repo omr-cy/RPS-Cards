@@ -19,16 +19,16 @@ export const GlobalNavbar = memo(({ coins, competitionPoints, isOnline, setAppSt
           <div className="w-10">
             <button 
               onClick={() => setShowSettingsSidebar(true)} 
-              className="p-2 text-game-offwhite/40 hover:text-game-teal transition-colors active:scale-90"
+              className="p-2 text-game-offwhite/40 hover:text-game-primary transition-colors active:scale-90"
             >
               <Settings className="w-5 h-5" />
             </button>
           </div>
 
           <div className="flex items-center gap-2 bg-white/5 px-3 py-1 rounded-full border border-white/10">
-            <span className="text-sm font-display text-game-teal font-medium ml-2">{competitionPoints} <Activity className="w-3.5 h-3.5 inline text-game-teal rotate-90 mb-0.5" /></span>
-            <span className="text-sm font-display text-yellow-500 font-medium">{coins}</span>
-            <Diamond className="w-3.5 h-3.5 text-yellow-500" />
+            <span className="text-sm font-display text-game-primary font-medium ml-2">{competitionPoints} <Activity className="w-3.5 h-3.5 inline text-game-primary rotate-90 mb-0.5" /></span>
+            <span className="text-sm font-display text-game-primary font-medium">{coins}</span>
+            <Diamond className="w-3.5 h-3.5 text-game-primary" />
           </div>
 
           <div className="w-10 flex justify-end">
@@ -37,7 +37,7 @@ export const GlobalNavbar = memo(({ coins, competitionPoints, isOnline, setAppSt
                 setAppState('community');
                 setUnreadChat(false);
               }} 
-              className="relative p-2 text-game-teal/70 hover:text-game-teal transition-colors active:scale-90"
+              className="relative p-2 text-game-primary/70 hover:text-game-primary transition-colors active:scale-90"
             >
               {unreadChat && <div className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border border-game-dark" />}
               <Users className="w-5 h-5" />

@@ -38,7 +38,7 @@ export const LeaderboardContent = memo(({ userId }: { userId: string | null }) =
   if (loading) {
     return (
       <div className="w-full h-full flex flex-col items-center justify-center space-y-4">
-        <Activity className="w-8 h-8 text-game-teal animate-spin" />
+        <Activity className="w-8 h-8 text-game-primary animate-spin" />
         <p className="text-game-offwhite/50 font-display">جاري تحميل لوحة الصدارة...</p>
       </div>
     );
@@ -51,7 +51,7 @@ export const LeaderboardContent = memo(({ userId }: { userId: string | null }) =
         <p className="text-game-offwhite font-display text-lg">{error}</p>
         <button 
           onClick={fetchLeaderboard}
-          className="bg-game-teal text-white px-6 py-2 rounded-lg font-bold shadow-lg"
+          className="bg-game-primary text-white px-6 py-2 rounded-lg font-bold shadow-lg"
         >
           إعادة المحاولة
         </button>
@@ -71,7 +71,7 @@ export const LeaderboardContent = memo(({ userId }: { userId: string | null }) =
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: idx * 0.05 }}
               key={player._id}
-              className={`p-4 rounded-2xl flex items-center justify-between border ${idx === 0 ? 'bg-yellow-500/10 border-yellow-500/30' : 'bg-game-dark/60 border-white/5'}`}
+              className={`p-4 rounded-2xl flex items-center justify-between border ${idx === 0 ? 'bg-game-primary/10 border-game-primary/30' : 'bg-game-dark/60 border-white/5'}`}
             >
               <div className="flex items-center gap-4">
                 <div className={`w-10 h-10 flex items-center justify-center text-xl font-display ${isTop3 ? '' : 'text-game-offwhite/30'}`}>
@@ -84,12 +84,12 @@ export const LeaderboardContent = memo(({ userId }: { userId: string | null }) =
               </div>
               <div className="text-left flex flex-col items-end gap-1">
                 <div className="flex items-center gap-1.5">
-                  <span className={`font-display text-xl ${idx === 0 ? 'text-game-teal' : 'text-game-teal/80'}`}>{player.competitionPoints || 0}</span>
-                  <Activity className={`w-4 h-4 ${idx === 0 ? 'text-game-teal' : 'text-game-teal/80'} rotate-90`} />
+                  <span className={`font-display text-xl ${idx === 0 ? 'text-game-primary' : 'text-game-primary/80'}`}>{player.competitionPoints || 0}</span>
+                  <Activity className={`w-4 h-4 ${idx === 0 ? 'text-game-primary' : 'text-game-primary/80'} rotate-90`} />
                 </div>
                 <div className="flex items-center gap-1 opacity-60">
-                  <span className={`font-display text-xs ${idx === 0 ? 'text-yellow-500' : 'text-yellow-500/80'}`}>{player.coins || 0}</span>
-                  <Diamond className={`w-3 h-3 ${idx === 0 ? 'text-yellow-500' : 'text-yellow-500/80'}`} />
+                  <span className={`font-display text-xs ${idx === 0 ? 'text-game-primary' : 'text-game-primary/80'}`}>{player.coins || 0}</span>
+                  <Diamond className={`w-3 h-3 ${idx === 0 ? 'text-game-primary' : 'text-game-primary/80'}`} />
                 </div>
               </div>
             </motion.div>

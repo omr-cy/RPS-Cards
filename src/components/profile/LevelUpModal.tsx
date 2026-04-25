@@ -16,14 +16,14 @@ export const LevelUpModal = memo(({ level, onClose }: { level: number, onClose: 
       <motion.div 
         initial={{ scale: 0.8, y: 50 }}
         animate={{ scale: 1, y: 0 }}
-        className="w-full max-w-sm bg-game-dark/90 rounded-3xl border border-game-teal/30 p-8 text-center relative overflow-hidden"
+        className="w-full max-w-sm bg-game-dark/90 rounded-3xl border border-game-primary/30 p-8 text-center relative overflow-hidden"
       >
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-game-teal to-transparent" />
+        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-game-primary to-transparent" />
         
         <motion.div 
           animate={{ rotate: 360 }}
           transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-          className="absolute -top-24 -left-24 w-48 h-48 bg-game-teal/10 rounded-full blur-3xl"
+          className="absolute -top-24 -left-24 w-48 h-48 bg-game-primary/10 rounded-full blur-3xl"
         />
 
         <div className="relative z-10 space-y-6">
@@ -32,11 +32,11 @@ export const LevelUpModal = memo(({ level, onClose }: { level: number, onClose: 
               <motion.div 
                 animate={{ scale: [1, 1.2, 1], rotate: [0, 5, -5, 0] }}
                 transition={{ duration: 2, repeat: Infinity }}
-                className="w-24 h-24 bg-game-teal rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(45,212,191,0.5)]"
+                className="w-24 h-24 bg-game-primary rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(45,212,191,0.5)]"
               >
                 <Brain className="w-12 h-12 text-white" />
               </motion.div>
-              <div className="absolute -bottom-2 -right-2 bg-yellow-500 text-game-dark font-bold px-3 py-1 rounded-full border-2 border-game-dark text-xl">
+              <div className="absolute -bottom-2 -right-2 bg-game-primary text-game-dark font-bold px-3 py-1 rounded-full border-2 border-game-dark text-xl">
                 {level}
               </div>
             </div>
@@ -52,7 +52,7 @@ export const LevelUpModal = memo(({ level, onClose }: { level: number, onClose: 
               <p className="text-xs text-game-offwhite/40 font-display">تم فتح ثيمات جديدة:</p>
               <div className="flex flex-wrap justify-center gap-2">
                 {unlockedThemes.map(t => (
-                  <div key={t.id} className="bg-game-teal/10 px-3 py-1 rounded-full border border-game-teal/20 text-game-teal text-sm font-bold">
+                  <div key={t.id} className="bg-game-primary/10 px-3 py-1 rounded-full border border-game-primary/20 text-game-primary text-sm font-bold">
                     {t.name}
                   </div>
                 ))}
@@ -62,7 +62,7 @@ export const LevelUpModal = memo(({ level, onClose }: { level: number, onClose: 
 
           <button 
             onClick={onClose}
-            className="w-full bg-game-teal text-white py-4 rounded-xl font-bold font-display shadow-lg hover:brightness-110 active:scale-95 transition-all text-xl"
+            className="w-full bg-game-primary text-white py-4 rounded-xl font-bold font-display shadow-lg hover:brightness-110 active:scale-95 transition-all text-xl"
           >
             استمرار
           </button>

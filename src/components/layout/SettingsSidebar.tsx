@@ -23,7 +23,7 @@ export const SettingsSidebar = memo(({ isOpen, onClose, onNavigateToProfile, onN
             onClick={onNavigateToProfile}
             className="flex items-center gap-3 p-4 bg-white/5 rounded-xl hover:bg-white/10 transition-colors text-right"
           >
-            <User className="w-5 h-5 text-game-teal" />
+            <User className="w-5 h-5 text-game-primary" />
             <span className="font-display text-game-offwhite">الملف الشخصي</span>
           </button>
 
@@ -31,7 +31,7 @@ export const SettingsSidebar = memo(({ isOpen, onClose, onNavigateToProfile, onN
             onClick={onNavigateToGift}
             className="flex items-center gap-3 p-4 bg-white/5 rounded-xl hover:bg-white/10 transition-colors text-right"
           >
-            <Gift className="w-5 h-5 text-yellow-500" />
+            <Gift className="w-5 h-5 text-game-primary" />
             <span className="font-display text-game-offwhite">الإعلانات والمكافآت</span>
           </button>
 
@@ -48,7 +48,7 @@ export const SettingsSidebar = memo(({ isOpen, onClose, onNavigateToProfile, onN
           ) : (
             <button 
               onClick={onLoginClick}
-              className="flex items-center gap-3 p-4 bg-game-teal/10 rounded-xl hover:bg-game-teal/20 transition-colors text-right text-game-teal"
+              className="flex items-center gap-3 p-4 bg-game-primary/10 rounded-xl hover:bg-game-primary/20 transition-colors text-right text-game-primary"
             >
               <LogIn className="w-5 h-5" />
               <span className="font-display">تسجيل الدخول</span>

@@ -1415,11 +1415,11 @@ const App = () => {
           exit={{ opacity: 0, y: -20 }}
           className="fixed top-6 left-1/2 -translate-x-1/2 z-[300] w-auto min-w-[280px] max-w-[90vw]"
         >
-          <div className={`bg-game-dark/80 backdrop-blur-xl border ${errorMsg ? 'border-game-red/30' : 'border-game-teal/30'} rounded-full py-2 px-6 flex items-center gap-3 shadow-2xl shadow-black/50`}>
+          <div className={`bg-game-dark/80 backdrop-blur-xl border ${errorMsg ? 'border-game-red/30' : 'border-game-primary/30'} rounded-full py-2 px-6 flex items-center gap-3 shadow-2xl shadow-black/50`}>
             {errorMsg ? (
               <div className="w-2 h-2 rounded-full bg-game-red shadow-[0_0_8px_rgba(139,26,26,0.6)] shrink-0" />
             ) : (
-              <div className="w-2 h-2 rounded-full bg-game-teal shadow-[0_0_8px_rgba(20,184,166,0.6)] shrink-0" />
+              <div className="w-2 h-2 rounded-full bg-game-primary shadow-[0_0_8px_rgba(20,184,166,0.6)] shrink-0" />
             )}
             <p className="text-game-offwhite font-body text-sm font-medium tracking-wide text-right">
               {errorMsg || successMsg}
@@ -1471,7 +1471,7 @@ const App = () => {
           type="text" 
           value={editNameInput}
           onChange={(e) => setEditNameInput(e.target.value.replace(/[^ \w\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/g, '').slice(0, 20))}
-          className="w-full bg-black/40 border border-white/5 rounded-xl py-3 px-4 text-center text-game-offwhite focus:outline-none focus:border-game-teal transition-all"
+          className="w-full bg-black/40 border border-white/5 rounded-xl py-3 px-4 text-center text-game-offwhite focus:outline-none focus:border-game-primary transition-all"
           maxLength={20}
           placeholder="أدخل اسمك الجديد"
           autoFocus
@@ -1545,10 +1545,10 @@ const App = () => {
   if (!assetsLoaded) {
     return (
       <div className="fixed inset-0 w-full h-full bg-[#121212] flex flex-col items-center justify-center gap-4">
-        <Activity className="w-10 h-10 text-game-teal animate-spin" />
+        <Activity className="w-10 h-10 text-game-primary animate-spin" />
         <div className="w-48 h-1.5 bg-white/10 rounded-full overflow-hidden">
           <motion.div 
-            className="h-full bg-game-teal rounded-full"
+            className="h-full bg-game-primary rounded-full"
             initial={{ width: 0 }}
             animate={{ width: `${assetProgress * 100}%` }}
             transition={{ type: "spring", bounce: 0, duration: 0.2 }}
@@ -1600,13 +1600,13 @@ const App = () => {
           <div className="flex bg-black/40 p-1 rounded-xl border border-white/5">
             <button 
               onClick={() => { setAuthTab('login'); setErrorMsg(null); }}
-              className={`flex-1 py-2 rounded-lg font-display transition-all transform-gpu ${authTab === 'login' ? 'bg-game-teal text-game-dark' : 'text-game-offwhite/40 hover:text-game-offwhite hover:bg-white/5'}`}
+              className={`flex-1 py-2 rounded-lg font-display transition-all transform-gpu ${authTab === 'login' ? 'bg-game-primary text-game-dark' : 'text-game-offwhite/40 hover:text-game-offwhite hover:bg-white/5'}`}
             >
               تسجيل دخول
             </button>
             <button 
               onClick={() => { setAuthTab('register'); setErrorMsg(null); }}
-              className={`flex-1 py-2 rounded-lg font-display transition-all transform-gpu ${authTab === 'register' ? 'bg-game-teal text-game-dark' : 'text-game-offwhite/40 hover:text-game-offwhite hover:bg-white/5'}`}
+              className={`flex-1 py-2 rounded-lg font-display transition-all transform-gpu ${authTab === 'register' ? 'bg-game-primary text-game-dark' : 'text-game-offwhite/40 hover:text-game-offwhite hover:bg-white/5'}`}
             >
               إنشاء حساب
             </button>
@@ -1617,7 +1617,7 @@ const App = () => {
               <div className="space-y-1">
                 <label className="text-xs text-game-offwhite/40 mr-2 uppercase tracking-widest">الاسم المستعار</label>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-game-teal/40" />
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-game-primary/40" />
                   <input 
                     type="text" 
                     value={authName}
@@ -1625,7 +1625,7 @@ const App = () => {
                     required
                     maxLength={20}
                     placeholder="اسم المحارب"
-                    className="w-full bg-black/30 border border-white/10 rounded-xl py-3 px-10 text-game-offwhite focus:outline-none focus:border-game-teal transition-all placeholder:text-white/10"
+                    className="w-full bg-black/30 border border-white/10 rounded-xl py-3 px-10 text-game-offwhite focus:outline-none focus:border-game-primary transition-all placeholder:text-white/10"
                   />
                 </div>
               </div>
@@ -1634,7 +1634,7 @@ const App = () => {
             <div className="space-y-1">
               <label className="text-xs text-game-offwhite/40 mr-2 uppercase tracking-widest">البريد الإلكتروني</label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-game-teal/40" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-game-primary/40" />
                 <input 
                   type="email" 
                   value={authEmail}
@@ -1642,7 +1642,7 @@ const App = () => {
                   required
                   maxLength={64}
                   placeholder="name@example.com"
-                  className="w-full bg-black/30 border border-white/10 rounded-xl py-3 px-10 text-game-offwhite focus:outline-none focus:border-game-teal transition-all placeholder:text-white/10"
+                  className="w-full bg-black/30 border border-white/10 rounded-xl py-3 px-10 text-game-offwhite focus:outline-none focus:border-game-primary transition-all placeholder:text-white/10"
                   dir="ltr"
                 />
               </div>
@@ -1651,7 +1651,7 @@ const App = () => {
             <div className="space-y-1">
               <label className="text-xs text-game-offwhite/40 mr-2 uppercase tracking-widest">كلمة المرور</label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-game-teal/40" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-game-primary/40" />
                 <input 
                   type="password" 
                   value={authPass}
@@ -1659,7 +1659,7 @@ const App = () => {
                   required
                   maxLength={32}
                   placeholder="••••••••"
-                  className="w-full bg-black/30 border border-white/10 rounded-xl py-3 px-10 text-game-offwhite focus:outline-none focus:border-game-teal transition-all placeholder:text-white/10"
+                  className="w-full bg-black/30 border border-white/10 rounded-xl py-3 px-10 text-game-offwhite focus:outline-none focus:border-game-primary transition-all placeholder:text-white/10"
                   dir="ltr"
                 />
               </div>
@@ -1718,7 +1718,7 @@ const App = () => {
         <motion.div 
           initial={{ opacity: 0, scale: 0.9 }} 
           animate={{ opacity: 1, scale: 1 }}
-          className="relative max-w-md w-full bg-game-dark/95 p-6 sm:p-10 rounded-3xl border border-game-teal/30 shadow-2xl text-center space-y-6"
+          className="relative max-w-md w-full bg-game-dark/95 p-6 sm:p-10 rounded-3xl border border-game-primary/30 shadow-2xl text-center space-y-6"
         >
           <button 
             onClick={() => setAppState('menu')}
@@ -1728,14 +1728,14 @@ const App = () => {
             <X className="w-5 h-5" />
           </button>
           
-          <div className="w-20 h-20 bg-game-teal/20 rounded-full flex items-center justify-center mx-auto border-2 border-game-teal/50">
-            <Mail className="w-10 h-10 text-game-teal" />
+          <div className="w-20 h-20 bg-game-primary/20 rounded-full flex items-center justify-center mx-auto border-2 border-game-primary/50">
+            <Mail className="w-10 h-10 text-game-primary" />
           </div>
           <h2 className="text-3xl font-display text-game-offwhite">أدخل كود التأكيد</h2>
-          <p className="text-game-offwhite/70 leading-relaxed text-lg">لقد أرسلنا كود التأكيد إلى <br /><span className="text-game-teal font-bold">{authEmail}</span></p>
+          <p className="text-game-offwhite/70 leading-relaxed text-lg">لقد أرسلنا كود التأكيد إلى <br /><span className="text-game-primary font-bold">{authEmail}</span></p>
           
-          <div className="bg-game-teal/5 border border-game-teal/20 p-3 rounded-xl flex items-center gap-3 text-right">
-            <Info className="w-5 h-5 text-game-teal shrink-0" />
+          <div className="bg-game-primary/5 border border-game-primary/20 p-3 rounded-xl flex items-center gap-3 text-right">
+            <Info className="w-5 h-5 text-game-primary shrink-0" />
             <p className="text-sm text-game-offwhite/60">إذا لم تجد الرسالة في صندوق الوارد، جرب إلقاء نظرة ودية على مجلد الرسائل غير المرغوب فيها (Spam) 📧✨</p>
           </div>
 
@@ -1743,7 +1743,7 @@ const App = () => {
             type="button" 
             onClick={handleResendCode}
             disabled={isResending}
-            className="text-xs text-game-teal hover:underline font-display tracking-widest"
+            className="text-xs text-game-primary hover:underline font-display tracking-widest"
           >
             {isResending ? 'جاري الإرسال...' : 'إعادة إرسال الكود؟'}
           </button>
@@ -1757,7 +1757,7 @@ const App = () => {
                 required
                 placeholder="000000"
                 maxLength={6}
-                className="w-full bg-black/30 border border-white/10 rounded-xl py-4 text-center text-4xl font-display tracking-[10px] text-game-teal focus:outline-none focus:border-game-teal transition-all placeholder:text-white/5"
+                className="w-full bg-black/30 border border-white/10 rounded-xl py-4 text-center text-4xl font-display tracking-[10px] text-game-primary focus:outline-none focus:border-game-primary transition-all placeholder:text-white/5"
               />
             </div>
             
@@ -1768,7 +1768,7 @@ const App = () => {
             <button 
               type="submit"
               disabled={authSubmitting || authVerifyCode.length !== 6}
-              className="w-full py-4 bg-game-teal text-game-dark rounded-xl font-display text-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
+              className="w-full py-4 bg-game-primary text-game-dark rounded-xl font-display text-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
             >
               {authSubmitting ? <Activity className="w-5 h-5 animate-spin" /> : 'تأكيد الحساب'}
             </button>
@@ -1852,11 +1852,11 @@ const App = () => {
               <div className="flex gap-2 px-3 relative z-10 -mb-[1px]">
                 <button 
                   onClick={() => setMenuTab('online')}
-                  className={`flex-1 py-3 px-2 rounded-t-2xl font-display text-xs transition-all flex flex-col items-center gap-1 relative ${menuTab === 'online' ? 'bg-slate-800 text-game-teal z-20' : 'bg-slate-800/50 text-game-offwhite/40 hover:bg-slate-800/70 hover:text-game-offwhite z-10 translate-y-1'}`}
+                  className={`flex-1 py-3 px-2 rounded-t-2xl font-display text-xs transition-all flex flex-col items-center gap-1 relative ${menuTab === 'online' ? 'bg-[#0a0a0a] border border-white/5 text-game-primary z-20' : 'bg-[#0a0a0a]/50 text-game-offwhite/40 hover:bg-[#0a0a0a]/80 hover:text-game-offwhite z-10 translate-y-1'}`}
                 >
                   <Globe className="w-4 h-4" />
                   عالمي
-                  {menuTab === 'online' && <div className="absolute -bottom-[2px] left-0 right-0 h-[3px] bg-slate-800 z-30" />}
+                  {menuTab === 'online' && <div className="absolute -bottom-[2px] left-0 right-0 h-[3px] bg-[#0a0a0a] border border-white/5 z-30" />}
                 </button>
                 
                 <button 
@@ -1869,34 +1869,34 @@ const App = () => {
                        }).catch(() => {});
                     }
                   }}
-                  className={`flex-1 py-3 px-2 rounded-t-2xl font-display text-xs transition-all flex flex-col items-center gap-1 relative ${menuTab === 'local' ? 'bg-slate-800 text-game-teal z-20' : 'bg-slate-800/50 text-game-offwhite/40 hover:bg-slate-800/70 hover:text-game-offwhite z-10 translate-y-1'}`}
+                  className={`flex-1 py-3 px-2 rounded-t-2xl font-display text-xs transition-all flex flex-col items-center gap-1 relative ${menuTab === 'local' ? 'bg-[#0a0a0a] border border-white/5 text-game-primary z-20' : 'bg-[#0a0a0a]/50 text-game-offwhite/40 hover:bg-[#0a0a0a]/80 hover:text-game-offwhite z-10 translate-y-1'}`}
                 >
                   <Home className="w-4 h-4" />
                   شبكة
-                  {menuTab === 'local' && <div className="absolute -bottom-[2px] left-0 right-0 h-[3px] bg-slate-800 z-30" />}
+                  {menuTab === 'local' && <div className="absolute -bottom-[2px] left-0 right-0 h-[3px] bg-[#0a0a0a] border border-white/5 z-30" />}
                 </button>
                 
                 <button 
                   onClick={() => setMenuTab('bot')}
-                  className={`flex-1 py-3 px-2 rounded-t-2xl font-display text-xs transition-all flex flex-col items-center gap-1 relative ${menuTab === 'bot' ? 'bg-slate-800 text-game-teal z-20' : 'bg-slate-800/50 text-game-offwhite/40 hover:bg-slate-800/70 hover:text-game-offwhite z-10 translate-y-1'}`}
+                  className={`flex-1 py-3 px-2 rounded-t-2xl font-display text-xs transition-all flex flex-col items-center gap-1 relative ${menuTab === 'bot' ? 'bg-[#0a0a0a] border border-white/5 text-game-primary z-20' : 'bg-[#0a0a0a]/50 text-game-offwhite/40 hover:bg-[#0a0a0a]/80 hover:text-game-offwhite z-10 translate-y-1'}`}
                 >
                   <Bot className="w-4 h-4" />
                   روبوت
-                  {menuTab === 'bot' && <div className="absolute -bottom-[2px] left-0 right-0 h-[3px] bg-slate-800 z-30" />}
+                  {menuTab === 'bot' && <div className="absolute -bottom-[2px] left-0 right-0 h-[3px] bg-[#0a0a0a] border border-white/5 z-30" />}
                 </button>
               </div>
 
               {/* CONTENT AREA (Scrolling Inside Frame) */}
-              <div className="flex-1 flex flex-col bg-slate-800 rounded-[2rem] shadow-2xl overflow-hidden relative z-0">
+              <div className="flex-1 flex flex-col bg-[#0a0a0a] border border-white/5 rounded-[2rem] shadow-2xl overflow-hidden relative z-0">
                 <div className="flex-1 overflow-y-auto smooth-scroll px-5 py-6 custom-scrollbar">
                   <div className="min-h-full pb-10 space-y-6">
                     
                     {menuTab === 'online' && (
                       <div className="flex flex-col gap-5 w-full mx-auto relative animate-in fade-in zoom-in-95 duration-200">
-                        <div className="bg-slate-900/60 border border-white/5 p-5 rounded-xl shadow-lg">
+                        <div className="bg-[#0a0a0a]/60 border border-white/5 p-5 rounded-xl shadow-lg">
                           <div className="flex items-center gap-3 mb-4">
-                            <div className="p-1.5 bg-white/5 rounded-lg border border-game-teal/20">
-                              <UserSearch className="w-5 h-5 text-game-teal" />
+                            <div className="p-1.5 bg-white/5 rounded-lg border border-game-primary/20">
+                              <UserSearch className="w-5 h-5 text-game-primary" />
                             </div>
                             <div className="text-right">
                               <h3 className="text-game-cream font-display text-base tracking-widest leading-none">بحث عشوائي</h3>
@@ -1912,7 +1912,7 @@ const App = () => {
                           </button>
                         </div>
 
-                        <div className="bg-slate-900/60 border border-white/5 p-5 rounded-xl shadow-lg">
+                        <div className="bg-[#0a0a0a]/60 border border-white/5 p-5 rounded-xl shadow-lg">
                           <div className="flex items-center gap-3 mb-4">
                             <div className="p-1.5 bg-white/5 rounded-lg border border-white/10">
                               <Users className="w-5 h-5 text-game-offwhite" />
@@ -1943,7 +1943,7 @@ const App = () => {
                               placeholder="الرمز"
                               value={roomIdInput}
                               onChange={(e) => setRoomIdInput(e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 4))}
-                              className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-center text-2xl font-mono text-game-offwhite focus:outline-none focus:border-game-teal/50 focus:bg-white/10 transition-all placeholder:text-white/10 uppercase tracking-[0.2em]"
+                              className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-center text-2xl font-mono text-game-offwhite focus:outline-none focus:border-game-primary/50 focus:bg-white/10 transition-all placeholder:text-white/10 uppercase tracking-[0.2em]"
                               maxLength={4}
                               disabled={isSearching || isActionLoading}
                               dir="ltr"
@@ -1956,7 +1956,7 @@ const App = () => {
                                   exit={{ opacity: 0, x: 10, scale: 0.9 }}
                                   onClick={joinOnlineRoom}
                                   disabled={isSearching || isActionLoading}
-                                  className="absolute left-1.5 top-1.5 bottom-1.5 px-6 bg-game-teal text-game-dark hover:bg-emerald-400 rounded-lg font-display text-sm transition-all active:scale-95 shadow-lg flex items-center justify-center z-10"
+                                  className="absolute left-1.5 top-1.5 bottom-1.5 px-6 bg-game-primary text-game-dark hover:bg-emerald-400 rounded-lg font-display text-sm transition-all active:scale-95 shadow-lg flex items-center justify-center z-10"
                                 >
                                   {isActionLoading ? <Activity className="w-4 h-4 animate-spin" /> : 'دخول'}
                                 </motion.button>
@@ -1982,7 +1982,7 @@ const App = () => {
                                 }
                                 setConnectionStatus('DISCONNECTED');
                               }}
-                              className="mt-6 px-5 py-2 bg-game-slate text-white rounded-full text-xs font-display tracking-widest transition-all hover:bg-slate-600"
+                              className="mt-6 px-5 py-2 bg-game-primary text-white rounded-full text-xs font-display tracking-widest transition-all hover:bg-game-primary/80"
                             >
                               إلغاء الاتصال
                             </button>
@@ -1990,7 +1990,7 @@ const App = () => {
                         )}
 
                         {/* Host Section */}
-                        <div className="bg-slate-900/60 border border-white/10 p-5 rounded-xl shadow-lg">
+                        <div className="bg-[#0a0a0a]/60 border border-white/10 p-5 rounded-xl shadow-lg">
                           <div className="flex items-center justify-between mb-5">
                             <div className="flex items-center gap-3">
                               <div className="p-2 bg-white/5 rounded-lg border border-white/10">
@@ -2016,7 +2016,7 @@ const App = () => {
                         </div>
 
                         {/* Join Section */}
-                        <div className="bg-slate-900/60 border border-white/10 p-5 rounded-xl shadow-lg">
+                        <div className="bg-[#0a0a0a]/60 border border-white/10 p-5 rounded-xl shadow-lg">
                           <div className="flex items-center gap-3 mb-5">
                             <div className="p-2 bg-white/5 rounded-lg border border-white/10">
                               <PlugZap className="w-5 h-5 text-game-offwhite" />
@@ -2034,7 +2034,7 @@ const App = () => {
                               placeholder="مثال: 192.168.1.5"
                               value={ipInput}
                               onChange={handleIpChange}
-                              className="w-full bg-black/40 border border-white/10 rounded-xl py-3 px-4 text-center text-xl font-mono text-game-offwhite focus:outline-none focus:border-game-teal transition-all placeholder:text-white/20 font-bold"
+                              className="w-full bg-black/40 border border-white/10 rounded-xl py-3 px-4 text-center text-xl font-mono text-game-offwhite focus:outline-none focus:border-game-primary transition-all placeholder:text-white/20 font-bold"
                               maxLength={15}
                               dir="ltr"
                             />
@@ -2042,7 +2042,7 @@ const App = () => {
                               <div style={{ transformOrigin: 'top' }}>
                                 <button
                                   onClick={joinGame}
-                                  className="w-full py-3 bg-game-teal/20 backdrop-blur-md border border-game-teal/30 text-game-teal hover:bg-game-teal hover:text-game-dark rounded-xl font-display text-xl transition-all active:scale-95 outline-none transform-gpu shadow-md"
+                                  className="w-full py-3 bg-game-primary/20 backdrop-blur-md border border-game-primary/30 text-game-primary hover:bg-game-primary hover:text-game-dark rounded-xl font-display text-xl transition-all active:scale-95 outline-none transform-gpu shadow-md"
                                 >
                                   اتصال
                                 </button>
@@ -2055,7 +2055,7 @@ const App = () => {
 
                     {menuTab === 'bot' && (
                       <div className="flex flex-col gap-5 w-full mx-auto relative animate-in fade-in zoom-in-95 duration-200">
-                        <div className="bg-slate-900/60 border border-white/10 p-5 rounded-xl shadow-lg flex-1">
+                        <div className="bg-[#0a0a0a]/60 border border-white/10 p-5 rounded-xl shadow-lg flex-1">
                           <div className="flex justify-between items-start mb-6">
                             <div className="flex items-center gap-3">
                               <div className="p-2 bg-white/5 rounded-lg border border-white/10">
@@ -2112,7 +2112,7 @@ const App = () => {
                             <button
                               onClick={createBotRoom}
                               disabled={isBotLoading}
-                              className="w-full mt-2 py-3.5 bg-game-teal/20 backdrop-blur-md border border-game-teal/30 text-game-teal hover:bg-game-teal hover:text-game-dark rounded-xl font-display text-xl transition-all active:scale-95 flex items-center justify-center gap-2 outline-none transform-gpu disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+                              className="w-full mt-2 py-3.5 bg-game-primary/20 backdrop-blur-md border border-game-primary/30 text-game-primary hover:bg-game-primary hover:text-game-dark rounded-xl font-display text-xl transition-all active:scale-95 flex items-center justify-center gap-2 outline-none transform-gpu disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
                             >
                               {isBotLoading ? <Activity className="w-5 h-5 animate-spin" /> : 'بدء المباراة'}
                             </button>
@@ -2262,12 +2262,12 @@ const App = () => {
         <motion.div 
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className="bg-game-dark/95 p-8 rounded-2xl border-2 border-game-teal shadow-2xl max-w-sm w-full text-center"
+          className="bg-game-dark/95 p-8 rounded-2xl border-2 border-game-primary shadow-2xl max-w-sm w-full text-center"
         >
-          <div className="w-20 h-20 bg-game-teal/20 rounded-full flex items-center justify-center mx-auto mb-6">
-            <UserMinus className="w-10 h-10 text-game-teal" />
+          <div className="w-20 h-20 bg-game-primary/20 rounded-full flex items-center justify-center mx-auto mb-6">
+            <UserMinus className="w-10 h-10 text-game-primary" />
           </div>
-          <h2 className="text-3xl font-display text-game-teal mb-2">انسحاب الخصم!</h2>
+          <h2 className="text-3xl font-display text-game-primary mb-2">انسحاب الخصم!</h2>
           <p className="text-game-offwhite/80 mb-6">لقد غادر الخصم اللعبة. أنت الفائز تلقائياً!</p>
           
           <div className="bg-white/5 p-4 rounded-xl border border-white/10 mb-8 flex justify-around">
@@ -2277,13 +2277,13 @@ const App = () => {
             </div>
             <div className="text-center">
               <div className="text-[10px] text-game-offwhite/40 uppercase tracking-widest mb-1">الخبرة</div>
-              <div className="text-xl font-bold text-game-teal">{roomState.isPublic ? '+50' : '+0'}</div>
+              <div className="text-xl font-bold text-game-primary">{roomState.isPublic ? '+50' : '+0'}</div>
             </div>
           </div>
 
           <button
             onClick={leaveRoom}
-            className="w-full py-4 bg-game-teal text-game-dark rounded-xl font-display text-xl hover:bg-emerald-600 transition-all active:scale-95 shadow-lg"
+            className="w-full py-4 bg-game-primary text-game-dark rounded-xl font-display text-xl hover:bg-emerald-600 transition-all active:scale-95 shadow-lg"
           >
             العودة للقائمة
           </button>
@@ -2314,7 +2314,7 @@ const App = () => {
           >
             <div className="relative z-10">
               <h2 className="text-3xl font-display mb-2 text-game-offwhite/40 tracking-widest uppercase"></h2>
-              <div className={`text-5xl font-display mb-10 mt-10 tracking-widest ${finalWin ? 'text-white' : finalLoss ? 'text-game-slate' : 'text-game-offwhite/60'}`}>
+              <div className={`text-5xl font-display mb-10 mt-10 tracking-widest ${finalWin ? 'text-white' : finalLoss ? 'text-game-primary' : 'text-game-offwhite/60'}`}>
                 {finalWin ? 'لقد انتصرت!' : finalLoss ? 'لقد خسرت!' : 'تعادل!'}
               </div>
               
@@ -2341,14 +2341,14 @@ const App = () => {
                 {roomState.isPublic && (
                   <button
                     onClick={findNewMatch}
-                    className="w-full py-4 bg-game-teal hover:bg-emerald-600 text-game-dark rounded-lg font-display text-xl transition-all active:scale-95 shadow-lg flex items-center justify-center gap-2"
+                    className="w-full py-4 bg-game-primary hover:bg-emerald-600 text-game-dark rounded-lg font-display text-xl transition-all active:scale-95 shadow-lg flex items-center justify-center gap-2"
                   >
                     <UserSearch className="w-5 h-5" /> البحث عن خصم آخر
                   </button>
                 )}
                 <button
                   onClick={leaveRoom}
-                  className="w-full py-3 bg-game-slate hover:bg-slate-600 text-white rounded-lg font-display text-xl transition-all active:scale-95"
+                  className="w-full py-3 bg-game-primary hover:bg-game-primary/80 text-white rounded-lg font-display text-xl transition-all active:scale-95"
                 >
                   الرجوع للقائمة الرئيسية
                 </button>
@@ -2390,7 +2390,7 @@ const App = () => {
             </div>
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="text-[10px] sm:text-xs text-game-offwhite font-display tracking-widest bg-yellow-500/20 text-yellow-500 border border-yellow-500/30 px-2 py-0.5 rounded">
+            <span className="text-[10px] sm:text-xs text-game-offwhite font-display tracking-widest bg-game-primary/20 text-game-primary border border-game-primary/30 px-2 py-0.5 rounded">
               قيمة الفوز: {roomState.round === 9 ? 2 : 1}
             </span>
             <span className="bg-white/10 border border-white/5 shadow-inner px-2.5 py-0.5 rounded text-[10px] sm:text-xs font-display text-game-offwhite tracking-widest">
@@ -2471,7 +2471,7 @@ const App = () => {
 
                   {(roomState.gameState === 'revealing' || roomState.gameState === 'roundResult') && (
                     <div className="flex flex-col items-center gap-1 sm:gap-2">
-                      <div className="text-3xl sm:text-5xl font-display italic tracking-tighter text-game-slate">
+                      <div className="text-3xl sm:text-5xl font-display italic tracking-tighter text-game-primary">
                         VS
                       </div>
                       {roomState.gameState === 'roundResult' && (

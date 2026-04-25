@@ -9,11 +9,11 @@ export const BottomNavbar = memo(({ activeTab, setAppState, setMenuTab }: { acti
     >
       <button 
         onClick={() => setAppState('store')}
-        className={`flex flex-col items-center justify-center transition-all flex-1 h-full relative ${activeTab === 'store' ? 'text-game-teal' : 'text-game-offwhite/30'}`}
+        className={`flex flex-col items-center justify-center transition-all flex-1 h-full relative ${activeTab === 'store' ? 'text-game-primary' : 'text-game-offwhite/30'}`}
       >
         <ShoppingCart className="w-5 h-5 mb-0.5" />
         <span className="text-[9px] font-display font-medium">المتجر</span>
-        {activeTab === 'store' && <div className="absolute top-1 right-1/2 translate-x-1/2 -mt-1 w-1 h-1 rounded-full bg-game-teal shadow-[0_0_5px_rgba(45,212,191,0.5)]" />}
+        {activeTab === 'store' && <div className="absolute top-1 right-1/2 translate-x-1/2 -mt-1 w-1 h-1 rounded-full bg-game-primary shadow-[0_0_5px_rgba(45,212,191,0.5)]" />}
       </button>
 
       <button 
@@ -21,20 +21,20 @@ export const BottomNavbar = memo(({ activeTab, setAppState, setMenuTab }: { acti
           setAppState('menu');
           setMenuTab('online');
         }}
-        className={`flex flex-col items-center justify-center transition-all flex-1 h-full relative ${activeTab === 'menu' ? 'text-game-teal' : 'text-game-offwhite/30'}`}
+        className={`flex flex-col items-center justify-center transition-all flex-1 h-full relative ${activeTab === 'menu' ? 'text-game-primary' : 'text-game-offwhite/30'}`}
       >
         <Gamepad2 className="w-6 h-6 mb-0.5" />
         <span className="text-[10px] font-display font-medium">المنافسة</span>
-        {activeTab === 'menu' && <div className="absolute top-1 right-1/2 translate-x-1/2 -mt-1 w-1 h-1 rounded-full bg-game-teal shadow-[0_0_5px_rgba(45,212,191,0.5)]" />}
+        {activeTab === 'menu' && <div className="absolute top-1 right-1/2 translate-x-1/2 -mt-1 w-1 h-1 rounded-full bg-game-primary shadow-[0_0_5px_rgba(45,212,191,0.5)]" />}
       </button>
 
       <button 
         onClick={() => setAppState('profile')}
-        className={`flex flex-col items-center justify-center transition-all flex-1 h-full relative ${activeTab === 'profile' ? 'text-game-teal' : 'text-game-offwhite/30'}`}
+        className={`flex flex-col items-center justify-center transition-all flex-1 h-full relative ${activeTab === 'profile' ? 'text-game-primary' : 'text-game-offwhite/30'}`}
       >
         <Backpack className="w-5 h-5 mb-0.5" />
         <span className="text-[9px] font-display font-medium">الحقيبة</span>
-        {activeTab === 'profile' && <div className="absolute top-1 right-1/2 translate-x-1/2 -mt-1 w-1 h-1 rounded-full bg-game-teal shadow-[0_0_5px_rgba(45,212,191,0.5)]" />}
+        {activeTab === 'profile' && <div className="absolute top-1 right-1/2 translate-x-1/2 -mt-1 w-1 h-1 rounded-full bg-game-primary shadow-[0_0_5px_rgba(45,212,191,0.5)]" />}
       </button>
     </nav>
   );

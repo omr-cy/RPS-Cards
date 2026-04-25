@@ -20,7 +20,7 @@ export const CardPack = memo(({ theme, isOwned, isSelected, onClick, onSelect, u
     >
       <div className="relative w-24 sm:w-32 aspect-[3/4] mb-4">
         <div className={`absolute inset-0 rounded-xl shadow-sm transform -rotate-3 translate-x-[-4%] translate-y-[2%] opacity-20 ${theme.frontColor} border border-white/5`} />
-        <div className={`absolute inset-0 rounded-xl shadow-md flex flex-col items-center justify-center p-2 ${theme.frontColor} border-2 ${isSelected ? 'border-game-slate ring-2 ring-game-slate/20' : 'border-black'} z-10 overflow-hidden`}>
+        <div className={`absolute inset-0 rounded-xl shadow-md flex flex-col items-center justify-center p-2 ${theme.frontColor} border-2 ${isSelected ? 'border-game-primary ring-2 ring-game-primary/20' : 'border-black'} z-10 overflow-hidden`}>
           {isLocked ? (
             <div className="flex flex-col items-center gap-2">
               <Lock className="w-8 h-8 text-white/40 mb-1" />
@@ -42,8 +42,8 @@ export const CardPack = memo(({ theme, isOwned, isSelected, onClick, onSelect, u
               onClick={(e) => { e.stopPropagation(); onSelect(); }}
               className={`absolute top-2 right-2 p-1 rounded-full shadow-sm z-20 transition-all duration-100 ${
               isSelected 
-                ? 'bg-game-slate text-white ring-1 ring-white/30 scale-105' 
-                : 'bg-slate-900/80 text-white hover:bg-slate-700 hover:scale-110 border border-white/10'
+                ? 'bg-game-primary text-white ring-1 ring-white/30 scale-105' 
+                : 'bg-[#0a0a0a]/80 text-white hover:bg-game-primary/20 hover:text-game-primary hover:scale-110 border border-white/10'
             }`}>
               <ShieldCheck className={`w-4 h-4 ${isSelected ? 'fill-white/10' : ''}`} />
             </div>
@@ -56,14 +56,14 @@ export const CardPack = memo(({ theme, isOwned, isSelected, onClick, onSelect, u
           <p className="text-red-400 font-display text-[10px] sm:text-xs">يتطلب مستوى {theme.requiredLevel}</p>
         ) : !isOwned ? (
           theme.id === 'robot' ? (
-            <p className="text-game-teal font-display text-[10px] sm:text-xs">فز على الروبوت لفتحه</p>
+            <p className="text-game-primary font-display text-[10px] sm:text-xs">فز على الروبوت لفتحه</p>
           ) : (
-            <p className="text-yellow-500 font-display text-xs flex items-center gap-1">
-              {theme.price} <Diamond className="w-3.5 h-3.5 text-yellow-500" />
+            <p className="text-game-primary font-display text-xs flex items-center gap-1">
+              {theme.price} <Diamond className="w-3.5 h-3.5 text-game-primary" />
             </p>
           )
         ) : (
-          <p className={`text-xs font-display ${isSelected ? 'text-game-teal' : 'text-game-offwhite/40'}`}>
+          <p className={`text-xs font-display ${isSelected ? 'text-game-primary' : 'text-game-offwhite/40'}`}>
             {isSelected ? 'مفعل حالياً' : 'مملوك'}
           </p>
         )}

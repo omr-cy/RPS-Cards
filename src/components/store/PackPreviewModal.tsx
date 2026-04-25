@@ -36,14 +36,14 @@ export const PackPreviewModal = memo(({ selectedPack, ownedThemes, selectedTheme
                 disabled={selectedThemeId === selectedPack.id}
                 className={`w-full py-3.5 rounded-xl font-display text-xl transition-all outline-none backdrop-blur-sm transform-gpu ${
                   selectedThemeId === selectedPack.id 
-                  ? 'bg-game-teal/20 text-game-teal cursor-default border border-game-teal/30' 
-                  : 'bg-game-teal hover:bg-emerald-400 text-game-dark active:scale-95'
+                  ? 'bg-game-primary/20 text-game-primary cursor-default border border-game-primary/30' 
+                  : 'bg-game-primary hover:bg-emerald-400 text-game-dark active:scale-95'
                 }`}
               >
                 {selectedThemeId === selectedPack.id ? 'مفعل حالياً' : 'تفعيل الثيم'}
               </button>
             ) : selectedPack.id === 'robot' ? (
-              <div className="w-full py-3.5 bg-game-slate/20 text-game-teal rounded-xl font-display text-lg border border-game-teal/30 flex items-center justify-center text-center">
+              <div className="w-full py-3.5 bg-game-primary/20 text-game-primary rounded-xl font-display text-lg border border-game-primary/30 flex items-center justify-center text-center">
                 فتح عبر الفوز على الروبوت
               </div>
             ) : (
@@ -51,7 +51,7 @@ export const PackPreviewModal = memo(({ selectedPack, ownedThemes, selectedTheme
                 onClick={() => onBuy(selectedPack)}
                 className="w-full py-3.5 bg-white/15 backdrop-blur-md border border-white/20 hover:bg-white/20 text-white rounded-xl font-display text-xl transition-all active:scale-95 flex items-center justify-center gap-3 outline-none transform-gpu"
               >
-                شراء المجموعة <span className="text-yellow-400 flex items-center gap-1">{selectedPack.price} <Diamond className="w-4 h-4 text-yellow-500 inline" /></span>
+                شراء المجموعة <span className="text-yellow-400 flex items-center gap-1">{selectedPack.price} <Diamond className="w-4 h-4 text-game-primary inline" /></span>
               </button>
             )}
             <button 

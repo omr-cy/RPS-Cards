@@ -14,12 +14,12 @@ export const XPBar = memo(({ xp = 0, level = 1 }: { xp: number, level: number })
     <div className="w-full space-y-1.5" dir="rtl">
       <div className="flex justify-between items-end px-1">
         <div className="flex items-center gap-1.5">
-          <div className="bg-game-teal/20 p-1 rounded-md">
-            <Brain className="w-3.5 h-3.5 text-game-teal fill-game-teal/20" />
+          <div className="bg-game-primary/20 p-1 rounded-md">
+            <Brain className="w-3.5 h-3.5 text-game-primary fill-game-primary/20" />
           </div>
           <span className="text-[10px] text-game-offwhite/50 font-display uppercase tracking-widest">نقاط الخبرة</span>
         </div>
-        <div className="text-[11px] font-mono text-game-teal font-bold">
+        <div className="text-[11px] font-mono text-game-primary font-bold">
           {Math.floor(progressInLevel)} <span className="text-game-offwhite/30">/</span> {totalInLevel}
         </div>
       </div>
@@ -28,7 +28,7 @@ export const XPBar = memo(({ xp = 0, level = 1 }: { xp: number, level: number })
           initial={{ width: 0 }}
           animate={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
           transition={{ duration: 1, ease: "easeOut" }}
-          className="h-full bg-game-teal rounded-full shadow-[0_0_10px_rgba(45,212,191,0.4)]"
+          className="h-full bg-game-primary rounded-full shadow-[0_0_10px_rgba(45,212,191,0.4)]"
         />
       </div>
     </div>

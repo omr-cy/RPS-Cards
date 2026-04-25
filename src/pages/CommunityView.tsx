@@ -27,7 +27,7 @@ export const CommunityView = memo(({ userId, user, ws, chatMessages, setChatMess
         <div className="flex px-4 mt-2 gap-2 max-w-md mx-auto">
           <button 
             onClick={() => setActiveTab('leaderboard')}
-            className={`flex-1 py-2 font-display text-sm transition-all rounded-t-xl ${activeTab === 'leaderboard' ? 'bg-white/10 text-yellow-500 border-b-2 border-yellow-500' : 'text-game-offwhite/50 hover:text-game-offwhite'}`}
+            className={`flex-1 py-2 font-display text-sm transition-all rounded-t-xl ${activeTab === 'leaderboard' ? 'bg-white/10 text-game-primary border-b-2 border-game-primary' : 'text-game-offwhite/50 hover:text-game-offwhite'}`}
           >
             الصدارة
           </button>
