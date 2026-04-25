@@ -20,7 +20,7 @@ export const CardPack = memo(({ theme, isOwned, isSelected, onClick, onSelect, u
     >
       <div className="relative w-24 sm:w-32 aspect-[3/4] mb-4">
         <div className={`absolute inset-0 rounded-xl shadow-sm transform -rotate-3 translate-x-[-4%] translate-y-[2%] opacity-20 ${theme.frontColor} border border-white/5`} />
-        <div className={`absolute inset-0 rounded-xl shadow-md flex flex-col items-center justify-center p-2 ${theme.frontColor} border-2 ${isSelected ? 'border-game-slate ring-2 ring-game-slate/20' : 'border-white/20'} z-10 overflow-hidden`}>
+        <div className={`absolute inset-0 rounded-xl shadow-md flex flex-col items-center justify-center p-2 ${theme.frontColor} border-2 ${isSelected ? 'border-game-slate ring-2 ring-game-slate/20' : 'border-black'} z-10 overflow-hidden`}>
           {isLocked ? (
             <div className="flex flex-col items-center gap-2">
               <Lock className="w-8 h-8 text-white/40 mb-1" />

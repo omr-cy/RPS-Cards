@@ -18,7 +18,7 @@ export const FloatingCard = memo(({ theme, type, idx }: { theme: ThemeConfig, ty
   return (
     <div 
       ref={cardRef}
-      className={`w-20 sm:w-36 aspect-[3/4] rounded-2xl shadow-xl flex items-center justify-center p-2 sm:p-3 ${theme.frontColor} border-2 border-white/20 relative animate-gentle-float ${!isVisible ? 'paused' : ''}`}
+      className={`w-20 sm:w-36 aspect-[3/4] rounded-2xl shadow-xl flex items-center justify-center p-2 sm:p-3 ${theme.frontColor} border-2 border-black relative animate-gentle-float ${!isVisible ? 'paused' : ''}`}
       style={{ 
         animationDelay: `${idx * 0.5}s`
       }}
