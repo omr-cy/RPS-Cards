@@ -1122,28 +1122,89 @@ const LeaderboardContent = memo(({ userId }: { userId: string | null }) => {
   );
 });
 
-const GlobalChat = ({ ws, chatMessages, user, connectToOnline, sendAction, isOnlineConnected }: any) => {
+const GlobalChat = ({ ws, chatMessages, setChatMessages, user, connectToOnline, sendAction, isOnlineConnected }: any) => {
   const [inputText, setInputText] = useState('');
   const [connecting, setConnecting] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [shouldScrollToBottom, setShouldScrollToBottom] = useState(true);
 
   useEffect(() => {
     if (!isOnlineConnected) {
       setConnecting(true);
       connectToOnline({ type: 'get_chat_history' })
         .catch(() => {})
-        .finally(() => setConnecting(false));
+        .finally(() => {
+          setConnecting(false);
+          setHasMore(true);
+        });
     } else {
       sendAction({ type: 'get_chat_history' });
+      setHasMore(true);
     }
   }, [isOnlineConnected]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chatMessages]);
+    if (shouldScrollToBottom) {
+       bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chatMessages, shouldScrollToBottom]);
+
+  const loadMore = async () => {
+    if (loadingMore || !hasMore || chatMessages.length === 0) return;
+    
+    setLoadingMore(true);
+    setShouldScrollToBottom(false);
+    
+    try {
+      const oldestMsg = chatMessages[0];
+      const before = oldestMsg.timestamp;
+      
+      const response = await fetch(`${getApiUrl()}/api/chat/history?before=${new Date(before).toISOString()}`);
+      const olderMessages = await response.json();
+      
+      if (olderMessages.length < 10) {
+        setHasMore(false);
+      }
+      
+      if (olderMessages.length > 0) {
+        // Remember previous scroll height to maintain position
+        const container = scrollContainerRef.current;
+        const prevHeight = container?.scrollHeight || 0;
+        
+        setChatMessages((prev: any[]) => [...olderMessages, ...prev]);
+        
+        // After state update, adjust scroll
+        setTimeout(() => {
+          if (container) {
+            container.scrollTop = container.scrollHeight - prevHeight;
+          }
+        }, 0);
+      }
+    } catch (e) {
+      console.error('Failed to load more messages:', e);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.currentTarget;
+    // If at top or near top, load more
+    if (target.scrollTop < 50) {
+      loadMore();
+    }
+    
+    // Detect if user is at bottom to auto-scroll on new messages
+    const isAtBottom = target.scrollHeight - target.scrollTop <= target.clientHeight + 100;
+    setShouldScrollToBottom(isAtBottom);
+  };
 
   const sendMsg = () => {
     if (!inputText.trim() || !isOnlineConnected) return;
+    setShouldScrollToBottom(true);
     sendAction({
       type: 'send_chat_message',
       text: inputText.trim(),
@@ -1159,7 +1220,20 @@ const GlobalChat = ({ ws, chatMessages, user, connectToOnline, sendAction, isOnl
            <Activity className="w-8 h-8 text-game-teal animate-spin" />
          </div>
        )}
-       <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar smooth-scroll">
+       <div 
+         ref={scrollContainerRef}
+         onScroll={handleScroll}
+         className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar smooth-scroll"
+       >
+          {hasMore && chatMessages.length >= 10 && (
+            <div className="flex justify-center py-2">
+              {loadingMore ? (
+                <Activity className="w-4 h-4 text-game-teal animate-spin" />
+              ) : (
+                <span className="text-[10px] text-game-offwhite/30">اسحب للأعلى لتحميل المزيد</span>
+              )}
+            </div>
+          )}
           {chatMessages.length === 0 && !connecting && (
              <div className="text-center text-game-offwhite/50 text-xs mt-10">لا توجد رسائل سابقة. كن أول من يرسل رسالة!</div>
           )}
@@ -1200,7 +1274,7 @@ const GlobalChat = ({ ws, chatMessages, user, connectToOnline, sendAction, isOnl
   );
 };
 
-const CommunityView = memo(({ userId, user, ws, chatMessages, connectToOnline, onBack, sendAction, isOnlineConnected, setCoins }: any) => {
+const CommunityView = memo(({ userId, user, ws, chatMessages, setChatMessages, connectToOnline, onBack, sendAction, isOnlineConnected, setCoins }: any) => {
   const [activeTab, setActiveTab] = useState<'leaderboard' | 'chat'>('chat');
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -1240,7 +1314,7 @@ const CommunityView = memo(({ userId, user, ws, chatMessages, connectToOnline, o
       <div key={refreshKey} className="flex-1 w-full flex flex-col pt-32 h-full overflow-hidden">
         {activeTab === 'leaderboard' && <LeaderboardContent userId={userId} />}
         {activeTab === 'chat' && (
-          <GlobalChat ws={ws} chatMessages={chatMessages} user={user} connectToOnline={connectToOnline} sendAction={sendAction} isOnlineConnected={isOnlineConnected} />
+          <GlobalChat ws={ws} chatMessages={chatMessages} setChatMessages={setChatMessages} user={user} connectToOnline={connectToOnline} sendAction={sendAction} isOnlineConnected={isOnlineConnected} />
         )}
       </div>
     </div>
@@ -2716,6 +2790,7 @@ const App = () => {
           user={user}
           ws={ws}
           chatMessages={chatMessages}
+          setChatMessages={setChatMessages}
           connectToOnline={connectToOnline}
           onBack={() => setAppState('menu')}
           sendAction={sendNativeAction}

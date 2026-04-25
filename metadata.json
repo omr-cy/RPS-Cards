@@ -1,5 +1,6 @@
 {
-  "name": "بطاقات حجر ورقة مقص",
+  "name": "RPS Cards",
   "description": "لعبة حجر ورقة مقص استراتيجية تعتمد على الاستنتاج والبطاقات، حيث يمتلك كل لاعب مجموعة بطاقات محددة.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [],
+  "majorCapabilities": []
 }

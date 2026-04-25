@@ -65,6 +65,19 @@ const userSchema = new mongoose.Schema({
 
 const User = mongoose.model('User', userSchema);
 
+// Public Chat Schema
+const publicMessageSchema = new mongoose.Schema({
+  senderId: { type: String, required: true },
+  senderName: { type: String, required: true },
+  text: { type: String, required: true, maxlength: 500 },
+  createdAt: { type: Date, default: Date.now }
+});
+
+// Index for pagination
+publicMessageSchema.index({ createdAt: -1 });
+
+const PublicMessage = mongoose.model('PublicMessage', publicMessageSchema);
+
 // Leveling Logic Helpers
 const BASE_XP = 100;
 const calculateLevel = (xp: number) => {
@@ -137,8 +150,6 @@ interface ChatMessage {
   text: string;
   timestamp: number;
 }
-const globalChatHistory: ChatMessage[] = [];
-
 const INITIAL_DECK: Deck = { rock: 3, paper: 3, scissors: 3 };
 
 function generateRoomCode(): string {
@@ -738,6 +749,38 @@ async function startServer() {
     }
   });
 
+// API to fetch chat history with pagination
+  app.get('/api/chat/history', async (req, res) => {
+    try {
+      const { before, limit = 10 } = req.query;
+      const query: any = {};
+      
+      if (before) {
+        query.createdAt = { $lt: new Date(before as string) };
+      }
+      
+      const messages = await PublicMessage.find(query)
+        .sort({ createdAt: -1 })
+        .limit(Number(limit))
+        .lean();
+      
+      // Map to ChatMessage format for client compatibility
+      const formattedMessages = messages.map(msg => ({
+        id: msg._id,
+        senderId: msg.senderId,
+        senderName: msg.senderName,
+        text: msg.text,
+        timestamp: msg.createdAt.getTime()
+      }));
+
+      // We return them in chronological order (oldest first for the UI)
+      res.json(formattedMessages.reverse());
+    } catch (err) {
+      console.error('[Chat History Error]', err);
+      res.status(500).json({ error: 'Failed to fetch messages' });
+    }
+  });
+
   wss.on('connection', (ws) => {
     let connectionId = Math.random().toString(36).substring(2, 10);
     let currentPlayerId = connectionId;
@@ -745,7 +788,7 @@ async function startServer() {
 
     ws.send(JSON.stringify({ type: 'PING' }));
 
-    ws.on('message', (data) => {
+    ws.on('message', async (data) => {
       try {
         const messageString = data.toString();
         const message = JSON.parse(messageString);
@@ -870,26 +913,53 @@ async function startServer() {
         }
 
         if (message.type === 'send_chat_message') {
-          const newMsg = {
-             id: Math.random().toString(36).substring(2, 15),
-             senderId: effectivePlayerId,
-             senderName: message.senderName || 'لاعب',
-             text: (message.text || '').substring(0, 500),
-             timestamp: Date.now()
-          };
-          globalChatHistory.push(newMsg);
-          if (globalChatHistory.length > 50) globalChatHistory.shift();
+          try {
+            const msgData = {
+              senderId: effectivePlayerId,
+              senderName: message.senderName || 'لاعب',
+              text: (message.text || '').substring(0, 500)
+            };
+            
+            const savedMsg = await PublicMessage.create(msgData);
+            
+            const newMsg = {
+              id: savedMsg._id,
+              senderId: savedMsg.senderId,
+              senderName: savedMsg.senderName,
+              text: savedMsg.text,
+              timestamp: savedMsg.createdAt.getTime()
+            };
 
-          const chatEvt = JSON.stringify({ type: 'chat_message', message: newMsg });
-          wss.clients.forEach(client => {
-            if (client.readyState === WebSocket.OPEN) {
-              client.send(chatEvt);
-            }
-          });
+            const chatEvt = JSON.stringify({ type: 'chat_message', message: newMsg });
+            wss.clients.forEach(client => {
+              if (client.readyState === WebSocket.OPEN) {
+                client.send(chatEvt);
+              }
+            });
+          } catch (err) {
+            console.error('[Chat Send Error]', err);
+          }
         }
 
         if (message.type === 'get_chat_history') {
-           ws.send(JSON.stringify({ type: 'chat_history', messages: globalChatHistory }));
+           try {
+             const messages = await PublicMessage.find()
+               .sort({ createdAt: -1 })
+               .limit(10)
+               .lean();
+             
+             const formattedMsgs = messages.map(msg => ({
+               id: msg._id,
+               senderId: msg.senderId,
+               senderName: msg.senderName,
+               text: msg.text,
+               timestamp: msg.createdAt.getTime()
+             })).reverse();
+
+             ws.send(JSON.stringify({ type: 'chat_history', messages: formattedMsgs }));
+           } catch (err) {
+             console.error('[Chat History WS Error]', err);
+           }
         }
 
       } catch (e) {

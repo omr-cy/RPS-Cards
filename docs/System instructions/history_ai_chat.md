@@ -341,3 +341,17 @@
 - **Backend (server.ts):** Removed the `groupId` field from the User schema. Deleted the `Group` and `GroupMessage` models. Removed all `/api/groups/*` API endpoints. Cleaned up the game reward system to remove team score updates.
 - **WebSocket Logic:** Removed `group_chat_message` message handling from `App.tsx` and `server.ts`.
 - **Verification:** Successfully linted and compiled the app. (Linter errors regarding missing models resolved).
+
+## [2026-04-24] Persistent Public Chat with Pagination
+**User Prompt:** Implement persistent public chat in database and load messages in batches (infinite scroll). / نظام حفظ الشات في داتابيز وتحميله تدريجياً.
+**Actions:**
+- **Database (server.ts):** Added `PublicMessage` schema and model to MongoDB.
+- **Persistence:** Updated `send_chat_message` WebSocket handler to save messages to the database instead of a memory array.
+- **REST API:** Created `GET /api/chat/history` endpoint with pagination support using `before` (timestamp) and `limit` parameters.
+- **Frontend (GlobalChat):** 
+  - Implemented "Infinite Scroll" logic.
+  - Added `loadMore` function to fetch older messages when the user scrolls to the top.
+  - Added visual indicators ("Load More") and handled scroll positioning to prevent jumps when prepending messages.
+  - Updated props to allow `GlobalChat` to modify the shared `chatMessages` state.
+- **Cleanup:** Removed the `globalChatHistory` in-memory array from the server.
+- **Verification:** Verified with `lint_applet` and `compile_applet`.
