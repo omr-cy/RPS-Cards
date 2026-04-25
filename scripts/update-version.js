@@ -3,8 +3,8 @@ import path from 'path';
 
 // --- لوحة التحكم في الإصدار ---
 // قم بتعديل هذه القيم يدوياً هنا
-const VERSION = "0.0.7";
-const VERSION_CODE = 7;
+const VERSION = "0.0.6"; 
+const VERSION_CODE = 6; 
 // ----------------------------
 
 // دعم المتغيرات من الكوماند لاين إذا وجدت (للمرونة)
@@ -36,10 +36,10 @@ if (fs.existsSync(backendPackagePath)) {
 const buildGradlePath = path.join(rootDir, 'android', 'app', 'build.gradle');
 if (fs.existsSync(buildGradlePath)) {
   let buildGradle = fs.readFileSync(buildGradlePath, 'utf8');
-
+  
   // Update versionName
   buildGradle = buildGradle.replace(/versionName\s+".*"/, `versionName "${newVersion}"`);
-
+  
   // Update versionCode if provided
   if (newVersionCode) {
     buildGradle = buildGradle.replace(/versionCode\s+\d+/, `versionCode ${newVersionCode}`);
@@ -54,7 +54,7 @@ if (fs.existsSync(buildGradlePath)) {
       console.log(`Updated android build.gradle to versionName "${newVersion}" and auto-incremented versionCode to ${nextCode}`);
     }
   }
-
+  
   fs.writeFileSync(buildGradlePath, buildGradle);
 }
 
