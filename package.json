@@ -51,7 +51,7 @@
     "@webgpu/types": "^0.1.69",
     "autoprefixer": "^10.4.21",
     "javascript-obfuscator": "^5.4.1",
-    "rollup-plugin-javascript-obfuscator": "^1.0.4",
+    "rollup-plugin-javascript-obfuscator": "^1.0.1",
     "tailwindcss": "^4.1.14",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"
