@@ -1,7 +1,7 @@
 import React, { memo } from 'react';
 import { Wifi, Settings, Activity, Diamond, Users } from 'lucide-react';
 
-export const GlobalNavbar = memo(({ coins, competitionPoints, isOnline, setAppState, unreadChat, setUnreadChat, setShowSettingsSidebar }: any) => {
+export const GlobalNavbar = memo(({ level, coins, competitionPoints, isOnline, setAppState, unreadChat, setUnreadChat, setShowSettingsSidebar }: any) => {
   return (
     <>
       {!isOnline && (
@@ -25,10 +25,12 @@ export const GlobalNavbar = memo(({ coins, competitionPoints, isOnline, setAppSt
             </button>
           </div>
 
-          <div className="flex items-center gap-2 bg-white/5 px-3 py-1 rounded-full border border-white/10">
-            <span className="text-sm font-display text-game-primary font-medium ml-2">{competitionPoints} <Activity className="w-3.5 h-3.5 inline text-game-primary rotate-90 mb-0.5" /></span>
-            <span className="text-sm font-display text-game-primary font-medium">{coins}</span>
-            <Diamond className="w-3.5 h-3.5 text-game-primary" />
+          <div className="flex items-center gap-1.5 sm:gap-2 bg-white/5 px-3 py-1 rounded-full border border-white/10">
+            <span className="text-sm font-display text-game-primary font-medium flex items-center gap-1">{competitionPoints} <Activity className="w-3.5 h-3.5 text-game-primary rotate-90" /></span>
+            <span className="text-white/20 text-xs mx-0.5 sm:mx-1">|</span>
+            <span className="text-sm font-display text-game-primary font-medium flex items-center gap-1">{coins} <Diamond className="w-3.5 h-3.5 text-game-primary" /></span>
+            <span className="text-white/20 text-xs mx-0.5 sm:mx-1">|</span>
+            <span className="text-sm font-display text-game-primary font-medium">مستوى {level || 1}</span>
           </div>
 
           <div className="w-10 flex justify-end">

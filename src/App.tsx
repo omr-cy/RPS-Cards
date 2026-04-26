@@ -282,6 +282,10 @@ const App = () => {
     return newId;
   });
   const [selectedThemeId, setSelectedThemeIdState] = useState(() => localStorage.getItem('cardclash_selectedThemeId') || 'normal');
+  const [selectedCardThemes, setSelectedCardThemes] = useState<{ rock: string, paper: string, scissors: string }>(() => {
+    const saved = localStorage.getItem('cardclash_selectedCardThemes');
+    return saved ? JSON.parse(saved) : { rock: 'normal', paper: 'normal', scissors: 'normal' };
+  });
   const [ownedThemes, setOwnedThemesState] = useState<string[]>(() => {
     const stored = localStorage.getItem('cardclash_ownedThemes');
     return stored ? JSON.parse(stored) : ['normal'];
@@ -464,6 +468,9 @@ const App = () => {
   };
   const setSelectedThemeId = (id: string) => {
     setSelectedThemeIdState(id);
+    const newCardThemes = { rock: id, paper: id, scissors: id };
+    setSelectedCardThemes(newCardThemes);
+    localStorage.setItem('cardclash_selectedCardThemes', JSON.stringify(newCardThemes));
   };
   const setOwnedThemes = (themes: string[]) => {
     setOwnedThemesState(themes);
@@ -859,7 +866,8 @@ const App = () => {
       addLog('Initializing Capacitor...', 'info');
       try {
         if (Capacitor.isNativePlatform()) {
-          await StatusBar.hide();
+          await StatusBar.setOverlaysWebView({ overlay: true });
+          await StatusBar.setStyle({ style: Style.Dark });
         }
         await SplashScreen.hide();
         addLog('Capacitor initialized successfully', 'success');
@@ -1703,6 +1711,27 @@ const App = () => {
           >
             <User className="w-4 h-4 opacity-50" /> المتابعة كضيف (بدون حساب)
           </button>
+          
+          <div className="text-center mt-4">
+            <p className="text-[10px] sm:text-xs text-game-offwhite/40 leading-relaxed font-body">
+              بالدخول إلى اللعبة والبدء، فإنك توافق على <br />
+              <a 
+                href="/privacy-policy.html" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="text-game-primary/80 hover:text-game-primary underline underline-offset-4 decoration-game-primary/30 transition-all font-display tracking-widest inline-block mt-1"
+                onClick={(e) => {
+                  // Allow default behavior for web, but for Capacitor we might want to open in browser
+                  if (window.Capacitor && window.Capacitor.isNativePlatform()) {
+                    e.preventDefault();
+                    window.open('https://rps-cards.duckdns.org/privacy-policy.html', '_system');
+                  }
+                }}
+              >
+                سياسة الخصوصية
+              </a> الخاصة بنا
+            </p>
+          </div>
         </div>
         {renderDebugUI()}
       </div>
@@ -1790,6 +1819,7 @@ const App = () => {
       <>
         {renderErrorToast()}
         <GlobalNavbar 
+          level={level}
           coins={coins}
           competitionPoints={competitionPoints}
           isOnline={isOnline}
@@ -2133,6 +2163,11 @@ const App = () => {
               level={level}
               ownedThemes={ownedThemes}
               selectedThemeId={selectedThemeId}
+              selectedCardThemes={selectedCardThemes}
+              setSelectedCardThemes={(newCardThemes: { rock: string, paper: string, scissors: string }) => {
+                setSelectedCardThemes(newCardThemes);
+                localStorage.setItem('cardclash_selectedCardThemes', JSON.stringify(newCardThemes));
+              }}
               onBuy={buyTheme}
               onSelect={(id: string) => {
                 setSelectedThemeId(id);
@@ -2442,7 +2477,7 @@ const App = () => {
                     isPlayer={true} 
                     winner={roomState.gameState === 'roundResult' && roomState.roundWinner === myId} 
                     faceDown={roomState.gameState === 'playing' || roomState.gameState === 'revealing' || (roomState.gameState === 'roundResult' && !isRevealingLocal)} 
-                    theme={currentTheme}
+                    theme={me.choice ? getTheme(selectedCardThemes[me.choice]) : currentTheme}
                   />
                 ) : (
                   <div className="w-16 sm:w-24 aspect-[3/4]" />
@@ -2530,21 +2565,21 @@ const App = () => {
                count={me.deck.rock + (me.choice === 'rock' && (roomState.gameState === 'playing' || roomState.gameState === 'revealing') ? 1 : 0)} 
                onClick={() => playCard('rock')} 
                disabled={roomState.gameState !== 'playing' || me.choice !== null} 
-               theme={currentTheme} 
+               theme={getTheme(selectedCardThemes.rock)} 
              />
              <PlayableCard 
                type="paper" 
                count={me.deck.paper + (me.choice === 'paper' && (roomState.gameState === 'playing' || roomState.gameState === 'revealing') ? 1 : 0)} 
                onClick={() => playCard('paper')} 
                disabled={roomState.gameState !== 'playing' || me.choice !== null} 
-               theme={currentTheme} 
+               theme={getTheme(selectedCardThemes.paper)} 
              />
              <PlayableCard 
                type="scissors" 
                count={me.deck.scissors + (me.choice === 'scissors' && (roomState.gameState === 'playing' || roomState.gameState === 'revealing') ? 1 : 0)} 
                onClick={() => playCard('scissors')} 
                disabled={roomState.gameState !== 'playing' || me.choice !== null} 
-               theme={currentTheme} 
+               theme={getTheme(selectedCardThemes.scissors)} 
              />
           </div>
         </div>

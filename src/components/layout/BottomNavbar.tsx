@@ -5,7 +5,12 @@ export const BottomNavbar = memo(({ activeTab, setAppState, setMenuTab }: { acti
   return (
     <nav 
       dir="rtl"
-      className="fixed bottom-0 inset-x-0 z-[80] bg-game-dark/95 border-t border-white/5 px-6 pb-safe flex justify-around items-center h-14 sm:h-16 select-none shadow-[0_-4px_10px_rgba(0,0,0,0.3)]"
+      className="fixed z-[80] bg-game-dark/95 border border-white/10 rounded-2xl px-6 flex justify-around items-center h-14 sm:h-16 select-none shadow-xl"
+      style={{ 
+        bottom: 'calc(max(0.5rem, env(safe-area-inset-bottom)) + 0.5rem)',
+        left: '1rem',
+        right: '1rem'
+      }}
     >
       <button 
         onClick={() => setAppState('store')}

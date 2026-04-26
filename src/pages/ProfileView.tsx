@@ -10,7 +10,7 @@ import { getApiUrl } from '../env_config';
 
 const API_BASE_URL = getApiUrl();
 
-export const ProfileView = memo(({ playerName, coins, competitionPoints = 0, xp = 0, level = 1, ownedThemes, selectedThemeId, onSelect, onBuy, selectedPack, setSelectedPack, onEditName, userId, onLoginClick, onLogoutClick, onRefresh }: {
+export const ProfileView = memo(({ playerName, coins, competitionPoints = 0, xp = 0, level = 1, ownedThemes, selectedThemeId, selectedCardThemes, setSelectedCardThemes, onSelect, onBuy, selectedPack, setSelectedPack, onEditName, userId, onLoginClick, onLogoutClick, onRefresh }: {
   playerName: string,
   coins: number,
   competitionPoints?: number,
@@ -18,6 +18,8 @@ export const ProfileView = memo(({ playerName, coins, competitionPoints = 0, xp 
   level?: number,
   ownedThemes: string[],
   selectedThemeId: string,
+  selectedCardThemes?: { rock: string, paper: string, scissors: string },
+  setSelectedCardThemes?: (themes: { rock: string, paper: string, scissors: string }) => void,
   onSelect: (id: string) => void,
   onBuy: (theme: ThemeConfig) => void,
   selectedPack: ThemeConfig | null,
@@ -31,6 +33,7 @@ export const ProfileView = memo(({ playerName, coins, competitionPoints = 0, xp 
   const [activeTab, setActiveTab] = useState<'profile' | 'themes' | 'gift'>('profile');
   const [userRank, setUserRank] = useState<number | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [customizingCardType, setCustomizingCardType] = useState<CardType | null>(null);
 
   const handleRefresh = async () => {
     if (onRefresh && !isRefreshing) {
@@ -186,47 +189,88 @@ export const ProfileView = memo(({ playerName, coins, competitionPoints = 0, xp 
 
             {activeTab === 'themes' && (
               <div className="space-y-6">
-                {/* ACTIVE THEME SPOTLIGHT */}
+                {/* MIX & MATCH CUSTOMIZATION */}
                 <div className="bg-gradient-to-t from-game-primary/5 to-transparent p-5 rounded-2xl border border-game-primary/20 flex flex-col items-center shadow-lg relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-32 h-32 bg-game-primary/5 -mr-16 -mt-16 rounded-full blur-2xl pointer-events-none" />
-                  <div className="absolute bottom-0 left-0 w-32 h-32 bg-game-primary/5 -ml-16 -mb-16 rounded-full blur-2xl pointer-events-none" />
                   
                   <div className="flex items-center gap-2 mb-6 relative z-10">
                      <CheckCircle2 className="w-4 h-4 text-game-primary" />
-                     <span className="text-xs font-display text-game-primary uppercase tracking-widest">المجموعة المُفعلة حالياً</span>
+                     <span className="text-xs font-display text-game-primary uppercase tracking-widest">تخصيص البطاقات الفردية</span>
                   </div>
-                  <div className="flex justify-center items-center gap-2 sm:gap-4 w-full mb-5 px-2 relative z-10">
-                    {['scissors', 'paper', 'rock'].map((type, idx) => {
-                       const activeConfig = THEMES.find(t => t.id === selectedThemeId);
-                       if (!activeConfig) return null;
-                       return <FloatingCard key={`${activeConfig.id}-${type}`} theme={activeConfig} type={type as CardType} idx={idx} />
+
+                  <div className="flex justify-center items-center gap-2 sm:gap-4 w-full mb-6 px-2 relative z-10">
+                    {(['scissors', 'paper', 'rock'] as CardType[]).map((type, idx) => {
+                       const themeId = selectedCardThemes ? selectedCardThemes[type] : selectedThemeId;
+                       const cardTheme = THEMES.find(t => t.id === themeId) || THEMES[0];
+                       const isActive = customizingCardType === type;
+
+                       return (
+                         <div 
+                           key={`custom-${type}`} 
+                           onClick={() => setCustomizingCardType(isActive ? null : type)}
+                           className={`transition-all transform cursor-pointer relative ${isActive ? 'scale-110 z-20' : 'scale-100 hover:scale-105 z-10'}`}
+                         >
+                           <FloatingCard theme={cardTheme} type={type} idx={idx} />
+                           {isActive && (
+                             <div className="absolute -bottom-2 inset-x-0 flex justify-center">
+                               <div className="w-2 h-2 bg-game-primary rounded-full animate-pulse shadow-[0_0_8px_#61DAFB]" />
+                             </div>
+                           )}
+                         </div>
+                       );
                     })}
                   </div>
-                  <h3 className="text-xl font-display text-game-offwhite relative z-10">{THEMES.find(t => t.id === selectedThemeId)?.name}</h3>
+                  
+                  <div className="text-center relative z-10 h-6">
+                    <p className="text-[10px] text-game-offwhite/50 font-display tracking-widest uppercase">
+                      {customizingCardType ? `اختر ثيم لبطاقة ${customizingCardType === 'rock' ? 'الحجر' : customizingCardType === 'paper' ? 'الورق' : 'المقص'}` : 'اضغط على بطاقة لتغيير شكلها'}
+                    </p>
+                  </div>
                 </div>
 
-                {/* SECPARATOR OR TITLE FOR OWNED GRID */}
+                {/* THEME SELECTION GRID */}
                 <div className="flex items-center gap-3">
                    <div className="w-8 h-8 bg-white/5 border border-white/10 rounded-lg flex items-center justify-center border border-white/10">
                      {/* @ts-ignore */}
                      <TbCardsFilled className="w-4 h-4 text-game-offwhite/70" />
                    </div>
                    <div className="flex-1 border-b border-white/5"></div>
-                   <h3 className="text-game-offwhite font-display text-xs">مجموعات تمتلكها</h3>
+                   <h3 className="text-game-offwhite font-display text-xs">
+                     {customizingCardType ? 'اختر الشكل الجديد' : 'مجموعات تمتلكها'}
+                   </h3>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-y-10 gap-x-4">
-                  {THEMES.filter(t => ownedThemes.includes(t.id) && t.id !== selectedThemeId).map(theme => (
-                    <CardPack 
-                      key={theme.id}
-                      theme={theme}
-                      isOwned={true}
-                      isSelected={false}
-                      userLevel={level}
-                      onClick={() => setSelectedPack(theme)}
-                      onSelect={() => onSelect(theme.id)}
-                    />
-                  ))}
+                  {THEMES.filter(t => ownedThemes.includes(t.id)).map(theme => {
+                    const isSelectedForCard = customizingCardType && selectedCardThemes && selectedCardThemes[customizingCardType] === theme.id;
+                    const isGlobalSelected = !customizingCardType && selectedThemeId === theme.id;
+
+                    return (
+                      <CardPack 
+                        key={theme.id}
+                        theme={theme}
+                        isOwned={true}
+                        isSelected={isSelectedForCard || isGlobalSelected}
+                        userLevel={level}
+                        onClick={() => {
+                          if (customizingCardType && selectedCardThemes && setSelectedCardThemes) {
+                            const newThemes = { ...selectedCardThemes, [customizingCardType]: theme.id };
+                            setSelectedCardThemes(newThemes);
+                          } else {
+                            setSelectedPack(theme);
+                          }
+                        }}
+                        onSelect={() => {
+                          if (customizingCardType && selectedCardThemes && setSelectedCardThemes) {
+                            const newThemes = { ...selectedCardThemes, [customizingCardType]: theme.id };
+                            setSelectedCardThemes(newThemes);
+                          } else {
+                            onSelect(theme.id);
+                          }
+                        }}
+                      />
+                    );
+                  })}
                 </div>
               </div>
             )}
