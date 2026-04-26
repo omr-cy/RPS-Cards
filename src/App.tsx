@@ -2550,32 +2550,39 @@ const App = () => {
       }}
     >
       <div className="max-w-md mx-auto w-full h-full flex flex-col flex-1 relative">
-        {/* Header */}
-        <nav className="sticky top-0 z-50 bg-[#121212]/95 backdrop-blur-md border-b border-white/10 px-6 sm:px-8 py-2.5 flex justify-between items-center shadow-lg w-full shrink-0" style={{ paddingTop: 'max(1.25rem, env(safe-area-inset-top))' }}>
-          <div className="flex items-center gap-2">
+        {/* Game Header Bar */}
+        <nav className="h-14 sm:h-16 flex items-center justify-between px-6 bg-black/40 backdrop-blur-md border-b border-white/5 relative z-50 shrink-0">
+          <div className="flex items-center gap-4">
             <button 
               onClick={() => setShowExitConfirm(true)}
-              className="p-1.5 text-game-offwhite/30 hover:text-game-red transition-all"
+              className="p-2 hover:bg-white/10 rounded-xl transition-all active:scale-95 text-white/40 hover:text-white"
               title={t('game_exit')}
             >
-              <XCircle className="w-6 h-6" />
+              <X className="w-6 h-6" />
             </button>
-            <div className="flex flex-col">
-              <span className="text-xs sm:text-sm text-game-offwhite/50 font-display italic leading-none">{roomState.isBotRoom ? t('game_single_player') : t('game_local_player')}</span>
+            <div className="hidden sm:flex flex-col">
+              <span className="text-[10px] text-white/40 uppercase tracking-widest font-display">{t('game_round').replace('{round}', roomState.round.toString())}</span>
+              <span className="text-xs text-game-primary font-display tracking-widest">{t('game_win_value').replace('{value}', (roomState.round === 9 ? 2 : 1).toString())}</span>
             </div>
           </div>
-          <div className="flex flex-col items-center gap-0.5">
-            <span className="text-[10px] sm:text-xs text-game-primary font-display tracking-widest opacity-80">
-              {t('game_win_value').replace('{value}', (roomState.round === 9 ? 2 : 1).toString())}
-            </span>
-            <span className="text-sm sm:text-lg text-game-offwhite font-display tracking-widest">
-              {t('game_round').replace('{round}', roomState.round.toString())}
-            </span>
+          
+          <div className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center">
+             <span className="text-sm sm:text-base font-display text-white tracking-[0.2em] uppercase opacity-80">RPS CARDS</span>
+             <span className="text-[8px] sm:text-[10px] text-game-primary/60 font-display tracking-widest uppercase sm:hidden">
+               {t('game_round').replace('{round}', roomState.round.toString())}
+             </span>
+          </div>
+
+          <div className="flex items-center gap-3">
+             <div className="bg-white/5 px-3 py-1 rounded-full border border-white/5 flex items-center gap-2">
+                <Bot className="w-3.5 h-3.5 text-white/20" />
+                <span className="text-[10px] font-display text-white/40 uppercase tracking-tighter">LVL {opponent?.level || 1}</span>
+             </div>
           </div>
         </nav>
 
         {/* Opponent Area */}
-        <div className="flex-1 flex flex-col-reverse justify-center px-10 pt-4 pb-1 bg-[#F5F5F5]/5">
+        <div className="flex-none flex flex-col justify-center px-10 pt-6 pb-2 bg-[#F5F5F5]/5">
           <div className="flex justify-start items-start mt-1">
             <div className="text-right">
               <h2 className="text-white/80 text-[10px] sm:text-xs mb-0.5 flex items-center gap-2 font-display tracking-widest justify-end">
@@ -2700,7 +2707,7 @@ const App = () => {
         </div>
 
         {/* Player Area */}
-        <div className="flex-1 flex flex-col justify-center px-6 py-2 bg-[#F5F5F5]/5">
+        <div className="flex-none flex flex-col justify-center px-6 pt-4 pb-12 sm:pb-16 bg-[#F5F5F5]/5 border-t border-white/5 relative z-20">
           <div className="flex justify-start items-end mb-2">
             <div className="text-right">
               <h2 className="text-white/80 text-xs sm:text-sm mb-1 font-display tracking-widest">{me.name}</h2>
