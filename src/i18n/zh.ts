@@ -267,4 +267,9 @@ export default {
   general_level: '等级',
   general_loading: '加载中...',
   player_default_name: '未知战士',
+  exit_confirm_title: '您确定要退出应用吗？',
+  exit_confirm_btn: '退出',
+  exit_cancel_btn: '取消',
+  exit_battle_confirm_title: '您确定要退出战斗吗？',
+  exit_battle_confirm_btn: '退出',
 };

@@ -85,7 +85,7 @@ export default {
   // ===== MENU TABS =====
   menu_tab_online: 'عالمي',
   menu_tab_local: 'شبكة',
-  menu_tab_bot: 'روبوت',
+  menu_tab_bot: 'تدريب',
 
   // ===== ONLINE PLAY =====
   online_quick_match_title: 'بحث عشوائي',
@@ -267,4 +267,9 @@ export default {
   general_level: 'المستوى',
   general_loading: 'جاري التحميل...',
   player_default_name: 'محارب غير معروف',
+  exit_confirm_title: 'هل تريد حقاً الخروج من التطبيق؟',
+  exit_confirm_btn: 'خروج',
+  exit_cancel_btn: 'إلغاء',
+  exit_battle_confirm_title: 'هل تريد حقاً الانسحاب من المعركة؟',
+  exit_battle_confirm_btn: 'انسحاب',
 };

@@ -1558,31 +1558,44 @@ const App = () => {
     logout();
   };
 
-  const renderExitConfirm = () => (
-    <AnimatePresence>
-      {showExitConfirm && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/80">
-          <div className="bg-game-dark border-2 border-white/10 p-8 rounded-2xl w-full max-w-xs text-center shadow-2xl space-y-6">
-            <h3 className="text-2xl font-display text-game-offwhite">{t('exit_confirm_title')}</h3>
-            <div className="flex flex-col gap-3">
-              <button 
-                onClick={() => CapApp.exitApp()}
-                className="w-full py-3 bg-game-red hover:bg-red-700 text-white rounded-xl font-display text-xl transition-all active:scale-95"
-              >
-                {t('exit_confirm_btn')}
-              </button>
-              <button 
-                onClick={() => setShowExitConfirm(false)}
-                className="w-full py-3 bg-white/10 hover:bg-white/20 text-game-offwhite rounded-xl font-display text-xl transition-all"
-              >
-                {t('exit_cancel_btn')}
-              </button>
+  const renderExitConfirm = () => {
+    const isInBattle = appState === 'inRoom' && (roomId || roomState.isBotRoom);
+    return (
+      <AnimatePresence>
+        {showExitConfirm && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm">
+            <div className="bg-[#0a0a0a] border-2 border-white/10 p-8 rounded-2xl w-full max-w-xs text-center shadow-2xl space-y-6">
+              <h3 className="text-2xl font-display text-white">
+                {isInBattle ? t('exit_battle_confirm_title') : t('exit_confirm_title')}
+              </h3>
+              <div className="flex flex-col gap-3">
+                <button 
+                  onClick={() => {
+                    if (isInBattle) {
+                      leaveRoom();
+                      setAppState('menu');
+                      setShowExitConfirm(false);
+                    } else {
+                      CapApp.exitApp();
+                    }
+                  }}
+                  className="w-full py-3 bg-[#61DAFB] hover:bg-[#61DAFB]/80 text-black rounded-xl font-display text-xl transition-all active:scale-95 shadow-[0_0_15px_rgba(97,218,251,0.3)]"
+                >
+                  {isInBattle ? t('exit_battle_confirm_btn') : t('exit_confirm_btn')}
+                </button>
+                <button 
+                  onClick={() => setShowExitConfirm(false)}
+                  className="w-full py-3 bg-white/5 hover:bg-white/10 text-white/60 rounded-xl font-display text-xl transition-all border border-white/5"
+                >
+                  {t('exit_cancel_btn')}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-    </AnimatePresence>
-  );
+        )}
+      </AnimatePresence>
+    );
+  };
 
   const renderSettingsSidebar = () => (
     <SettingsSidebar 
@@ -2598,16 +2611,20 @@ const App = () => {
               <div className="flex items-center gap-3 sm:gap-6 w-full justify-center">
                 
                 {/* Player Card */}
-                {me.choice ? (
+                {(me.choice || me.hasChosen) ? (
                   <PlayedCard 
-                    type={me.choice} 
+                    type={me.choice || 'rock'} 
                     isPlayer={true} 
                     winner={roomState.gameState === 'roundResult' && roomState.roundWinner === myId} 
                     faceDown={roomState.gameState === 'playing' || roomState.gameState === 'revealing' || (roomState.gameState === 'roundResult' && !isRevealingLocal)} 
                     theme={currentTheme}
                   />
                 ) : (
-                  <div className="w-16 sm:w-24 aspect-[3/4]" />
+                  <div className="w-18 sm:w-26">
+                    <div className="relative w-full" style={{ paddingBottom: '150%' }}>
+                      <div className="absolute inset-0 border-2 border-dashed border-[#61DAFB]/10 rounded-xl" />
+                    </div>
+                  </div>
                 )}
 
                 {/* Center Content */}
@@ -2670,7 +2687,11 @@ const App = () => {
                     theme={opponentTheme}
                   />
                 ) : (
-                  <div className="w-16 sm:w-24 aspect-[3/4]" />
+                  <div className="w-18 sm:w-26">
+                    <div className="relative w-full" style={{ paddingBottom: '150%' }}>
+                      <div className="absolute inset-0 border-2 border-dashed border-white/5 rounded-xl" />
+                    </div>
+                  </div>
                 )}
               </div>
 

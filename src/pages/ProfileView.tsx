@@ -64,14 +64,15 @@ export const ProfileView = memo(({ playerName, coins, competitionPoints = 0, xp 
         {/* TABS (Protruding Bumps) */}
         <div dir="ltr" className="flex gap-2 px-3 relative z-10 -mb-[1px]">
           <button 
-            onClick={() => setActiveTab('profile')}
-            className={`flex-1 py-3 px-2 rounded-t-2xl font-display text-xs transition-all flex flex-col items-center gap-1 relative ${activeTab === 'profile' ? 'bg-[#0a0a0a] border border-white/5 text-game-primary z-20' : 'bg-[#0a0a0a]/50 text-game-offwhite/40 hover:bg-[#0a0a0a]/80 hover:text-game-offwhite z-10 translate-y-1'}`}
+            id="btn-tab-gift"
+            onClick={() => setActiveTab('gift')}
+            className={`flex-1 py-3 px-2 rounded-t-2xl font-display text-xs transition-all flex flex-col items-center gap-1 relative ${activeTab === 'gift' ? 'bg-[#0a0a0a] border border-white/5 text-game-primary z-20' : 'bg-[#0a0a0a]/50 text-game-offwhite/40 hover:bg-[#0a0a0a]/80 hover:text-game-offwhite z-10 translate-y-1'}`}
           >
-            <User className="w-4 h-4" />
-            {t('profile_tab_profile')}
-            {activeTab === 'profile' && <div className="absolute -bottom-[2px] left-0 right-0 h-[3px] bg-[#0a0a0a] border border-white/5 z-30" />}
+            <Gift className="w-4 h-4" />
+            {t('profile_tab_gift')}
+            {activeTab === 'gift' && <div className="absolute -bottom-[2px] left-0 right-0 h-[3px] bg-[#0a0a0a] border border-white/5 z-30" />}
           </button>
-          
+
           <button 
             onClick={() => setActiveTab('themes')}
             className={`flex-1 py-3 px-2 rounded-t-2xl font-display text-xs transition-all flex flex-col items-center gap-1 relative ${activeTab === 'themes' ? 'bg-[#0a0a0a] border border-white/5 text-game-primary z-20' : 'bg-[#0a0a0a]/50 text-game-offwhite/40 hover:bg-[#0a0a0a]/80 hover:text-game-offwhite z-10 translate-y-1'}`}
@@ -81,15 +82,14 @@ export const ProfileView = memo(({ playerName, coins, competitionPoints = 0, xp 
             {t('profile_tab_themes')}
             {activeTab === 'themes' && <div className="absolute -bottom-[2px] left-0 right-0 h-[3px] bg-[#0a0a0a] border border-white/5 z-30" />}
           </button>
-          
+
           <button 
-            id="btn-tab-gift"
-            onClick={() => setActiveTab('gift')}
-            className={`flex-1 py-3 px-2 rounded-t-2xl font-display text-xs transition-all flex flex-col items-center gap-1 relative ${activeTab === 'gift' ? 'bg-[#0a0a0a] border border-white/5 text-game-primary z-20' : 'bg-[#0a0a0a]/50 text-game-offwhite/40 hover:bg-[#0a0a0a]/80 hover:text-game-offwhite z-10 translate-y-1'}`}
+            onClick={() => setActiveTab('profile')}
+            className={`flex-1 py-3 px-2 rounded-t-2xl font-display text-xs transition-all flex flex-col items-center gap-1 relative ${activeTab === 'profile' ? 'bg-[#0a0a0a] border border-white/5 text-game-primary z-20' : 'bg-[#0a0a0a]/50 text-game-offwhite/40 hover:bg-[#0a0a0a]/80 hover:text-game-offwhite z-10 translate-y-1'}`}
           >
-            <Gift className="w-4 h-4" />
-            {t('profile_tab_gift')}
-            {activeTab === 'gift' && <div className="absolute -bottom-[2px] left-0 right-0 h-[3px] bg-[#0a0a0a] border border-white/5 z-30" />}
+            <User className="w-4 h-4" />
+            {t('profile_tab_profile')}
+            {activeTab === 'profile' && <div className="absolute -bottom-[2px] left-0 right-0 h-[3px] bg-[#0a0a0a] border border-white/5 z-30" />}
           </button>
         </div>
 

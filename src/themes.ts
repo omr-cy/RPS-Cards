@@ -11,11 +11,7 @@ export interface ThemeConfig {
   };
   path: string;
   price: number;
-  frontColor: string;
-  backColor: string;
   backIcon: string;
-  counterBgColor: string;
-  counterTextColor: string;
   extension?: 'svg' | 'png' | 'jpg';
   isDefault?: boolean;
   iconScale?: number; // percentage, e.g. 100 for 100%
@@ -35,11 +31,7 @@ export const THEMES: ThemeConfig[] = [
     path: '/card_themes/normal',
     price: 0,
     isDefault: true,
-    frontColor: 'bg-[#6F5C57]',
-    backColor: 'bg-[#6F5C57]',
     backIcon: 'default',
-    counterBgColor: 'bg-[#6F5C57]',
-    counterTextColor: 'text-[#e8e4d9]',
     extension: 'svg',
     iconScale: 125,
     requiredLevel: 1,
@@ -54,11 +46,7 @@ export const THEMES: ThemeConfig[] = [
     },
     path: '/card_themes/bones',
     price: 0,
-    frontColor: 'bg-[#2a2a2a] border border-[#e8e4d9]/10',
-    backColor: 'bg-[#2a2a2a] border border-[#e8e4d9]/10',
     backIcon: 'default',
-    counterBgColor: 'bg-[#2a2a2a]',
-    counterTextColor: 'text-[#e8e4d9]',
     extension: 'svg',
     iconScale: 100,
     requiredLevel: 3,
@@ -73,11 +61,7 @@ export const THEMES: ThemeConfig[] = [
     },
     path: '/card_themes/robots',
     price: 0,
-    frontColor: 'bg-[#2C5A7D]',
-    backColor: 'bg-[#2C5A7D]',
     backIcon: 'default',
-    counterBgColor: 'bg-[#2C5A7D]',
-    counterTextColor: 'text-[#e8e4d9]',
     iconScale: 100,
     requiredLevel: 5,
     category: 'level'
@@ -91,11 +75,7 @@ export const THEMES: ThemeConfig[] = [
     },
     path: '/card_themes/toyes',
     price: 0,
-    frontColor: 'bg-[#BC4A00]',
-    backColor: 'bg-[#BC4A00]',
     backIcon: 'default',
-    counterBgColor: 'bg-[#BC4A00]',
-    counterTextColor: 'text-[#e8e4d9]',
     iconScale: 100,
     requiredLevel: 7,
     category: 'level'
@@ -109,11 +89,7 @@ export const THEMES: ThemeConfig[] = [
     },
     path: '/card_themes/cats',
     price: 0,
-    frontColor: 'bg-[#C87874]',
-    backColor: 'bg-[#C87874]',
     backIcon: 'default',
-    counterBgColor: 'bg-[#C87874]',
-    counterTextColor: 'text-[#e8e4d9]',
     iconScale: 100,
     requiredLevel: 10,
     category: 'level'
@@ -127,11 +103,7 @@ export const THEMES: ThemeConfig[] = [
     },
     path: '/card_themes/building_tools',
     price: 0,
-    frontColor: 'bg-[#C29A21]',
-    backColor: 'bg-[#C29A21]',
     backIcon: 'default',
-    counterBgColor: 'bg-[#C29A21]',
-    counterTextColor: 'text-[#1a1a1a]',
     iconScale: 100,
     requiredLevel: 15,
     category: 'level'

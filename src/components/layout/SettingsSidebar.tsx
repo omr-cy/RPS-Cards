@@ -16,12 +16,12 @@ export const SettingsSidebar = memo(({ isOpen, onClose, onNavigateToProfile, onN
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex justify-start" dir={isRTL ? 'rtl' : 'ltr'}>
+    <div className="fixed inset-0 z-[100] flex justify-end" dir="ltr">
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       
       {/* Sidebar Panel */}
-      <div className="relative w-72 h-full bg-game-dark border-l border-white/10 shadow-2xl flex flex-col p-6 overflow-y-auto">
+      <div className="relative w-72 h-full bg-[#0a0a0a] border-l border-white/10 shadow-2xl flex flex-col p-6 overflow-y-auto" dir={isRTL ? 'rtl' : 'ltr'}>
         <div className="flex items-center justify-between mb-8">
           <h2 className="text-xl font-display text-white">{t('settings_title')}</h2>
           <button onClick={onClose} className="p-2 bg-white/5 rounded-full text-white/50 hover:bg-white/10 hover:text-white transition-colors">

@@ -267,4 +267,9 @@ export default {
   general_level: 'Level',
   general_loading: 'Loading...',
   player_default_name: 'Unknown Warrior',
+  exit_confirm_title: 'Do you really want to exit the app?',
+  exit_confirm_btn: 'Exit',
+  exit_cancel_btn: 'Cancel',
+  exit_battle_confirm_title: 'Do you really want to leave the battle?',
+  exit_battle_confirm_btn: 'Leave',
 };
