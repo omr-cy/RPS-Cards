@@ -2,8 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Activity } from 'lucide-react';
 import { IoMdSend } from 'react-icons/io';
 import { getApiUrl } from '../../env_config';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 export const GlobalChat = ({ ws, chatMessages, setChatMessages, user, connectToOnline, sendAction, isOnlineConnected }: any) => {
+  const { t } = useLanguage();
   const [inputText, setInputText] = useState('');
   const [connecting, setConnecting] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -89,7 +91,7 @@ export const GlobalChat = ({ ws, chatMessages, setChatMessages, user, connectToO
     sendAction({
       type: 'send_chat_message',
       text: inputText.trim(),
-      senderName: user?.displayName || 'لاعب'
+      senderName: user?.displayName || t('player_default_name')
     });
     setInputText('');
   };
@@ -111,19 +113,19 @@ export const GlobalChat = ({ ws, chatMessages, setChatMessages, user, connectToO
               {loadingMore ? (
                 <Activity className="w-4 h-4 text-game-primary animate-spin" />
               ) : (
-                <span className="text-[10px] text-game-offwhite/30">اسحب للأعلى لتحميل المزيد</span>
+                <span className="text-[10px] text-game-offwhite/30">{t('chat_load_more')}</span>
               )}
             </div>
           )}
           {chatMessages.length === 0 && !connecting && (
-             <div className="text-center text-game-offwhite/50 text-xs mt-10">لا توجد رسائل سابقة. كن أول من يرسل رسالة!</div>
+             <div className="text-center text-game-offwhite/50 text-xs mt-10">{t('chat_no_messages')}</div>
           )}
           {chatMessages.map((msg: any, idx: number) => {
             const isMe = msg.senderId === user?._id || msg.senderName === user?.displayName;
             return (
               <div key={msg.id || idx} className={`flex ${isMe ? 'justify-start' : 'justify-end'}`}>
                  <div className={`max-w-[70%] rounded-2xl px-4 py-2 flex flex-col shadow-md ${isMe ? 'bg-game-primary/20 border border-game-primary/30 text-game-offwhite rounded-tr-sm' : 'bg-white/10 border border-white/5 text-game-offwhite rounded-tl-sm'}`}>
-                    <span className="text-[10px] text-game-primary font-display mb-1">{isMe ? 'أنت' : msg.senderName}</span>
+                    <span className="text-[10px] text-game-primary font-display mb-1">{isMe ? t('chat_you') : msg.senderName}</span>
                     <p className="text-sm font-body break-words whitespace-pre-wrap">{msg.text}</p>
                  </div>
               </div>
@@ -138,7 +140,7 @@ export const GlobalChat = ({ ws, chatMessages, setChatMessages, user, connectToO
               value={inputText}
               onChange={e => setInputText(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && sendMsg()}
-              placeholder="اكتب رسالة..."
+              placeholder={t('chat_placeholder')}
               className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-game-offwhite placeholder:text-white/20 focus:outline-none focus:border-game-primary/50"
             />
             <button 

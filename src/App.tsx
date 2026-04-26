@@ -12,6 +12,7 @@ import config from './config.json';
 import { getApiUrl } from './env_config';
 import { useAuth } from './contexts/AuthContext';
 import { useDebug, LogEntry } from './contexts/DebugContext';
+import { useLanguage } from './contexts/LanguageContext';
 
 const API_BASE_URL = getApiUrl();
 
@@ -205,6 +206,7 @@ const DashboardViewPager = ({ appState, setAppState, onVisibleTabChange, childre
 
 const App = () => {
   const { user, login, register, verifyCode, resendCode, logout, updateProfile, refreshProfile, loading: authLoading, error: authError, pendingVerificationEmail, setPendingVerificationEmail } = useAuth();
+  const { t, isRTL, language } = useLanguage();
   const [appState, setAppState] = useState<'loading' | 'auth' | 'menu' | 'store' | 'profile' | 'matchmaking' | 'game' | 'gameOver' | 'inRoom' | 'verifySent' | 'community'>('loading');
   const [assetsLoaded, setAssetsLoaded] = useState(false);
   const [isFirstLaunch, setIsFirstLaunch] = useState(() => !localStorage.getItem('cardclash_has_initialized_assets_v3'));
@@ -212,6 +214,7 @@ const App = () => {
   const [authTab, setAuthTab] = useState<'login' | 'register'>('login');
   const [menuTab, setMenuTab] = useState<'online' | 'local' | 'bot'>('online');
   const [showSettingsSidebar, setShowSettingsSidebar] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
 
   useEffect(() => {
     const totalAssets = THEMES.length * 4;
@@ -234,6 +237,12 @@ const App = () => {
       if (isFirst) {
         localStorage.setItem('cardclash_has_initialized_assets_v3', 'true');
       }
+      
+      const privacyAccepted = localStorage.getItem('cardclash_privacyAccepted');
+      if (!privacyAccepted) {
+        setShowPrivacyModal(true);
+      }
+      
       setAssetsLoaded(true);
     };
 
@@ -253,7 +262,7 @@ const App = () => {
     Network.getStatus().then(status => setIsOnline(status.connected));
     const handlePromise = Network.addListener('networkStatusChange', status => {
       setIsOnline(status.connected);
-      addLog(`حالة الشبكة: ${status.connected ? 'متصل' : 'منقطع'}`, status.connected ? 'success' : 'error');
+      addLog(`${t('log_network_status')}${status.connected ? t('log_connected') : t('log_disconnected')}`, status.connected ? 'success' : 'error');
     });
     return () => {
       handlePromise.then(h => h.remove());
@@ -268,7 +277,7 @@ const App = () => {
       setVisibleTab(appState);
     }
   }, [appState]);
-  const [playerName, setPlayerNameState] = useState(() => localStorage.getItem('cardclash_guestName') || 'المنافسة');
+  const [playerName, setPlayerNameState] = useState(() => localStorage.getItem('cardclash_guestName') || t('nav_play'));
   const [botSettings, setBotSettings] = useState(() => {
     const saved = localStorage.getItem('cardclash_botSettings');
     return saved ? JSON.parse(saved) : { theme: 'robot', difficulty: 'normal', timeLimit: 15 };
@@ -282,10 +291,6 @@ const App = () => {
     return newId;
   });
   const [selectedThemeId, setSelectedThemeIdState] = useState(() => localStorage.getItem('cardclash_selectedThemeId') || 'normal');
-  const [selectedCardThemes, setSelectedCardThemes] = useState<{ rock: string, paper: string, scissors: string }>(() => {
-    const saved = localStorage.getItem('cardclash_selectedCardThemes');
-    return saved ? JSON.parse(saved) : { rock: 'normal', paper: 'normal', scissors: 'normal' };
-  });
   const [ownedThemes, setOwnedThemesState] = useState<string[]>(() => {
     const stored = localStorage.getItem('cardclash_ownedThemes');
     return stored ? JSON.parse(stored) : ['normal'];
@@ -439,7 +444,7 @@ const App = () => {
     setErrorMsg(null);
     try {
       await verifyCode(pendingVerificationEmail || authEmail, authVerifyCode);
-      setAuthSuccessMsg('تم تأكيد الحساب بنجاح! يمكنك الآن تسجيل الدخول.');
+      setAuthSuccessMsg(t('msg_verification_success'));
       setAuthTab('login');
       setAppState('auth');
       setPendingVerificationEmail(null);
@@ -467,10 +472,8 @@ const App = () => {
     setPlayerNameState(name);
   };
   const setSelectedThemeId = (id: string) => {
+    localStorage.setItem('cardclash_selectedThemeId', id);
     setSelectedThemeIdState(id);
-    const newCardThemes = { rock: id, paper: id, scissors: id };
-    setSelectedCardThemes(newCardThemes);
-    localStorage.setItem('cardclash_selectedCardThemes', JSON.stringify(newCardThemes));
   };
   const setOwnedThemes = (themes: string[]) => {
     setOwnedThemesState(themes);
@@ -486,7 +489,7 @@ const App = () => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [isResending, setIsResending] = useState(false);
-  const [userIp, setUserIp] = useState<string>('جاري التحميل...');
+  const [userIp, setUserIp] = useState<string>(t('general_loading'));
   const [isSearching, setIsSearching] = useState(false);
   const [matchmakingCanCancel, setMatchmakingCanCancel] = useState(false);
   const [matchmakingOpponent, setMatchmakingOpponent] = useState<any>(null);
@@ -576,23 +579,23 @@ const App = () => {
           // (Server handles coins for registered users in online rooms)
           if (role !== 'ONLINE' || !user) {
             setCoins(prev => prev + reward);
-            addLog(`لقد فزت وربحت ${reward} 🪙 عملة!`, 'success');
+            addLog(t('log_win_reward').replace('{amount}', reward.toString()), 'success');
           } else if (role === 'ONLINE' && user) {
             // For online logged-in users, the server pushes the coin update, 
             // but we can still show the message for feedback.
             // Server awards 15-50 depending on config, but client shows 50 for consistency in UI.
-            addLog(`أداء رائع! ستربح عملات ذهبية لهذا الفوز 🪙`, 'success');
+            addLog(t('log_win_reward').replace('{amount}', '50'), 'success');
           }
           
           // Robot theme unlock logic
           if (roomId === OFFLINE_BOT_ID && !ownedThemes.includes('robot')) {
             setOwnedThemes([...ownedThemes, 'robot']);
-            addLog('تهانينا! لقد فتحت ثيم الروبوت بالفوز على الكمبيوتر!', 'success');
+            addLog(t('log_bot_theme_unlock'), 'success');
           }
         } else if (me.score === opponent.score) {
           if (role !== 'ONLINE' || !user) {
             setCoins(prev => prev + 10);
-            addLog('تعادل! حصلت على 10 🪙 عملات', 'info');
+            addLog(t('log_draw_reward'), 'info');
           }
         }
       }
@@ -938,7 +941,7 @@ const App = () => {
       const status = await Network.getStatus();
       if (!status.connected) {
         addLog('Network not connected', 'error');
-        setUserIp('لا يوجد اتصال بالإنترنت');
+        setUserIp(t('error_no_internet'));
         return;
       }
     } catch (e) {
@@ -1010,7 +1013,7 @@ const App = () => {
         addLog(`Public IP obtained: ${data.ip}`, 'info');
       }
     } catch (e) {
-      setUserIp('تعذر جلب الـ IP');
+      setUserIp(t('lan_error_get_ip'));
       addLog('Failed to fetch any IP address', 'error');
     }
   };
@@ -1020,7 +1023,7 @@ const App = () => {
   }, []);
 
   const hostGame = async () => {
-    await LanAndroidService.hostGame(playerName, addLog, setErrorMsg);
+    await LanAndroidService.hostGame(playerName, addLog, setErrorMsg, t);
   };
 
   const isValidIp = (ip: string) => LanAndroidService.isValidIp(ip);
@@ -1030,7 +1033,7 @@ const App = () => {
   };
 
   const joinGame = async () => {
-    await LanAndroidService.joinGame(ipInput, addLog, setErrorMsg);
+    await LanAndroidService.joinGame(ipInput, addLog, setErrorMsg, t);
   };
 
   const connectToOnline = (action?: any): Promise<WebSocket | void> => {
@@ -1049,7 +1052,8 @@ const App = () => {
       setAppState,
       setRoomId,
       setRoomState,
-      setRole
+      setRole,
+      t
     });
   };
 
@@ -1090,7 +1094,7 @@ const App = () => {
   };
 
   const startQuickMatch = () => {
-    if (!playerNameRef.current.trim()) return setErrorMsg('يرجى إدخال اسمك أولاً');
+    if (!playerNameRef.current.trim()) return setErrorMsg(t('error_enter_name'));
     setIsSearching(true);
     setMatchmakingCanCancel(false);
     connectToOnline({ 
@@ -1113,7 +1117,7 @@ const App = () => {
   };
 
   const createOnlineRoom = () => {
-    if (!playerNameRef.current.trim()) return setErrorMsg('يرجى إدخال اسمك أولاً');
+    if (!playerNameRef.current.trim()) return setErrorMsg(t('error_enter_name'));
     setIsActionLoading(false); // Ensure old overlay is hidden
     setIsWaitingInPrivateRoom(true);
     setMatchmakingCanCancel(false);
@@ -1124,13 +1128,13 @@ const App = () => {
       themeId: selectedThemeIdRef.current 
     }).catch((err) => {
       setIsWaitingInPrivateRoom(false);
-      setErrorMsg(err.message || 'فشل إنشاء الغرفة');
+      setErrorMsg(err.message || t('error_room_create_fail'));
     });
   };
 
   const joinOnlineRoom = () => {
-    if (!roomIdInput.trim()) return setErrorMsg('يرجى إدخال رمز الغرفة');
-    if (!playerNameRef.current.trim()) return setErrorMsg('يرجى إدخال اسمك أولاً');
+    if (!roomIdInput.trim()) return setErrorMsg(t('error_enter_room_code'));
+    if (!playerNameRef.current.trim()) return setErrorMsg(t('error_enter_name'));
     setIsActionLoading(true);
     connectToOnline({ 
       type: 'join_room_by_code', 
@@ -1151,8 +1155,8 @@ const App = () => {
         id: OFFLINE_BOT_ID,
         isBotRoom: true,
         players: {
-          me: { id: 'me', name: playerName.trim() || 'لاعب', themeId: selectedThemeId, deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false },
-          bot: { id: 'bot', name: 'الكمبيوتر', themeId: botSettings.theme, deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: true }
+          me: { id: 'me', name: playerName.trim() || t('player_default_name'), themeId: selectedThemeId, deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false },
+          bot: { id: 'bot', name: t('bot_default_name'), themeId: botSettings.theme, deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: true }
         },
         gameState: 'playing',
         round: 1,
@@ -1170,7 +1174,7 @@ const App = () => {
   const copyRoomId = () => {
     if (roomId) {
       navigator.clipboard.writeText(roomId);
-      setErrorMsg('تم نسخ كود الغرفة!');
+      setErrorMsg(t('log_copy_room_code'));
       setTimeout(() => setErrorMsg(null), 2000);
     }
   };
@@ -1295,8 +1299,8 @@ const App = () => {
         id: OFFLINE_BOT_ID,
         isBotRoom: true,
         players: {
-          me: { id: 'me', name: playerName.trim() || 'لاعب', themeId: selectedThemeId, deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false },
-          bot: { id: 'bot', name: 'الكمبيوتر', themeId: 'robot', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: true }
+          me: { id: 'me', name: playerName.trim() || t('player_default_name'), themeId: selectedThemeId, deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: false },
+          bot: { id: 'bot', name: t('bot_default_name'), themeId: 'robot', deck: { ...INITIAL_DECK }, score: 0, choice: null, readyForNext: true }
         },
         gameState: 'playing',
         round: 1,
@@ -1385,15 +1389,15 @@ const App = () => {
 
   const buyTheme = async (theme: ThemeConfig) => {
     if (ownedThemes.includes(theme.id)) {
-      setErrorMsg('أنت تمتلك هذه المجموعة بالفعل');
+      setErrorMsg(t('store_error_owned'));
       return;
     }
     if (level < (theme.requiredLevel || 1)) {
-      setErrorMsg(`يجب أن تصل للمستوى ${theme.requiredLevel} لفتح هذه المجموعة`);
+      setErrorMsg(t('store_error_level').replace('{level}', (theme.requiredLevel || 1).toString()));
       return;
     }
     if (coins < theme.price) {
-      setErrorMsg('ليس لديك عملات كافية لشراء هذه المجموعة');
+      setErrorMsg(t('store_error_coins'));
       return;
     }
 
@@ -1402,16 +1406,16 @@ const App = () => {
     
     setCoinsState(newCoins);
     setOwnedThemesState(newOwned);
-    setSuccessMsg(`تم شراء مجموعة ${theme.name} بنجاح!`);
+    setSuccessMsg(t('store_success_buy'));
     
-    addLog(`تم شراء ثيم ${theme.name} (محلياً وسيتم المزامنة تلقائياً)`, 'success');
+    addLog(t('log_theme_bought_local'), 'success');
   };
 
   const currentTheme = getTheme(selectedThemeId);
 
   const renderErrorToast = () => {
     // Suppress intrusive network error toasts since we have the top offline bar
-    const isNetworkError = errorMsg && (errorMsg.includes('فشل الاتصال') || errorMsg.includes('تأكد من تشغيل السيرفر') || errorMsg.includes('Network Error') || errorMsg.includes('Network request failed'));
+    const isNetworkError = errorMsg && (errorMsg.includes(t('error_connection')) || errorMsg.includes('Network Error') || errorMsg.includes('Network request failed'));
     if (isNetworkError) return null;
 
     return (
@@ -1454,7 +1458,7 @@ const App = () => {
         await updateProfile({ displayName: trimmedName });
         setShowEditNameDialog(false);
       } catch (err) {
-        setErrorMsg('فشل في تحديث الاسم على السيرفر');
+        setErrorMsg(t('error_update_name_fail'));
       }
     } else {
       setPlayerNameState(trimmedName);
@@ -1473,7 +1477,7 @@ const App = () => {
       className={`fixed inset-0 z-[250] flex sm:items-center items-start justify-center p-6 bg-black/80 backdrop-blur-sm overflow-y-auto smooth-scroll ${showEditNameDialog ? '' : 'hidden'}`} onClick={() => setShowEditNameDialog(false)}>
       <div className="w-full max-w-md bg-game-dark/90 p-5 sm:p-8 rounded-2xl border border-white/10 shadow-2xl space-y-6 mt-12 sm:mt-0 mb-12" onClick={e => e.stopPropagation()}>
         <div className="text-center space-y-2">
-          <h3 className="text-xl font-display text-game-offwhite">ادخل الأسم</h3>
+          <h3 className="text-xl font-display text-game-offwhite">{t('profile_edit_name_title')}</h3>
         </div>
         <input 
           type="text" 
@@ -1481,7 +1485,7 @@ const App = () => {
           onChange={(e) => setEditNameInput(e.target.value.replace(/[^ \w\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/g, '').slice(0, 20))}
           className="w-full bg-black/40 border border-white/5 rounded-xl py-3 px-4 text-center text-game-offwhite focus:outline-none focus:border-game-primary transition-all"
           maxLength={20}
-          placeholder="أدخل اسمك الجديد"
+          placeholder={t('profile_edit_name_placeholder')}
           autoFocus
         />
         <div className="flex flex-col gap-3">
@@ -1489,13 +1493,13 @@ const App = () => {
             onClick={handleUpdateName}
             className="w-full py-3 bg-white/15 backdrop-blur-md border border-white/20 text-game-offwhite hover:bg-white/20 hover:border-white/30 rounded-xl font-display text-lg transition-all active:scale-95 outline-none transform-gpu"
           >
-            حفظ التغييرات
+            {t('profile_save_changes')}
           </button>
           <button 
             onClick={() => setShowEditNameDialog(false)}
             className="w-full py-3 bg-white/5 backdrop-blur-sm hover:bg-white/10 text-game-offwhite/60 rounded-xl font-display text-lg transition-all border border-white/10 outline-none transform-gpu"
           >
-            إلغاء
+            {t('profile_cancel')}
           </button>
         </div>
       </div>
@@ -1512,7 +1516,7 @@ const App = () => {
     localStorage.removeItem('cardclash_coins');
     
     // 2. Reset the React States Natively
-    setPlayerNameState('محارب');
+    setPlayerNameState(t('player_default_name'));
     const newId = Math.random().toString(36).substring(2, 12);
     setPlayerId(newId);
     localStorage.setItem('cardclash_playerId', newId);
@@ -1529,22 +1533,77 @@ const App = () => {
       {showExitConfirm && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/80">
           <div className="bg-game-dark border-2 border-white/10 p-8 rounded-2xl w-full max-w-xs text-center shadow-2xl space-y-6">
-            <h3 className="text-2xl font-display text-game-offwhite">هل تريد الخروج من اللعبة؟</h3>
+            <h3 className="text-2xl font-display text-game-offwhite">{t('exit_confirm_title')}</h3>
             <div className="flex flex-col gap-3">
               <button 
                 onClick={() => CapApp.exitApp()}
                 className="w-full py-3 bg-game-red hover:bg-red-700 text-white rounded-xl font-display text-xl transition-all active:scale-95"
               >
-                تأكيد الخروج
+                {t('exit_confirm_btn')}
               </button>
               <button 
                 onClick={() => setShowExitConfirm(false)}
                 className="w-full py-3 bg-white/10 hover:bg-white/20 text-game-offwhite rounded-xl font-display text-xl transition-all"
               >
-                إلغاء
+                {t('exit_cancel_btn')}
               </button>
             </div>
           </div>
+        </div>
+      )}
+    </AnimatePresence>
+  );
+
+  const renderPrivacyModal = () => (
+    <AnimatePresence>
+      {showPrivacyModal && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-6 bg-black/90 backdrop-blur-md">
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            className="bg-game-dark border border-game-primary/30 p-8 rounded-3xl w-full max-w-sm text-center shadow-[0_0_50px_rgba(45,212,191,0.2)] space-y-8 relative overflow-hidden"
+          >
+            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-game-primary to-transparent" />
+            
+            <div className="flex justify-center">
+              <div className="w-20 h-20 bg-game-primary/10 rounded-full flex items-center justify-center border border-game-primary/20">
+                <ShieldCheck className="w-10 h-10 text-game-primary" />
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <h3 className="text-2xl font-display text-white">{t('privacy_title')}</h3>
+              <p className="text-game-offwhite/60 font-body leading-relaxed text-sm">
+                {t('privacy_message')}
+              </p>
+              <div className="pt-2">
+                <a 
+                  href="/privacy-policy.html" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="text-game-primary hover:underline text-xs font-display tracking-widest"
+                  onClick={(e) => {
+                    if (Capacitor.isNativePlatform()) {
+                      e.preventDefault();
+                      window.open('https://rps-cards.duckdns.org/privacy-policy.html', '_system');
+                    }
+                  }}
+                >
+                  {t('auth_privacy_link')}
+                </a>
+              </div>
+            </div>
+
+            <button 
+              onClick={() => {
+                localStorage.setItem('cardclash_privacyAccepted', 'true');
+                setShowPrivacyModal(false);
+              }}
+              className="w-full py-4 bg-game-primary text-game-dark hover:bg-emerald-400 rounded-xl font-display text-lg transition-all active:scale-95 shadow-lg shadow-game-primary/20"
+            >
+              {t('privacy_accept')}
+            </button>
+          </motion.div>
         </div>
       )}
     </AnimatePresence>
@@ -1587,7 +1646,7 @@ const App = () => {
   if (appState === 'auth') {
     return (
       <div 
-        dir="rtl" 
+        dir={isRTL ? 'rtl' : 'ltr'}
         className="fixed inset-0 w-full h-full wood-texture text-game-cream flex flex-col sm:items-center items-start justify-center p-4 sm:p-6 font-body overflow-y-auto smooth-scroll select-none"
       >
         <div 
@@ -1602,7 +1661,7 @@ const App = () => {
           </button>
           
           <div className="text-center space-y-2">
-            <p className="text-game-offwhite/50">{authTab === 'login' ? 'سجل دخولك للمنافسة' : 'أنشئ حسابك الجديد'}</p>
+            <p className="text-game-offwhite/50">{authTab === 'login' ? t('auth_login_subtitle') : t('auth_register_subtitle')}</p>
           </div>
 
           <div className="flex bg-black/40 p-1 rounded-xl border border-white/5">
@@ -1610,20 +1669,20 @@ const App = () => {
               onClick={() => { setAuthTab('login'); setErrorMsg(null); }}
               className={`flex-1 py-2 rounded-lg font-display transition-all transform-gpu ${authTab === 'login' ? 'bg-game-primary text-game-dark' : 'text-game-offwhite/40 hover:text-game-offwhite hover:bg-white/5'}`}
             >
-              تسجيل دخول
+              {t('auth_login_tab')}
             </button>
             <button 
               onClick={() => { setAuthTab('register'); setErrorMsg(null); }}
               className={`flex-1 py-2 rounded-lg font-display transition-all transform-gpu ${authTab === 'register' ? 'bg-game-primary text-game-dark' : 'text-game-offwhite/40 hover:text-game-offwhite hover:bg-white/5'}`}
             >
-              إنشاء حساب
+              {t('auth_register_tab')}
             </button>
           </div>
 
           <form onSubmit={authTab === 'login' ? handleLogin : handleRegister} className="space-y-4">
             {authTab === 'register' && (
               <div className="space-y-1">
-                <label className="text-xs text-game-offwhite/40 mr-2 uppercase tracking-widest">الاسم المستعار</label>
+                <label className="text-xs text-game-offwhite/40 mr-2 uppercase tracking-widest">{t('auth_username_label')}</label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-game-primary/40" />
                   <input 
@@ -1632,7 +1691,7 @@ const App = () => {
                     onChange={(e) => setAuthName(e.target.value.replace(/[^ \w\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/g, '').slice(0, 20))}
                     required
                     maxLength={20}
-                    placeholder="اسم المحارب"
+                    placeholder={t('auth_username_placeholder')}
                     className="w-full bg-black/30 border border-white/10 rounded-xl py-3 px-10 text-game-offwhite focus:outline-none focus:border-game-primary transition-all placeholder:text-white/10"
                   />
                 </div>
@@ -1640,7 +1699,7 @@ const App = () => {
             )}
             
             <div className="space-y-1">
-              <label className="text-xs text-game-offwhite/40 mr-2 uppercase tracking-widest">البريد الإلكتروني</label>
+              <label className="text-xs text-game-offwhite/40 mr-2 uppercase tracking-widest">{t('auth_email_label')}</label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-game-primary/40" />
                 <input 
@@ -1657,7 +1716,7 @@ const App = () => {
             </div>
 
             <div className="space-y-1">
-              <label className="text-xs text-game-offwhite/40 mr-2 uppercase tracking-widest">كلمة المرور</label>
+              <label className="text-xs text-game-offwhite/40 mr-2 uppercase tracking-widest">{t('auth_password_label')}</label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-game-primary/40" />
                 <input 
@@ -1688,13 +1747,13 @@ const App = () => {
               disabled={authSubmitting}
               className="w-full py-4 bg-white/15 backdrop-blur-md border border-white/20 text-game-offwhite hover:bg-white/20 hover:border-white/30 rounded-xl font-display text-xl transition-all active:scale-95 flex items-center justify-center gap-2 outline-none transform-gpu"
             >
-              {authSubmitting ? <Activity className="w-5 h-5 animate-spin" /> : authTab === 'login' ? <><LogIn className="w-5 h-5" /> تسجيل الدخول</> : <><UserPlus className="w-5 h-5" /> تسجيل جديد</>}
+              {authSubmitting ? <Activity className="w-5 h-5 animate-spin" /> : authTab === 'login' ? <><LogIn className="w-5 h-5" /> {t('auth_submit_login')}</> : <><UserPlus className="w-5 h-5" /> {t('auth_submit_register')}</>}
             </button>
           </form>
           
           <div className="relative flex items-center py-2">
             <div className="flex-grow border-t border-white/10"></div>
-            <span className="flex-shrink-0 mx-4 text-game-offwhite/20 text-xs font-display uppercase tracking-widest">أو</span>
+            <span className="flex-shrink-0 mx-4 text-game-offwhite/20 text-xs font-display uppercase tracking-widest">{t('auth_or_divider')}</span>
             <div className="flex-grow border-t border-white/10"></div>
           </div>
 
@@ -1709,27 +1768,26 @@ const App = () => {
             }}
             className="w-full py-3 bg-white/5 backdrop-blur-sm hover:bg-white/10 text-game-offwhite/60 rounded-xl font-display transition-all border border-white/10 active:scale-95 flex items-center justify-center gap-2 transform-gpu outline-none"
           >
-            <User className="w-4 h-4 opacity-50" /> المتابعة كضيف (بدون حساب)
+            <User className="w-4 h-4 opacity-50" /> {t('auth_continue_guest')}
           </button>
           
           <div className="text-center mt-4">
             <p className="text-[10px] sm:text-xs text-game-offwhite/40 leading-relaxed font-body">
-              بالدخول إلى اللعبة والبدء، فإنك توافق على <br />
+              {t('auth_privacy_notice')} <br />
               <a 
                 href="/privacy-policy.html" 
                 target="_blank" 
                 rel="noopener noreferrer" 
                 className="text-game-primary/80 hover:text-game-primary underline underline-offset-4 decoration-game-primary/30 transition-all font-display tracking-widest inline-block mt-1"
                 onClick={(e) => {
-                  // Allow default behavior for web, but for Capacitor we might want to open in browser
-                  if (window.Capacitor && window.Capacitor.isNativePlatform()) {
+                  if (Capacitor.isNativePlatform()) {
                     e.preventDefault();
                     window.open('https://rps-cards.duckdns.org/privacy-policy.html', '_system');
                   }
                 }}
               >
-                سياسة الخصوصية
-              </a> الخاصة بنا
+                {t('auth_privacy_link')}
+              </a> {t('auth_privacy_suffix')}
             </p>
           </div>
         </div>
@@ -1760,12 +1818,12 @@ const App = () => {
           <div className="w-20 h-20 bg-game-primary/20 rounded-full flex items-center justify-center mx-auto border-2 border-game-primary/50">
             <Mail className="w-10 h-10 text-game-primary" />
           </div>
-          <h2 className="text-3xl font-display text-game-offwhite">أدخل كود التأكيد</h2>
-          <p className="text-game-offwhite/70 leading-relaxed text-lg">لقد أرسلنا كود التأكيد إلى <br /><span className="text-game-primary font-bold">{authEmail}</span></p>
+          <h2 className="text-3xl font-display text-game-offwhite">{t('auth_verify_title')}</h2>
+          <p className="text-game-offwhite/70 leading-relaxed text-lg">{t('auth_verify_subtitle')} <br /><span className="text-game-primary font-bold">{authEmail}</span></p>
           
           <div className="bg-game-primary/5 border border-game-primary/20 p-3 rounded-xl flex items-center gap-3 text-right">
             <Info className="w-5 h-5 text-game-primary shrink-0" />
-            <p className="text-sm text-game-offwhite/60">إذا لم تجد الرسالة في صندوق الوارد، جرب إلقاء نظرة ودية على مجلد الرسائل غير المرغوب فيها (Spam) 📧✨</p>
+            <p className="text-sm text-game-offwhite/60">{t('auth_verify_hint')}</p>
           </div>
 
           <button 
@@ -1774,7 +1832,7 @@ const App = () => {
             disabled={isResending}
             className="text-xs text-game-primary hover:underline font-display tracking-widest"
           >
-            {isResending ? 'جاري الإرسال...' : 'إعادة إرسال الكود؟'}
+            {isResending ? t('general_sending') : t('auth_resend_code')}
           </button>
 
           <form onSubmit={handleVerifyCode} className="space-y-4">
@@ -1799,7 +1857,7 @@ const App = () => {
               disabled={authSubmitting || authVerifyCode.length !== 6}
               className="w-full py-4 bg-game-primary text-game-dark rounded-xl font-display text-xl shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50"
             >
-              {authSubmitting ? <Activity className="w-5 h-5 animate-spin" /> : 'تأكيد الحساب'}
+              {authSubmitting ? <Activity className="w-5 h-5 animate-spin" /> : t('auth_verify_submit')}
             </button>
           </form>
 
@@ -1807,7 +1865,7 @@ const App = () => {
             onClick={() => { setAppState('auth'); setAuthTab('login'); }}
             className="w-full py-3 bg-white/5 hover:bg-white/10 text-game-offwhite/40 rounded-xl font-display transition-all border border-white/10 text-sm"
           >
-            العودة لتسجيل الدخول
+            {t('auth_back_to_login')}
           </button>
         </motion.div>
       </div>
@@ -1874,21 +1932,12 @@ const App = () => {
             setSelectedPack={setSelectedPack}
           />
           <div 
-            dir="rtl" 
+            dir={isRTL ? 'rtl' : 'ltr'}
             className="w-full h-full flex flex-col font-body overflow-x-hidden select-none"
           >
             <div className="flex-1 overflow-hidden pt-24 pb-24 px-4 sm:px-6 flex flex-col max-w-md mx-auto w-full">
               {/* TABS (Protruding Bumps) */}
               <div className="flex gap-2 px-3 relative z-10 -mb-[1px]">
-                <button 
-                  onClick={() => setMenuTab('online')}
-                  className={`flex-1 py-3 px-2 rounded-t-2xl font-display text-xs transition-all flex flex-col items-center gap-1 relative ${menuTab === 'online' ? 'bg-[#0a0a0a] border border-white/5 text-game-primary z-20' : 'bg-[#0a0a0a]/50 text-game-offwhite/40 hover:bg-[#0a0a0a]/80 hover:text-game-offwhite z-10 translate-y-1'}`}
-                >
-                  <Globe className="w-4 h-4" />
-                  عالمي
-                  {menuTab === 'online' && <div className="absolute -bottom-[2px] left-0 right-0 h-[3px] bg-[#0a0a0a] border border-white/5 z-30" />}
-                </button>
-                
                 <button 
                   onClick={() => {
                     setMenuTab('local');
@@ -1902,8 +1951,17 @@ const App = () => {
                   className={`flex-1 py-3 px-2 rounded-t-2xl font-display text-xs transition-all flex flex-col items-center gap-1 relative ${menuTab === 'local' ? 'bg-[#0a0a0a] border border-white/5 text-game-primary z-20' : 'bg-[#0a0a0a]/50 text-game-offwhite/40 hover:bg-[#0a0a0a]/80 hover:text-game-offwhite z-10 translate-y-1'}`}
                 >
                   <Home className="w-4 h-4" />
-                  شبكة
+                  {t('menu_tab_local')}
                   {menuTab === 'local' && <div className="absolute -bottom-[2px] left-0 right-0 h-[3px] bg-[#0a0a0a] border border-white/5 z-30" />}
+                </button>
+
+                <button 
+                  onClick={() => setMenuTab('online')}
+                  className={`flex-1 py-3 px-2 rounded-t-2xl font-display text-xs transition-all flex flex-col items-center gap-1 relative ${menuTab === 'online' ? 'bg-[#0a0a0a] border border-white/5 text-game-primary z-20' : 'bg-[#0a0a0a]/50 text-game-offwhite/40 hover:bg-[#0a0a0a]/80 hover:text-game-offwhite z-10 translate-y-1'}`}
+                >
+                  <Globe className="w-4 h-4" />
+                  {t('menu_tab_online')}
+                  {menuTab === 'online' && <div className="absolute -bottom-[2px] left-0 right-0 h-[3px] bg-[#0a0a0a] border border-white/5 z-30" />}
                 </button>
                 
                 <button 
@@ -1911,7 +1969,7 @@ const App = () => {
                   className={`flex-1 py-3 px-2 rounded-t-2xl font-display text-xs transition-all flex flex-col items-center gap-1 relative ${menuTab === 'bot' ? 'bg-[#0a0a0a] border border-white/5 text-game-primary z-20' : 'bg-[#0a0a0a]/50 text-game-offwhite/40 hover:bg-[#0a0a0a]/80 hover:text-game-offwhite z-10 translate-y-1'}`}
                 >
                   <Bot className="w-4 h-4" />
-                  روبوت
+                  {t('menu_tab_bot')}
                   {menuTab === 'bot' && <div className="absolute -bottom-[2px] left-0 right-0 h-[3px] bg-[#0a0a0a] border border-white/5 z-30" />}
                 </button>
               </div>
@@ -1929,16 +1987,16 @@ const App = () => {
                               <UserSearch className="w-5 h-5 text-game-primary" />
                             </div>
                             <div className="text-right">
-                              <h3 className="text-game-cream font-display text-base tracking-widest leading-none">بحث عشوائي</h3>
-                              <p className="text-[10px] text-game-cream/40 font-body italic mt-1">اللعب ضد خصم عشوائي عالمياً</p>
+                              <h3 className="text-game-cream font-display text-base tracking-widest leading-none">{t('online_quick_match_title')}</h3>
+                              <p className="text-[10px] text-game-cream/40 font-body italic mt-1">{t('online_quick_match_subtitle')}</p>
                             </div>
                           </div>
                           <button
                             onClick={startQuickMatch}
                             disabled={isSearching || isActionLoading}
-                            className="w-full py-3 bg-white/10 backdrop-blur-md border border-white/15 text-game-offwhite hover:bg-white/15 hover:border-white/20 rounded-xl font-display text-xl transition-all active:scale-95 disabled:opacity-50 outline-none transform-gpu"
+                            className="w-full py-3.5 bg-game-primary/20 backdrop-blur-md border border-game-primary/30 text-game-primary hover:bg-game-primary hover:text-game-dark rounded-xl font-display text-xl transition-all active:scale-95 disabled:opacity-50 outline-none transform-gpu shadow-lg flex items-center justify-center gap-2"
                           >
-                            مباراة سريعة
+                            {isSearching ? <Activity className="w-5 h-5 animate-spin" /> : t('online_quick_match_btn')}
                           </button>
                         </div>
 
@@ -1948,8 +2006,8 @@ const App = () => {
                               <Users className="w-5 h-5 text-game-offwhite" />
                             </div>
                             <div className="text-right">
-                              <h3 className="text-game-cream font-display text-base tracking-widest leading-none">غرفة خاصة</h3>
-                              <p className="text-[10px] text-game-cream/40 font-body italic mt-1">العب مع أصدقائك برمز سري</p>
+                              <h3 className="text-game-cream font-display text-base tracking-widest leading-none">{t('online_private_room_title')}</h3>
+                              <p className="text-[10px] text-game-cream/40 font-body italic mt-1">{t('online_private_room_subtitle')}</p>
                             </div>
                           </div>
 
@@ -1958,19 +2016,19 @@ const App = () => {
                             disabled={isSearching || isActionLoading}
                             className="w-full py-2.5 mb-4 bg-white/10 backdrop-blur-md border border-white/15 text-game-offwhite hover:bg-white/15 hover:border-white/20 rounded-lg font-display text-base transition-all active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 outline-none transform-gpu"
                           >
-                            {isActionLoading ? <Activity className="w-4 h-4 animate-spin" /> : <><PlusCircle className="w-4 h-4" /> إنشاء غرفة جديدة</>}
+                            {isActionLoading ? <Activity className="w-4 h-4 animate-spin" /> : <><PlusCircle className="w-4 h-4" /> {t('online_create_room')}</>}
                           </button>
                           
                           <div className="relative flex items-center mb-4">
                             <div className="flex-grow border-t border-white/5"></div>
-                            <span className="flex-shrink-0 mx-3 text-white/20 font-display text-[10px]">أو انضمام برمز</span>
+                            <span className="flex-shrink-0 mx-3 text-white/20 font-display text-[10px]">{t('online_join_code_divider')}</span>
                             <div className="flex-grow border-t border-white/5"></div>
                           </div>
 
                           <div className="relative">
                             <input
                               type="text"
-                              placeholder="الرمز"
+                              placeholder={t('online_room_code_placeholder')}
                               value={roomIdInput}
                               onChange={(e) => setRoomIdInput(e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 4))}
                               className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-center text-2xl font-mono text-game-offwhite focus:outline-none focus:border-game-primary/50 focus:bg-white/10 transition-all placeholder:text-white/10 uppercase tracking-[0.2em]"
@@ -1988,7 +2046,7 @@ const App = () => {
                                   disabled={isSearching || isActionLoading}
                                   className="absolute left-1.5 top-1.5 bottom-1.5 px-6 bg-game-primary text-game-dark hover:bg-emerald-400 rounded-lg font-display text-sm transition-all active:scale-95 shadow-lg flex items-center justify-center z-10"
                                 >
-                                  {isActionLoading ? <Activity className="w-4 h-4 animate-spin" /> : 'دخول'}
+                                  {isActionLoading ? <Activity className="w-4 h-4 animate-spin" /> : t('online_join_btn')}
                                 </motion.button>
                               )}
                             </AnimatePresence>
@@ -2004,7 +2062,7 @@ const App = () => {
                             className="absolute inset-0 z-50 bg-black/90 flex flex-col items-center justify-center rounded-xl border border-white/10"
                           >
                             <div className="w-10 h-10 rounded-full border-2 border-white/10 border-t-white animate-spin mb-4"></div>
-                            <p className="text-game-offwhite font-display text-lg tracking-widest animate-pulse">جاري الاتصال...</p>
+                            <p className="text-game-offwhite font-display text-lg tracking-widest animate-pulse">{t('lan_connecting')}</p>
                             <button 
                               onClick={async () => {
                                 if (Capacitor.isNativePlatform()) {
@@ -2014,7 +2072,7 @@ const App = () => {
                               }}
                               className="mt-6 px-5 py-2 bg-game-primary text-white rounded-full text-xs font-display tracking-widest transition-all hover:bg-game-primary/80"
                             >
-                              إلغاء الاتصال
+                              {t('lan_cancel_btn')}
                             </button>
                           </div>
                         )}
@@ -2027,8 +2085,8 @@ const App = () => {
                                 <NetworkIcon className="w-5 h-5 text-game-offwhite" />
                               </div>
                               <div className="text-right">
-                                <h3 className="text-game-cream font-display text-lg tracking-widest mt-1 leading-none">استضافة لعبة</h3>
-                                <p className="text-[10px] text-game-cream/40 font-body italic mt-1">حول جهازك إلى خادم</p>
+                                <h3 className="text-game-cream font-display text-lg tracking-widest mt-1 leading-none">{t('lan_host_title')}</h3>
+                                <p className="text-[10px] text-game-cream/40 font-body italic mt-1">{t('lan_host_subtitle')}</p>
                               </div>
                             </div>
                           </div>
@@ -2037,11 +2095,11 @@ const App = () => {
                             onClick={hostGame}
                             className="w-full py-3 bg-white/10 backdrop-blur-md border border-white/15 text-game-offwhite hover:bg-white/15 hover:border-white/20 rounded-xl font-display text-xl transition-all active:scale-95 flex items-center justify-center gap-2 outline-none transform-gpu"
                           >
-                            بدء الاستضافة
+                            {t('lan_host_btn')}
                           </button>
                           
                           <p className="text-[10px] text-game-cream/40 text-center mt-3 px-2 leading-relaxed opacity-70 font-body italic">
-                            سيظهر الـ IP الخاص بك للاعبين الآخرين على نفس الشبكة للاتصال بك.
+                            {t('lan_host_hint')}
                           </p>
                         </div>
 
@@ -2052,8 +2110,8 @@ const App = () => {
                               <PlugZap className="w-5 h-5 text-game-offwhite" />
                             </div>
                             <div className="text-right">
-                              <h3 className="text-game-cream font-display text-lg tracking-widest mt-1 leading-none">انضمام لصديق</h3>
-                              <p className="text-[10px] text-game-cream/40 font-body italic mt-1">الاتصال بجهاز صديقك عبر الـ IP</p>
+                              <h3 className="text-game-cream font-display text-lg tracking-widest mt-1 leading-none">{t('lan_join_title')}</h3>
+                              <p className="text-[10px] text-game-cream/40 font-body italic mt-1">{t('lan_join_subtitle')}</p>
                             </div>
                           </div>
 
@@ -2061,7 +2119,7 @@ const App = () => {
                             <input
                               type="text"
                               inputMode="decimal"
-                              placeholder="مثال: 192.168.1.5"
+                              placeholder={t('lan_ip_placeholder')}
                               value={ipInput}
                               onChange={handleIpChange}
                               className="w-full bg-black/40 border border-white/10 rounded-xl py-3 px-4 text-center text-xl font-mono text-game-offwhite focus:outline-none focus:border-game-primary transition-all placeholder:text-white/20 font-bold"
@@ -2074,7 +2132,7 @@ const App = () => {
                                   onClick={joinGame}
                                   className="w-full py-3 bg-game-primary/20 backdrop-blur-md border border-game-primary/30 text-game-primary hover:bg-game-primary hover:text-game-dark rounded-xl font-display text-xl transition-all active:scale-95 outline-none transform-gpu shadow-md"
                                 >
-                                  اتصال
+                                  {t('lan_connect_btn')}
                                 </button>
                               </div>
                             )}
@@ -2092,8 +2150,8 @@ const App = () => {
                                 <Bot className="w-5 h-5 text-game-offwhite" />
                               </div>
                               <div className="text-right">
-                                <h3 className="text-game-cream font-display text-lg tracking-widest leading-none">اللعب ضد روبوت</h3>
-                                <p className="text-[10px] text-game-cream/40 font-body italic mt-1">تدرب في وضع الأوفلاين</p>
+                                <h3 className="text-game-cream font-display text-lg tracking-widest leading-none">{t('bot_title')}</h3>
+                                <p className="text-[10px] text-game-cream/40 font-body italic mt-1">{t('bot_subtitle')}</p>
                               </div>
                             </div>
                           </div>
@@ -2101,9 +2159,9 @@ const App = () => {
                           <div className="space-y-6">
                             {/* Difficulty */}
                             <div className="space-y-2.5">
-                              <label className="text-[11px] text-game-offwhite/60 font-body block text-right pr-1">مستوى الصعوبة</label>
+                              <label className="text-[11px] text-game-offwhite/60 font-body block text-right pr-1">{t('bot_difficulty_label')}</label>
                               <div className="flex bg-black/30 p-1.5 rounded-xl border border-white/5">
-                                {Object.entries({ easy: 'سهل', normal: 'متوسط', hard: 'صعب' }).map(([key, label]) => (
+                                {Object.entries({ easy: t('bot_easy'), normal: t('bot_normal'), hard: t('bot_hard') }).map(([key, label]) => (
                                   <button
                                     key={key}
                                     onClick={() => {
@@ -2121,9 +2179,9 @@ const App = () => {
 
                             {/* Time limit */}
                             <div className="space-y-2.5">
-                              <label className="text-[11px] text-game-offwhite/60 font-body block text-right pr-1">الوقت المحدد للعب</label>
+                              <label className="text-[11px] text-game-offwhite/60 font-body block text-right pr-1">{t('bot_time_label')}</label>
                               <div className="flex bg-black/30 p-1.5 rounded-xl border border-white/5">
-                                {Object.entries({ 0: 'بلا وقت', 15: '15 ثانية', 30: '30 ثانية' }).map(([val, label]) => (
+                                {Object.entries({ 0: t('bot_no_time'), 15: t('bot_15s'), 30: t('bot_30s') }).map(([val, label]) => (
                                   <button
                                     key={val}
                                     onClick={() => {
@@ -2144,7 +2202,7 @@ const App = () => {
                               disabled={isBotLoading}
                               className="w-full mt-2 py-3.5 bg-game-primary/20 backdrop-blur-md border border-game-primary/30 text-game-primary hover:bg-game-primary hover:text-game-dark rounded-xl font-display text-xl transition-all active:scale-95 flex items-center justify-center gap-2 outline-none transform-gpu disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
                             >
-                              {isBotLoading ? <Activity className="w-5 h-5 animate-spin" /> : 'بدء المباراة'}
+                              {isBotLoading ? <Activity className="w-5 h-5 animate-spin" /> : t('bot_start_btn')}
                             </button>
                           </div>
                         </div>
@@ -2163,11 +2221,6 @@ const App = () => {
               level={level}
               ownedThemes={ownedThemes}
               selectedThemeId={selectedThemeId}
-              selectedCardThemes={selectedCardThemes}
-              setSelectedCardThemes={(newCardThemes: { rock: string, paper: string, scissors: string }) => {
-                setSelectedCardThemes(newCardThemes);
-                localStorage.setItem('cardclash_selectedCardThemes', JSON.stringify(newCardThemes));
-              }}
               onBuy={buyTheme}
               onSelect={(id: string) => {
                 setSelectedThemeId(id);
@@ -2195,12 +2248,13 @@ const App = () => {
             )}
           </AnimatePresence>
           {renderNameEditDialog()}
+          {renderPrivacyModal()}
           {renderDebugUI()}
           <AnimatePresence>
             {(isWaitingInPrivateRoom || (appState === 'inRoom' && roomState?.gameState === 'waiting' && !roomState.isBotRoom)) && (
               <PrivateRoomLobbyView 
                  key="private-lobby-global"
-                 isLoading={(role === 'HOST' || role === 'CLIENT') ? (userIp === 'جاري التحميل...' || !userIp) : (!roomId || (!roomState && appState === 'menu'))}
+                 isLoading={(role === 'HOST' || role === 'CLIENT') ? (userIp === t('general_loading') || !userIp) : (!roomId || (!roomState && appState === 'menu'))}
                  roomCode={roomId}
                  isLan={role === 'HOST' || role === 'CLIENT'}
                  localIp={userIp}
@@ -2272,12 +2326,12 @@ const App = () => {
       {renderDebugUI()}
     </div>
   );
-  const opponentName = opponent?.name || 'الخصم';
+  const opponentName = opponent?.name || t('player_opponent_default');
 
   if (roomState.gameState === 'waiting') {
     return (
       <PrivateRoomLobbyView 
-        isLoading={(role === 'HOST' || role === 'CLIENT') ? (userIp === 'جاري التحميل...' || !userIp) : !roomId}
+        isLoading={(role === 'HOST' || role === 'CLIENT') ? (userIp === t('general_loading') || !userIp) : !roomId}
         roomCode={roomId}
         isLan={role === 'HOST' || role === 'CLIENT'}
         localIp={userIp}
@@ -2299,29 +2353,31 @@ const App = () => {
           animate={{ scale: 1, opacity: 1 }}
           className="bg-game-dark/95 p-8 rounded-2xl border-2 border-game-primary shadow-2xl max-w-sm w-full text-center"
         >
-          <div className="w-20 h-20 bg-game-primary/20 rounded-full flex items-center justify-center mx-auto mb-6">
-            <UserMinus className="w-10 h-10 text-game-primary" />
-          </div>
-          <h2 className="text-3xl font-display text-game-primary mb-2">انسحاب الخصم!</h2>
-          <p className="text-game-offwhite/80 mb-6">لقد غادر الخصم اللعبة. أنت الفائز تلقائياً!</p>
-          
-          <div className="bg-white/5 p-4 rounded-xl border border-white/10 mb-8 flex justify-around">
+          <div className="flex flex-col items-center gap-8 relative z-10 w-full">
             <div className="text-center">
-              <div className="text-[10px] text-game-offwhite/40 uppercase tracking-widest mb-1">الذهب</div>
-              <div className="text-xl font-bold text-yellow-400">+15</div>
+              <Activity className="w-12 h-12 text-game-primary animate-spin mx-auto mb-4" />
+              <h2 className="text-3xl font-display text-game-primary mb-2">{t('game_opponent_left_title')}</h2>
+              <p className="text-game-offwhite/80 mb-6">{t('game_opponent_left_subtitle')}</p>
             </div>
-            <div className="text-center">
-              <div className="text-[10px] text-game-offwhite/40 uppercase tracking-widest mb-1">الخبرة</div>
-              <div className="text-xl font-bold text-game-primary">{roomState.isPublic ? '+50' : '+0'}</div>
+            
+            <div className="grid grid-cols-2 gap-4 w-full">
+              <div className="bg-black/40 border border-white/5 p-4 rounded-xl text-center">
+                <div className="text-[10px] text-game-offwhite/40 uppercase tracking-widest mb-1">{t('game_gold')}</div>
+                <div className="text-game-primary text-2xl font-display">+10</div>
+              </div>
+              <div className="bg-black/40 border border-white/5 p-4 rounded-xl text-center">
+                <div className="text-[10px] text-game-offwhite/40 uppercase tracking-widest mb-1">{t('game_xp')}</div>
+                <div className="text-game-primary text-2xl font-display">+5</div>
+              </div>
             </div>
-          </div>
 
-          <button
-            onClick={leaveRoom}
-            className="w-full py-4 bg-game-primary text-game-dark rounded-xl font-display text-xl hover:bg-emerald-600 transition-all active:scale-95 shadow-lg"
-          >
-            العودة للقائمة
-          </button>
+            <button 
+              onClick={() => setAppState('menu')}
+              className="w-full py-4 bg-game-primary text-game-dark rounded-xl font-display text-xl shadow-lg transition-all active:scale-95"
+            >
+              {t('game_back_to_menu')}
+            </button>
+          </div>
         </motion.div>
       </div>
     );
@@ -2335,7 +2391,7 @@ const App = () => {
       <>
         {renderErrorToast()}
         <div 
-          dir="rtl" 
+          dir={isRTL ? 'rtl' : 'ltr'}
           className="fixed inset-0 w-full h-full wood-texture text-game-cream flex flex-col items-center justify-center p-4 sm:p-6 font-body overflow-x-hidden overflow-y-auto select-none"
           style={{
             paddingTop: 'env(safe-area-inset-top)',
@@ -2350,7 +2406,7 @@ const App = () => {
             <div className="relative z-10">
               <h2 className="text-3xl font-display mb-2 text-game-offwhite/40 tracking-widest uppercase"></h2>
               <div className={`text-5xl font-display mb-10 mt-10 tracking-widest ${finalWin ? 'text-white' : finalLoss ? 'text-game-primary' : 'text-game-offwhite/60'}`}>
-                {finalWin ? 'لقد انتصرت!' : finalLoss ? 'لقد خسرت!' : 'تعادل!'}
+                {finalWin ? t('game_over_win_title') : finalLoss ? t('game_over_loss_title') : t('game_over_draw_title')}
               </div>
               
               <div className="flex justify-center gap-8 mb-10 bg-white/5 py-6 rounded-xl border border-white/10">
@@ -2371,21 +2427,21 @@ const App = () => {
                   disabled={me.readyForNext}
                   className={`w-full py-4 rounded-lg font-display text-2xl transition-all shadow-lg ${me.readyForNext ? 'bg-white/5 text-white/10 cursor-not-allowed' : 'bg-game-offwhite hover:bg-white text-black active:scale-95'}`}
                 >
-                  {me.readyForNext ? 'في انتظار الخصم...' : 'العب مرة أخرى'}
+                  {me.readyForNext ? t('lobby_waiting') : t('game_over_play_again')}
                 </button>
                 {roomState.isPublic && (
                   <button
                     onClick={findNewMatch}
                     className="w-full py-4 bg-game-primary hover:bg-emerald-600 text-game-dark rounded-lg font-display text-xl transition-all active:scale-95 shadow-lg flex items-center justify-center gap-2"
                   >
-                    <UserSearch className="w-5 h-5" /> البحث عن خصم آخر
+                    <UserSearch className="w-5 h-5" /> {t('game_over_find_opponent')}
                   </button>
                 )}
                 <button
                   onClick={leaveRoom}
                   className="w-full py-3 bg-game-primary hover:bg-game-primary/80 text-white rounded-lg font-display text-xl transition-all active:scale-95"
                 >
-                  الرجوع للقائمة الرئيسية
+                  {t('game_over_back_menu')}
                 </button>
               </div>
             </div>
@@ -2414,22 +2470,22 @@ const App = () => {
         <nav className="sticky top-0 z-50 bg-[#121212]/95 backdrop-blur-md border-b border-white/10 px-6 sm:px-8 py-2.5 flex justify-between items-center shadow-lg w-full shrink-0" style={{ paddingTop: 'max(1.25rem, env(safe-area-inset-top))' }}>
           <div className="flex items-center gap-2">
             <button 
-              onClick={leaveRoom}
-              className="p-1.5 hover:bg-white/10 rounded-md transition-colors text-game-offwhite"
-              title="خروج"
+              onClick={() => setShowExitConfirm(true)}
+              className="p-1.5 text-game-offwhite/30 hover:text-game-red transition-all"
+              title={t('game_exit')}
             >
-              <XCircle className="w-5 h-5 sm:w-6 sm:h-6" />
+              <XCircle className="w-6 h-6" />
             </button>
             <div className="flex flex-col">
-              <span className="text-xs sm:text-sm text-game-offwhite/50 font-display italic leading-none">{roomState.isBotRoom ? 'لعب فردي' : 'لعب محلي'}</span>
+              <span className="text-xs sm:text-sm text-game-offwhite/50 font-display italic leading-none">{roomState.isBotRoom ? t('game_single_player') : t('game_local_player')}</span>
             </div>
           </div>
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] sm:text-xs text-game-offwhite font-display tracking-widest bg-game-primary/20 text-game-primary border border-game-primary/30 px-2 py-0.5 rounded">
-              قيمة الفوز: {roomState.round === 9 ? 2 : 1}
+          <div className="flex flex-col items-center gap-0.5">
+            <span className="text-[10px] sm:text-xs text-game-primary font-display tracking-widest opacity-80">
+              {t('game_win_value').replace('{value}', (roomState.round === 9 ? 2 : 1).toString())}
             </span>
-            <span className="bg-white/10 border border-white/5 shadow-inner px-2.5 py-0.5 rounded text-[10px] sm:text-xs font-display text-game-offwhite tracking-widest">
-              الجولة: {roomState.round}
+            <span className="text-sm sm:text-lg text-game-offwhite font-display tracking-widest">
+              {t('game_round').replace('{round}', roomState.round.toString())}
             </span>
           </div>
         </nav>
@@ -2477,7 +2533,7 @@ const App = () => {
                     isPlayer={true} 
                     winner={roomState.gameState === 'roundResult' && roomState.roundWinner === myId} 
                     faceDown={roomState.gameState === 'playing' || roomState.gameState === 'revealing' || (roomState.gameState === 'roundResult' && !isRevealingLocal)} 
-                    theme={me.choice ? getTheme(selectedCardThemes[me.choice]) : currentTheme}
+                    theme={currentTheme}
                   />
                 ) : (
                   <div className="w-16 sm:w-24 aspect-[3/4]" />
@@ -2494,11 +2550,11 @@ const App = () => {
                       <GameTimer timeLeft={roomState.timeLeft} />
                       {!me.choice ? (
                         <div className="flex flex-col items-center">
-                          <p className="text-[10px] sm:text-xs font-display tracking-widest italic whitespace-nowrap">اختر بطاقتك...</p>
+                          <p className="text-[10px] sm:text-xs font-display tracking-widest italic whitespace-nowrap">{t('game_choose')}</p>
                         </div>
                       ) : (
                         <div className="flex flex-col items-center">
-                          <p className="text-[10px] sm:text-xs font-display tracking-widest italic whitespace-nowrap">بانتظار الخصم...</p>
+                          <p className="text-[10px] sm:text-xs font-display tracking-widest italic whitespace-nowrap">{t('game_waiting_opponent')}</p>
                         </div>
                       )}
                     </motion.div>
@@ -2521,11 +2577,11 @@ const App = () => {
                           }`}
                         >
                           {roomState.roundWinner === myId ? (
-                            'فزت'
+                            t('game_won')
                           ) : roomState.roundWinner === opponentId ? (
-                            'خسرت'
+                            t('game_lost')
                           ) : (
-                            'تعادل'
+                            t('game_draw')
                           )}
                         </motion.div>
                       )}
@@ -2565,21 +2621,21 @@ const App = () => {
                count={me.deck.rock + (me.choice === 'rock' && (roomState.gameState === 'playing' || roomState.gameState === 'revealing') ? 1 : 0)} 
                onClick={() => playCard('rock')} 
                disabled={roomState.gameState !== 'playing' || me.choice !== null} 
-               theme={getTheme(selectedCardThemes.rock)} 
+               theme={currentTheme} 
              />
              <PlayableCard 
                type="paper" 
                count={me.deck.paper + (me.choice === 'paper' && (roomState.gameState === 'playing' || roomState.gameState === 'revealing') ? 1 : 0)} 
                onClick={() => playCard('paper')} 
                disabled={roomState.gameState !== 'playing' || me.choice !== null} 
-               theme={getTheme(selectedCardThemes.paper)} 
+               theme={currentTheme} 
              />
              <PlayableCard 
                type="scissors" 
                count={me.deck.scissors + (me.choice === 'scissors' && (roomState.gameState === 'playing' || roomState.gameState === 'revealing') ? 1 : 0)} 
                onClick={() => playCard('scissors')} 
                disabled={roomState.gameState !== 'playing' || me.choice !== null} 
-               theme={getTheme(selectedCardThemes.scissors)} 
+               theme={currentTheme} 
              />
           </div>
         </div>

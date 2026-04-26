@@ -2,8 +2,10 @@ import React, { memo } from 'react';
 import { Brain } from 'lucide-react';
 import { motion } from 'motion/react';
 import { THEMES } from '../../themes';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 export const LevelUpModal = memo(({ level, onClose }: { level: number, onClose: () => void }) => {
+  const { t } = useLanguage();
   const unlockedThemes = THEMES.filter(t => t.requiredLevel === level);
 
   return (
@@ -43,17 +45,17 @@ export const LevelUpModal = memo(({ level, onClose }: { level: number, onClose: 
           </div>
 
           <div className="space-y-2">
-            <h2 className="text-3xl font-display text-white">مبروك!</h2>
-            <p className="text-game-offwhite/70 font-body">لقد ارتقت خبرتك ووصلت للمستوى الجديد</p>
+            <h2 className="text-3xl font-display text-white">{t('profile_level_up_title')}</h2>
+            <p className="text-game-offwhite/70 font-body">{t('profile_level_up_subtitle')}</p>
           </div>
 
           {unlockedThemes.length > 0 && (
             <div className="space-y-3 bg-white/5 p-4 rounded-2xl border border-white/5">
-              <p className="text-xs text-game-offwhite/40 font-display">تم فتح ثيمات جديدة:</p>
+              <p className="text-xs text-game-offwhite/40 font-display">{t('profile_new_themes_unlocked')}</p>
               <div className="flex flex-wrap justify-center gap-2">
-                {unlockedThemes.map(t => (
-                  <div key={t.id} className="bg-game-primary/10 px-3 py-1 rounded-full border border-game-primary/20 text-game-primary text-sm font-bold">
-                    {t.name}
+                {unlockedThemes.map(theme => (
+                  <div key={theme.id} className="bg-game-primary/10 px-3 py-1 rounded-full border border-game-primary/20 text-game-primary text-sm font-bold">
+                    {t(theme.name as any)}
                   </div>
                 ))}
               </div>
@@ -64,7 +66,7 @@ export const LevelUpModal = memo(({ level, onClose }: { level: number, onClose: 
             onClick={onClose}
             className="w-full bg-game-primary text-white py-4 rounded-xl font-bold font-display shadow-lg hover:brightness-110 active:scale-95 transition-all text-xl"
           >
-            استمرار
+            {t('profile_continue')}
           </button>
         </div>
       </motion.div>

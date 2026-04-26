@@ -1,17 +1,19 @@
 import React, { memo } from 'react';
 import { Wifi, Settings, Activity, Diamond, Users } from 'lucide-react';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 export const GlobalNavbar = memo(({ level, coins, competitionPoints, isOnline, setAppState, unreadChat, setUnreadChat, setShowSettingsSidebar }: any) => {
+  const { t } = useLanguage();
   return (
     <>
       {!isOnline && (
         <div className="fixed top-0 inset-x-0 z-[70] bg-red-900/90 text-white text-[10px] sm:text-xs font-display flex items-center justify-center gap-2 py-0.5" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
           <Wifi className="w-3 h-3 text-red-300" />
-          وضع عدم الاتصال بالإنترنت - يتم اللعب محلياً
+          {t('general_offline')}
         </div>
       )}
       <nav 
-        dir="rtl" 
+        dir="ltr"
         className="fixed top-0 inset-x-0 z-[60] bg-game-dark/80 backdrop-blur-md border-b border-white/5 shadow-md transition-all" 
         style={{ paddingTop: isOnline ? 'max(0.5rem, env(safe-area-inset-top))' : 'max(1.5rem, calc(env(safe-area-inset-top) + 0.75rem))' }}
       >
@@ -30,7 +32,7 @@ export const GlobalNavbar = memo(({ level, coins, competitionPoints, isOnline, s
             <span className="text-white/20 text-xs mx-0.5 sm:mx-1">|</span>
             <span className="text-sm font-display text-game-primary font-medium flex items-center gap-1">{coins} <Diamond className="w-3.5 h-3.5 text-game-primary" /></span>
             <span className="text-white/20 text-xs mx-0.5 sm:mx-1">|</span>
-            <span className="text-sm font-display text-game-primary font-medium">مستوى {level || 1}</span>
+            <span className="text-sm font-display text-game-primary font-medium">{t('general_level')} {level || 1}</span>
           </div>
 
           <div className="w-10 flex justify-end">

@@ -1,6 +1,7 @@
 import React, { memo } from 'react';
 import { Activity, Copy, XCircle } from 'lucide-react';
 import { motion } from 'motion/react';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 export const PrivateRoomLobbyView = memo(({ 
   isLoading, 
@@ -15,6 +16,7 @@ export const PrivateRoomLobbyView = memo(({
   isLan?: boolean,
   localIp?: string
 }) => {
+  const { t } = useLanguage();
   return (
     <div className="fixed inset-0 z-[250] wood-texture flex flex-col items-center justify-center p-6 overflow-hidden">
       {/* Overlay and background elements identical to MatchmakingView */}
@@ -32,9 +34,9 @@ export const PrivateRoomLobbyView = memo(({
           >
             <Activity className="w-12 h-12 text-game-primary animate-spin" />
             <div className="text-center space-y-2">
-              <h2 className="text-3xl font-display text-game-offwhite tracking-widest text-shadow-lg">جاري إعداد الغرفة...</h2>
+              <h2 className="text-3xl font-display text-game-offwhite tracking-widest text-shadow-lg">{t('lobby_preparing')}</h2>
               <p className="text-game-offwhite/40 font-body text-sm italic">
-                {isLan ? 'يتم تشغيل السيرفر المحلي الآن' : 'يرجى الانتظار بينما نقوم بفتح بوابات الأونلاين'}
+                {isLan ? t('lobby_lan_hint') : t('lobby_online_hint')}
               </p>
             </div>
           </div>
@@ -44,7 +46,7 @@ export const PrivateRoomLobbyView = memo(({
           >
             <div className="flex flex-col items-center gap-1">
               <h3 className="text-game-offwhite text-xl font-display text-shadow-lg mt-3">
-                {isLan ? 'عنوان IP الخاص بك' : 'رمز الدخول الخاص بك'}
+                {isLan ? t('lobby_your_ip') : t('lobby_your_code')}
               </h3>
             </div>
             
@@ -61,7 +63,7 @@ export const PrivateRoomLobbyView = memo(({
               }}
               className="flex items-center justify-center gap-3 bg-white/5 hover:bg-white/10 border border-white/10 py-3 px-6 rounded-xl text-game-offwhite transition-all active:scale-95 text-sm font-display w-full"
             >
-              <Copy className="w-4 h-4" /> {isLan ? 'نسخ عنوان IP للمشاركة' : 'نسخ الرمز للمشاركة'}
+              <Copy className="w-4 h-4" /> {isLan ? t('lobby_copy_ip') : t('lobby_copy_code')}
             </button>
 
             <div className="flex flex-col items-center gap-3 mt-4">
@@ -75,7 +77,7 @@ export const PrivateRoomLobbyView = memo(({
                     />
                   ))}
                </div>
-               <p className="text-game-offwhite/40 font-display text-[11px] tracking-widest italic">بانتظار انضمام الطرف الآخر...</p>
+               <p className="text-game-offwhite/40 font-display text-[11px] tracking-widest italic">{t('lobby_waiting_opponent')}</p>
             </div>
           </div>
         )}
@@ -84,7 +86,7 @@ export const PrivateRoomLobbyView = memo(({
           onClick={onCancel}
           className="mt-10 px-8 w-full py-3 border-2 border-game-red/40 text-game-red hover:bg-game-red hover:text-white rounded-xl font-display text-xl transition-all shadow-[0_0_20px_rgba(139,26,26,0.2)] active:scale-95 flex items-center justify-center gap-3"
         >
-          <XCircle className="w-5 h-5" /> {isLan ? 'إغلاق وإيقاف السيرفر' : 'إلغاء وإغلاق الغرفة'}
+          <XCircle className="w-5 h-5" /> {isLan ? t('lobby_close_server') : t('lobby_close_room')}
         </button>
       </div>
     </div>

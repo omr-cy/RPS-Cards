@@ -2,10 +2,12 @@ import React, { useState, useEffect, memo } from 'react';
 import { Activity, XCircle, Diamond } from 'lucide-react';
 import { motion } from 'motion/react';
 import { getApiUrl } from '../env_config';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const API_BASE_URL = getApiUrl();
 
 export const LeaderboardContent = memo(({ userId }: { userId: string | null }) => {
+  const { t, isRTL } = useLanguage();
   const [data, setData] = useState<{ topPlayers: any[], userRank: number | null, userScore: any } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -21,11 +23,11 @@ export const LeaderboardContent = memo(({ userId }: { userId: string | null }) =
         const json = await res.json();
         setData(json);
       } else {
-        setError(`خطأ في المخدم: ${res.status}`);
+        setError(`${t('leaderboard_error_server').replace('{status}', res.status.toString())}`);
       }
     } catch (err) {
       console.error('Failed to fetch leaderboard:', err);
-      setError('فشل الاتصال بالمخدم - تأكد من اتصالك بالإنترنت');
+      setError(t('leaderboard_error_connect'));
     } finally {
       setLoading(false);
     }
@@ -39,7 +41,7 @@ export const LeaderboardContent = memo(({ userId }: { userId: string | null }) =
     return (
       <div className="w-full h-full flex flex-col items-center justify-center space-y-4">
         <Activity className="w-8 h-8 text-game-primary animate-spin" />
-        <p className="text-game-offwhite/50 font-display">جاري تحميل لوحة الصدارة...</p>
+        <p className="text-game-offwhite/50 font-display">{t('leaderboard_loading')}</p>
       </div>
     );
   }
@@ -53,14 +55,14 @@ export const LeaderboardContent = memo(({ userId }: { userId: string | null }) =
           onClick={fetchLeaderboard}
           className="bg-game-primary text-white px-6 py-2 rounded-lg font-bold shadow-lg"
         >
-          إعادة المحاولة
+          {t('leaderboard_retry')}
         </button>
       </div>
     );
   }
 
   return (
-    <div className="flex-1 w-full max-w-md mx-auto space-y-6 pt-6 pb-24 px-4 overflow-y-auto smooth-scroll">
+    <div className="flex-1 w-full max-w-md mx-auto space-y-6 pt-6 pb-24 px-4 overflow-y-auto smooth-scroll" dir={isRTL ? 'rtl' : 'ltr'}>
       <div className="space-y-3">
         {data?.topPlayers.map((player: any, idx: number) => {
           const isTop3 = idx < 3;
@@ -77,12 +79,12 @@ export const LeaderboardContent = memo(({ userId }: { userId: string | null }) =
                 <div className={`w-10 h-10 flex items-center justify-center text-xl font-display ${isTop3 ? '' : 'text-game-offwhite/30'}`}>
                   {isTop3 ? medals[idx] : idx + 1}
                 </div>
-                <div className="text-right">
+                <div className={isRTL ? 'text-right' : 'text-left'}>
                   <p className={`font-display text-lg leading-tight ${isTop3 ? 'text-white' : 'text-game-offwhite/80'}`}>{player.displayName}</p>
                   <p className="text-[10px] text-game-offwhite/40 tracking-widest font-mono">LEVEL {player.level || 1}</p>
                 </div>
               </div>
-              <div className="text-left flex flex-col items-end gap-1">
+              <div className={`flex flex-col gap-1 ${isRTL ? 'items-end' : 'items-start'}`}>
                 <div className="flex items-center gap-1.5">
                   <span className={`font-display text-xl ${idx === 0 ? 'text-game-primary' : 'text-game-primary/80'}`}>{player.competitionPoints || 0}</span>
                   <Activity className={`w-4 h-4 ${idx === 0 ? 'text-game-primary' : 'text-game-primary/80'} rotate-90`} />

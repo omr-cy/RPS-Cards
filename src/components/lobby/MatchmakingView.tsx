@@ -1,5 +1,6 @@
 import React, { memo } from 'react';
 import { Activity } from 'lucide-react';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 export const MatchmakingView = memo(({ 
   isSearching, 
@@ -20,6 +21,7 @@ export const MatchmakingView = memo(({
   playerThemeId: string,
   canCancel: boolean
 }) => {
+  const { t } = useLanguage();
   if (!isSearching && !matchFound) return null;
 
   return (
@@ -42,10 +44,10 @@ export const MatchmakingView = memo(({
         
         <div className="text-center space-y-2">
           <h2 className="text-3xl font-display text-game-offwhite tracking-widest">
-            {matchFound ? 'جاري الدخول للمعركة...' : 'جاري البحث...'}
+            {matchFound ? t('matchmaking_entering') : t('matchmaking_searching')}
           </h2>
           <p className="text-game-offwhite/40 font-body text-sm">
-            {matchFound ? 'تم العثور على خصم، استعد للمواجهة!' : 'يتم الآن البحث عن اللاعبين المناسبين لنفس مستواك'}
+            {matchFound ? t('matchmaking_found_subtitle') : t('matchmaking_searching_subtitle')}
           </p>
         </div>
 
@@ -55,7 +57,7 @@ export const MatchmakingView = memo(({
             disabled={!canCancel}
             className={`mt-8 px-10 py-3 border-2 border-game-red/40 text-game-red rounded-xl font-display text-xl transition-all shadow-[0_0_20px_rgba(139,26,26,0.2)] ${!canCancel ? 'opacity-30 cursor-not-allowed scale-95' : 'hover:bg-game-red hover:text-white active:scale-95'}`}
           >
-            إلغاء البحث
+            {t('matchmaking_cancel')}
           </button>
         )}
       </div>

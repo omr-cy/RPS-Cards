@@ -4,7 +4,11 @@ export type CardType = 'rock' | 'paper' | 'scissors';
 
 export interface ThemeConfig {
   id: string;
-  name: string;
+  name: {
+    ar: string;
+    en: string;
+    zh: string;
+  };
   path: string;
   price: number;
   frontColor: string;
@@ -23,7 +27,11 @@ export const THEMES: ThemeConfig[] = [
 
   {
     id: 'normal',
-    name: 'عادي',
+    name: {
+      ar: 'عادي',
+      en: 'Normal',
+      zh: '普通'
+    },
     path: '/card_themes/normal',
     price: 0,
     isDefault: true,
@@ -39,7 +47,11 @@ export const THEMES: ThemeConfig[] = [
   },
   {
     id: 'bone',
-    name: 'عظمي',
+    name: {
+      ar: 'عظمي',
+      en: 'Skeleton',
+      zh: '骨骼'
+    },
     path: '/card_themes/bones',
     price: 0,
     frontColor: 'bg-[#2a2a2a] border border-[#e8e4d9]/10',
@@ -54,7 +66,11 @@ export const THEMES: ThemeConfig[] = [
   },
   {
     id: 'robot',
-    name: 'روبوتي',
+    name: {
+      ar: 'روبوتي',
+      en: 'Robot',
+      zh: '机器人'
+    },
     path: '/card_themes/robots',
     price: 0,
     frontColor: 'bg-[#2C5A7D]',
@@ -68,7 +84,11 @@ export const THEMES: ThemeConfig[] = [
   },
   {
     id: 'toyes',
-    name: 'العاب',
+    name: {
+      ar: 'ألعاب',
+      en: 'Gaming',
+      zh: '游戏'
+    },
     path: '/card_themes/toyes',
     price: 0,
     frontColor: 'bg-[#BC4A00]',
@@ -82,7 +102,11 @@ export const THEMES: ThemeConfig[] = [
   },
   {
     id: 'cats',
-    name: 'قطط',
+    name: {
+      ar: 'قطط',
+      en: 'Cats',
+      zh: '猫'
+    },
     path: '/card_themes/cats',
     price: 0,
     frontColor: 'bg-[#C87874]',
@@ -96,7 +120,11 @@ export const THEMES: ThemeConfig[] = [
   },
     {
     id: 'building_tools',
-    name: 'أدوات بناء',
+    name: {
+      ar: 'أدوات بناء',
+      en: 'Tools',
+      zh: '工具'
+    },
     path: '/card_themes/building_tools',
     price: 0,
     frontColor: 'bg-[#C29A21]',
@@ -108,29 +136,6 @@ export const THEMES: ThemeConfig[] = [
     requiredLevel: 15,
     category: 'level'
   },
-  // {
-  //   id: 'bone',
-  //   name: 'ياقوتي',
-  //   path: '/bones',
-  //   price: 0,
-  //   frontColor: 'bg-gradient-to-br from-[#8B0000] to-[#4A0000]',
-  //   backColor: 'bg-gradient-to-br from-[#4A0000] to-[#2A0000]',
-  //   backIcon: 'default',
-  //   counterBgColor: 'bg-[#8B0000]',
-  //   counterTextColor: 'text-[#F5F5F5]',
-  //   extension: 'png'
-  // },
-  // {
-  //   id: 'gold-edition',
-  //   name: 'النسخة الذهبية',
-  //   path: '/classic/black',
-  //   price: 0,
-  //   frontColor: 'bg-gradient-to-br from-[#FFD700] to-[#B8860B]',
-  //   backColor: 'bg-gradient-to-br from-[#B8860B] to-[#8B6508]',
-  //   backIcon: 'default',
-  //   counterBgColor: 'bg-[#FFD700]',
-  //   counterTextColor: 'text-[#121212]'
-  // },
 ];
 
 export const getTheme = (id: string): ThemeConfig => {

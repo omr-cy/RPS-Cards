@@ -1,4 +1,5 @@
 import React, { useState, memo } from 'react';
+import { useLanguage } from '../contexts/LanguageContext';
 import { THEMES, ThemeConfig } from '../themes';
 import { CardPack } from '../components/store/CardPack';
 import { PackPreviewModal } from '../components/store/PackPreviewModal';
@@ -14,6 +15,7 @@ export const StoreView = memo(({ coins, ownedThemes, selectedThemeId, onBuy, onS
   setSelectedPack: (theme: ThemeConfig | null) => void,
   userLevel?: number
 }) => {
+  const { t, isRTL } = useLanguage();
   const [activeTab, setActiveTab] = useState<'level' | 'special'>('level');
   
   const filteredThemes = THEMES.filter(theme => 
@@ -22,17 +24,17 @@ export const StoreView = memo(({ coins, ownedThemes, selectedThemeId, onBuy, onS
 
   return (
   <div 
-    dir="rtl" 
+    dir={isRTL ? 'rtl' : 'ltr'}
     className="w-full h-full flex flex-col font-body overflow-hidden select-none bg-game-bg/20"
   >
     <div className="flex-1 overflow-hidden pt-24 pb-24 px-4 sm:px-6 flex flex-col max-w-4xl mx-auto w-full">
       {/* TABS */}
-      <div className="flex gap-2 px-3 relative z-10 -mb-[1px]">
+      <div dir="ltr" className="flex gap-2 px-3 relative z-10 -mb-[1px]">
         <button 
           onClick={() => setActiveTab('level')}
           className={`flex-1 py-3 px-2 rounded-t-2xl font-display text-xs transition-all flex items-center justify-center gap-2 relative ${activeTab === 'level' ? 'bg-[#0a0a0a] border border-white/5 text-game-primary z-20' : 'bg-[#0a0a0a]/50 text-game-offwhite/40 hover:bg-[#0a0a0a]/80 hover:text-game-offwhite z-10 translate-y-1'}`}
         >
-          ثيمات بالمستوى
+          {t('store_level_themes')}
           {activeTab === 'level' && <div className="absolute -bottom-[2px] left-0 right-0 h-[3px] bg-[#0a0a0a] border border-white/5 z-30" />}
         </button>
         
@@ -40,7 +42,7 @@ export const StoreView = memo(({ coins, ownedThemes, selectedThemeId, onBuy, onS
           onClick={() => setActiveTab('special')}
           className={`flex-1 py-3 px-2 rounded-t-2xl font-display text-xs transition-all flex items-center justify-center gap-2 relative ${activeTab === 'special' ? 'bg-[#0a0a0a] border border-white/5 text-game-primary z-20' : 'bg-[#0a0a0a]/50 text-game-offwhite/40 hover:bg-[#0a0a0a]/80 hover:text-game-offwhite z-10 translate-y-1'}`}
         >
-          ثيمات مميزة
+          {t('store_special_themes')}
           {activeTab === 'special' && <div className="absolute -bottom-[2px] left-0 right-0 h-[3px] bg-[#0a0a0a] border border-white/5 z-30" />}
         </button>
       </div>

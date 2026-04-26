@@ -2,6 +2,7 @@ import React, { memo } from 'react';
 import { Lock, ShieldCheck, Diamond } from 'lucide-react';
 import { ThemeConfig, getCardImagePath } from '../../themes';
 import { assetPreloader } from '../../lib/preloader';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 export const CardPack = memo(({ theme, isOwned, isSelected, onClick, onSelect, userLevel = 1 }: { 
   theme: ThemeConfig, 
@@ -11,6 +12,7 @@ export const CardPack = memo(({ theme, isOwned, isSelected, onClick, onSelect, u
   onSelect: () => void,
   userLevel?: number
 }) => {
+  const { t, language } = useLanguage();
   const isLocked = !isOwned && (theme.requiredLevel || 1) > userLevel;
 
   return (
@@ -51,12 +53,12 @@ export const CardPack = memo(({ theme, isOwned, isSelected, onClick, onSelect, u
         </div>
       </div>
       <div className="text-center">
-        <h3 className="text-lg font-display text-game-offwhite leading-tight">{theme.name}</h3>
+        <h3 className="text-lg font-display text-game-offwhite leading-tight">{theme.name[language]}</h3>
         {isLocked ? (
-          <p className="text-red-400 font-display text-[10px] sm:text-xs">يتطلب مستوى {theme.requiredLevel}</p>
+          <p className="text-red-400 font-display text-[10px] sm:text-xs">{t('store_requires_level').replace('{level}', (theme.requiredLevel || 1).toString())}</p>
         ) : !isOwned ? (
           theme.id === 'robot' ? (
-            <p className="text-game-primary font-display text-[10px] sm:text-xs">فز على الروبوت لفتحه</p>
+            <p className="text-game-primary font-display text-[10px] sm:text-xs">{t('store_beat_bot_unlock')}</p>
           ) : (
             <p className="text-game-primary font-display text-xs flex items-center gap-1">
               {theme.price} <Diamond className="w-3.5 h-3.5 text-game-primary" />
@@ -64,7 +66,7 @@ export const CardPack = memo(({ theme, isOwned, isSelected, onClick, onSelect, u
           )
         ) : (
           <p className={`text-xs font-display ${isSelected ? 'text-game-primary' : 'text-game-offwhite/40'}`}>
-            {isSelected ? 'مفعل حالياً' : 'مملوك'}
+            {isSelected ? t('store_active_label') : t('store_owned_label')}
           </p>
         )}
       </div>

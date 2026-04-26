@@ -20,12 +20,13 @@ export const OnlineAndroidService = {
       setRoomId: Function;
       setRoomState: Function;
       setRole: Function;
+      t: Function;
     }
   ): Promise<WebSocket | void> => {
     const { 
       action, ws, setWs, addLog, setErrorMsg, setConnectionStatus, 
       setIsSearching, handleOnlineMessage, onlineActionRef, 
-      appStateRef, roleRef, setAppState, setRoomId, setRoomState, setRole 
+      appStateRef, roleRef, setAppState, setRoomId, setRoomState, setRole, t 
     } = options;
 
     return new Promise(async (resolve, reject) => {
@@ -39,7 +40,7 @@ export const OnlineAndroidService = {
           resolve();
         } catch (e) {
           addLog(`Native online connection failed: ${e}`, 'error');
-          setErrorMsg('فشل الاتصال عبر النيتف');
+          setErrorMsg(t('error_native_connect_fail'));
           reject(e);
         }
         return;
@@ -73,7 +74,7 @@ export const OnlineAndroidService = {
         if (socket.readyState !== WebSocket.OPEN) {
           socket.close();
           addLog('Connection timeout', 'error');
-          setErrorMsg('انتهت مهلة المزامنة - تأكد من تشغيل السيرفر');
+          setErrorMsg(t('error_sync_timeout'));
           reject(new Error('Timeout'));
         }
       }, 15000);
@@ -89,7 +90,7 @@ export const OnlineAndroidService = {
       
       socket.onerror = (e) => {
         addLog(`WebSocket error: ${JSON.stringify(e)}`, 'error');
-        setErrorMsg('فشل الاتصال بسيرفر اللعب عبر الإنترنت');
+        setErrorMsg(t('error_connect_server_fail'));
         reject(e);
       };
       
@@ -116,7 +117,7 @@ export const OnlineAndroidService = {
           setRoomId(null);
           setRoomState(null);
           setRole('NONE');
-          setErrorMsg('تم قطع الاتصال بالسيرفر');
+          setErrorMsg(t('log_disconnected'));
         }
       };
     });
