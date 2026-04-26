@@ -19,11 +19,15 @@ export const GlobalNavbar = memo(({ level, coins, competitionPoints, isOnline, s
       >
         <div className="flex justify-between items-center h-12 px-6">
           <div className="w-10">
-            <button 
-              onClick={() => setShowSettingsSidebar(true)} 
-              className="p-2 text-game-offwhite/40 hover:text-game-primary transition-colors active:scale-90"
+             <button 
+              onClick={() => {
+                setAppState('community');
+                setUnreadChat(false);
+              }} 
+              className="relative p-2 text-game-primary/70 hover:text-game-primary transition-colors active:scale-90"
             >
-              <Settings className="w-5 h-5" />
+              {unreadChat && <div className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border border-game-dark" />}
+              <Users className="w-5 h-5" />
             </button>
           </div>
 
@@ -36,15 +40,11 @@ export const GlobalNavbar = memo(({ level, coins, competitionPoints, isOnline, s
           </div>
 
           <div className="w-10 flex justify-end">
-             <button 
-              onClick={() => {
-                setAppState('community');
-                setUnreadChat(false);
-              }} 
-              className="relative p-2 text-game-primary/70 hover:text-game-primary transition-colors active:scale-90"
+            <button 
+              onClick={() => setShowSettingsSidebar(true)} 
+              className="p-2 text-game-offwhite/40 hover:text-game-primary transition-colors active:scale-90"
             >
-              {unreadChat && <div className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border border-game-dark" />}
-              <Users className="w-5 h-5" />
+              <Settings className="w-5 h-5" />
             </button>
           </div>
         </div>

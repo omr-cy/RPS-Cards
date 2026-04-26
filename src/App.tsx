@@ -1584,6 +1584,34 @@ const App = () => {
     </AnimatePresence>
   );
 
+  const renderSettingsSidebar = () => (
+    <SettingsSidebar 
+      isOpen={showSettingsSidebar} 
+      onClose={() => setShowSettingsSidebar(false)}
+      onNavigateToProfile={() => {
+         setShowSettingsSidebar(false);
+         setAppState('profile');
+      }}
+      onNavigateToGift={() => {
+         setShowSettingsSidebar(false);
+         setAppState('profile');
+         setTimeout(() => {
+            const giftBtn = document.getElementById('btn-tab-gift');
+            if (giftBtn) giftBtn.click();
+         }, 50);
+      }}
+      user={user}
+      onLoginClick={() => {
+         setShowSettingsSidebar(false);
+         setAppState('auth');
+      }}
+      onLogout={() => {
+         setShowSettingsSidebar(false);
+         logout();
+      }}
+    />
+  );
+
   const renderPrivacyModal = () => (
     <AnimatePresence>
       {showPrivacyModal && (
@@ -1916,31 +1944,7 @@ const App = () => {
           setUnreadChat={setUnreadChat}
           setShowSettingsSidebar={setShowSettingsSidebar}
         />
-        <SettingsSidebar 
-          isOpen={showSettingsSidebar} 
-          onClose={() => setShowSettingsSidebar(false)}
-          onNavigateToProfile={() => {
-             setShowSettingsSidebar(false);
-             setAppState('profile');
-          }}
-          onNavigateToGift={() => {
-             setShowSettingsSidebar(false);
-             setAppState('profile');
-             setTimeout(() => {
-                const giftBtn = document.getElementById('btn-tab-gift');
-                if (giftBtn) giftBtn.click();
-             }, 50);
-          }}
-          user={user}
-          onLoginClick={() => {
-             setShowSettingsSidebar(false);
-             setAppState('auth');
-          }}
-          onLogout={() => {
-             setShowSettingsSidebar(false);
-             logout();
-          }}
-        />
+        {renderSettingsSidebar()}
         <BottomNavbar 
           activeTab={visibleTab} 
           setAppState={setAppState}
