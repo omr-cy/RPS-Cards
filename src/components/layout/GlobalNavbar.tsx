@@ -28,11 +28,11 @@ export const GlobalNavbar = memo(({ level, coins, competitionPoints, isOnline, s
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-2 bg-white/5 px-3 py-1 rounded-full border border-white/10">
-            <span className="text-sm font-display text-game-primary font-medium flex items-center gap-1">{competitionPoints} <Activity className="w-3.5 h-3.5 text-game-primary rotate-90" /></span>
+            <span id="reward-target-points" className="text-sm font-display text-game-primary font-medium flex items-center gap-1">{competitionPoints} <Activity className="w-3.5 h-3.5 text-game-primary rotate-90" /></span>
             <span className="text-white/20 text-xs mx-0.5 sm:mx-1">|</span>
-            <span className="text-sm font-display text-game-primary font-medium flex items-center gap-1">{coins} <Diamond className="w-3.5 h-3.5 text-game-primary" /></span>
+            <span id="reward-target-coins" className="text-sm font-display text-game-primary font-medium flex items-center gap-1">{coins} <Diamond className="w-3.5 h-3.5 text-game-primary" /></span>
             <span className="text-white/20 text-xs mx-0.5 sm:mx-1">|</span>
-            <span className="text-sm font-display text-game-primary font-medium">{t('general_level')} {level || 1}</span>
+            <span id="reward-target-level" className="text-sm font-display text-game-primary font-medium">{t('general_level')} {level || 1}</span>
           </div>
 
           <div className="w-10 flex justify-end">

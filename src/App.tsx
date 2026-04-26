@@ -34,6 +34,7 @@ import { assetPreloader } from './lib/preloader';
 import { THEMES, getTheme, getCardImagePath, getThemeBackIcon, ThemeConfig, CardType } from './themes';
 import { LanAndroidService } from './services/Lan_Android';
 import { OnlineAndroidService } from './services/Online_Android';
+import { RewardAnimationOverlay, Reward } from './components/effects/RewardAnimation';
 
 // Removed local LogEntry interface
 
@@ -509,6 +510,8 @@ const App = () => {
   const [selectedPack, setSelectedPack] = useState<ThemeConfig | null>(null);
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [unreadChat, setUnreadChat] = useState(false);
+  const [pendingRewards, setPendingRewards] = useState<Reward[]>([]);
+  const [rewardSourceRect, setRewardSourceRect] = useState<DOMRect | null>(null);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const backPressTimer = useRef<NodeJS.Timeout | null>(null);
   const [isDoubleBack, setIsDoubleBack] = useState(false);
@@ -552,6 +555,7 @@ const App = () => {
   const appStateRef = useRef(appState);
   const roleRef = useRef(role);
   const onlineActionRef = useRef<any>(null);
+  const lastMatchResultId = useRef<string | null>(null);
 
   useEffect(() => {
     roomIdRef.current = roomId;
@@ -566,41 +570,67 @@ const App = () => {
 
   useEffect(() => {
     if (roomState?.gameState === 'gameOver' && roomId) {
+      // Use a combination of roomId and a timestamp or unique session to avoid double trigger
+      const matchKey = `${roomId}-${roomState.round}`; 
+      if (lastMatchResultId.current === matchKey) return;
+      lastMatchResultId.current = matchKey;
+
       const me = roomState.players.me || (Object.values(roomState.players) as Player[]).find(p => p.id === 'me' || p.name === playerName);
       const opponent = (Object.values(roomState.players) as Player[]).find(p => p.id !== (me ? me.id : ''));
       
       if (me && opponent) {
         if (me.score > opponent.score) {
-          // Reward coins for winning
-          // Bot = 25, Other (Local/Online) = 50
-          const reward = roomId === OFFLINE_BOT_ID ? 25 : 50; 
+          const isBot = roomId === OFFLINE_BOT_ID;
+          const coinsReward = isBot ? 25 : 50;
+          const pointsReward = isBot ? 5 : 15;
           
-          // Only award coins locally if it's NOT an online game with an account 
-          // (Server handles coins for registered users in online rooms)
-          if (role !== 'ONLINE' || !user) {
-            setCoins(prev => prev + reward);
-            addLog(t('log_win_reward').replace('{amount}', reward.toString()), 'success');
-          } else if (role === 'ONLINE' && user) {
-            // For online logged-in users, the server pushes the coin update, 
-            // but we can still show the message for feedback.
-            // Server awards 15-50 depending on config, but client shows 50 for consistency in UI.
-            addLog(t('log_win_reward').replace('{amount}', '50'), 'success');
+          const newRewards: Reward[] = [
+            { id: `coins-${Date.now()}`, type: 'coins', amount: coinsReward },
+            { id: `points-${Date.now()}`, type: 'points', amount: pointsReward }
+          ];
+
+          if (isBot && !ownedThemes.includes('robot')) {
+            newRewards.push({ id: `item-robot-${Date.now()}`, type: 'item', amount: 1, icon: 'robot' });
           }
+
+          // Trigger rewards animation
+          setPendingRewards(newRewards);
           
-          // Robot theme unlock logic
-          if (roomId === OFFLINE_BOT_ID && !ownedThemes.includes('robot')) {
-            setOwnedThemes([...ownedThemes, 'robot']);
-            addLog(t('log_bot_theme_unlock'), 'success');
+          if (role !== 'ONLINE' || !user) {
+            // Log messages
+            addLog(t('log_win_reward').replace('{amount}', coinsReward.toString()), 'success');
+          } else if (role === 'ONLINE' && user) {
+            addLog(t('log_win_reward').replace('{amount}', '50'), 'success');
           }
         } else if (me.score === opponent.score) {
           if (role !== 'ONLINE' || !user) {
-            setCoins(prev => prev + 10);
-            addLog(t('log_draw_reward'), 'info');
+             setPendingRewards([{ id: `coins-draw-${Date.now()}`, type: 'coins', amount: 10 }]);
+             addLog(t('log_draw_reward'), 'info');
           }
         }
       }
+    } else if (roomState?.gameState === 'playing') {
+      // Reset trigger when a new match starts
+      lastMatchResultId.current = null;
     }
   }, [roomState?.gameState, roomId, role, user, ownedThemes]);
+
+  const handleRewardComplete = (reward: Reward) => {
+    if (reward.type === 'coins') {
+      setCoins(prev => prev + reward.amount);
+    } else if (reward.type === 'points') {
+      setCompetitionPoints(prev => prev + reward.amount);
+    } else if (reward.type === 'item' && reward.icon === 'robot') {
+      setOwnedThemes([...ownedThemes, 'robot']);
+      addLog(t('log_bot_theme_unlock'), 'success');
+    }
+
+    setPendingRewards(prev => {
+      const remaining = prev.filter(r => r.id !== reward.id);
+      if (remaining.length === 0) setRewardSourceRect(null);
+      return remaining;
+    });
+  };
 
   useEffect(() => {
     if (errorMsg) {
@@ -2421,6 +2451,43 @@ const App = () => {
                 </div>
               </div>
 
+              {/* Rewards Section */}
+              {finalWin && pendingRewards.length > 0 && (
+                <div className="mb-8 space-y-3 px-4">
+                  <h3 className="text-[10px] font-display text-game-primary tracking-[0.2em] uppercase opacity-60">{t('game_over_points_earned')}</h3>
+                  <div 
+                    ref={(el) => {
+                      if (el && !rewardSourceRect) {
+                        setRewardSourceRect(el.getBoundingClientRect());
+                      }
+                    }}
+                    className="flex flex-wrap justify-center gap-3"
+                  >
+                    {pendingRewards.map((reward, idx) => (
+                      <motion.div 
+                        key={reward.id}
+                        initial={{ scale: 0, y: 20 }}
+                        animate={{ scale: 1, y: 0 }}
+                        transition={{ delay: 0.5 + idx * 0.1, type: 'spring' }}
+                        className="bg-white/5 border border-white/10 rounded-2xl p-3 flex flex-col items-center gap-1 min-w-[80px] backdrop-blur-sm"
+                      >
+                        <div className="relative">
+                          {reward.type === 'coins' ? <Diamond className="w-6 h-6 text-game-primary" /> : 
+                           reward.type === 'points' ? <Activity className="w-6 h-6 text-game-primary rotate-90" /> :
+                           <ShieldCheck className="w-6 h-6 text-game-primary" />}
+                          <motion.div 
+                            animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.6, 0.3] }}
+                            transition={{ duration: 2, repeat: Infinity }}
+                            className="absolute inset-0 bg-game-primary/20 blur-md rounded-full"
+                          />
+                        </div>
+                        <span className="text-xl font-display text-white">+{reward.amount}</span>
+                      </motion.div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="flex flex-col gap-4">
                 <button
                   onClick={playAgain}
@@ -2641,8 +2708,10 @@ const App = () => {
         </div>
       </div>
 
+      <RewardAnimationOverlay rewards={pendingRewards} sourceRect={rewardSourceRect} onComplete={handleRewardComplete} />
       {renderDebugUI()}
       {renderExitConfirm()}
+      {renderSettingsSidebar()}
     </div>
     </>
   );

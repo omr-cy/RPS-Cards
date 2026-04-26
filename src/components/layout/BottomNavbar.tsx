@@ -15,6 +15,7 @@ export const BottomNavbar = memo(({ activeTab, setAppState, setMenuTab }: { acti
       }}
     >
       <button 
+        id="reward-target-inventory"
         onClick={() => setAppState('profile')}
         className={`flex flex-col items-center justify-center transition-all flex-1 h-full relative ${activeTab === 'profile' ? 'text-game-primary' : 'text-game-offwhite/30'}`}
       >
